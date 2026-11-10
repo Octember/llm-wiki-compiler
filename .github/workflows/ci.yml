@@ -23,9 +23,14 @@ jobs:
   # doing as its own change, and not free.
   build-and-test:
     runs-on: ubuntu-latest
+    # The suite is CPU-bound on the two workers a runner allows, about 21
+    # minutes in one job. Four shards run it in about 7. A measurement on these
+    # runners found no gain from tmpfs temp files: fsync is already cheap here.
     strategy:
+      fail-fast: false
       matrix:
         node-version: [24]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,10 +52,12 @@ jobs:
           --dev /dev --proc /proc -- "$(command -v node)" --version
       - run: npm run release:check-docs
       - run: npm run build
-      - run: npm test
+      - run: npm test -- --shard=${{ matrix.shard }}/4
       # Default tests exclude this fresh-install check. Exercise the shipped
       # facade, its exact workspace dependencies, and consumer declarations.
-      - run: npm run test:pack
+      # It is not sharded, so one shard runs it.
+      - if: matrix.shard == 1
+        run: npm run test:pack
 
   codebase-health:
     runs-on: ubuntu-latest
