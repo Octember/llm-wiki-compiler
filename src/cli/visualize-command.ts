@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import visualizeCommand, { type VisualizeOptions } from "@atomicstrata/llmwiki-core/commands/visualize";
+import visualizeCommand, { type VisualizeOptions } from "@atomicstrata/llmwiki-core/modules/commands/visualize";
 
 /** Register the `visualize` command on `program`. */
 export function registerVisualizeCommand(program: Command): void {

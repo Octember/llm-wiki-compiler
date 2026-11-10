@@ -27,7 +27,7 @@ import {
   workflowActionShowCommand,
   workflowActionRunCommand,
 } from "../commands/workflow.js";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 
 /** Register the read-only discovery/inspection commands: `list`, `show`, `events`, `status`, `advance`, `project`. */
 function registerWorkflowInspectionCommands(workflowCmd: Command): void {

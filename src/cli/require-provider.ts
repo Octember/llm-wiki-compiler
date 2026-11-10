@@ -2,7 +2,7 @@
  * @file Provider guards for commands that call an LLM.
  */
 
-import { ensureCompileProviderAvailable, ensureProviderAvailable } from "@atomicstrata/llmwiki-core/utils/provider-guard";
+import { ensureCompileProviderAvailable, ensureProviderAvailable } from "@atomicstrata/llmwiki-core/modules/utils/provider-guard";
 
 /**
  * Run the shared provider guard but match the legacy CLI error path:

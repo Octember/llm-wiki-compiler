@@ -4,8 +4,8 @@
  */
 
 import type { Command } from "commander";
-import { connectorListCommand, connectorRunCommand } from "@atomicstrata/llmwiki-core/commands/connector";
-import type { ConnectorRunOptions } from "@atomicstrata/llmwiki-core/commands/connector";
+import { connectorListCommand, connectorRunCommand } from "@atomicstrata/llmwiki-core/modules/commands/connector";
+import type { ConnectorRunOptions } from "@atomicstrata/llmwiki-core/modules/commands/connector";
 
 /** Register connector discovery and run commands on the root Commander program. */
 export function registerConnectorCommands(program: Command): void {

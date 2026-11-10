@@ -2,7 +2,7 @@
  * @file The `--verbose` policy shared by commands that print detailed progress.
  */
 
-import { ENV_VERBOSE } from "@atomicstrata/llmwiki-core/utils/constants";
+import { ENV_VERBOSE } from "@atomicstrata/llmwiki-core/modules/utils/constants";
 
 /**
  * Returns true when the --verbose flag was passed or LLMWIKI_VERBOSE is set

@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import { recoverCommand } from "@atomicstrata/llmwiki-core/commands/recover";
+import { recoverCommand } from "@atomicstrata/llmwiki-core/modules/commands/recover";
 
 /** Register the `recover` command on `program`. */
 export function registerRecoverCommand(program: Command): void {

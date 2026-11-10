@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import { registerRulesCommand } from "@atomicstrata/llmwiki-core/commands/rules-register";
+import { registerRulesCommand } from "@atomicstrata/llmwiki-core/modules/commands/rules-register";
 import { requireProvider } from "./require-provider.js";
 
 /** Register the `rules` command group on `program`. */

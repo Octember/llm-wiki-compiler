@@ -7,7 +7,7 @@
  */
 
 import type { Command } from "commander";
-import { stateResetCommand } from "@atomicstrata/llmwiki-core/commands/state-reset";
+import { stateResetCommand } from "@atomicstrata/llmwiki-core/modules/commands/state-reset";
 
 /** Register the `state` command group (currently just `state reset`) on `program`. */
 export function registerStateCommands(program: Command): void {

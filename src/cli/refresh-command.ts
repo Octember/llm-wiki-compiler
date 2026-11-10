@@ -3,10 +3,10 @@
  */
 
 import type { Command } from "commander";
-import refreshCommand from "@atomicstrata/llmwiki-core/commands/refresh";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
-import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler/concurrency";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import refreshCommand from "@atomicstrata/llmwiki-core/modules/commands/refresh";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/modules/cli/provider-option";
+import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/modules/compiler/concurrency";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 import { requireCompileProvider } from "./require-provider.js";
 

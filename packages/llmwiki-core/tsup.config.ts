@@ -10,10 +10,11 @@ import { readdirSync } from "node:fs";
 const SRC = path.resolve("../../src");
 
 /**
- * Modules the CLI imports one at a time, published at their own path
- * (`@atomicstrata/llmwiki-core/commands/ingest`). The CLI loads a command's
- * module when that command runs, so starting it does not load every command.
- * Workflow commands are composed in the standard distribution, not here.
+ * Modules the CLI imports one at a time, published under `modules/` at their
+ * source path (`@atomicstrata/llmwiki-core/modules/commands/ingest`). The CLI
+ * loads a command's module when that command runs, so starting it does not
+ * load every command. Workflow commands are composed in the standard
+ * distribution, not here.
  */
 const commandEntries = readdirSync(path.join(SRC, "commands"), { recursive: true, encoding: "utf8" })
   .filter((file) => file.endsWith(".ts") && !path.basename(file).startsWith("workflow"))
@@ -26,7 +27,7 @@ const cliSupportEntries = [
 ];
 
 const moduleEntries = Object.fromEntries(
-  [...commandEntries, ...cliSupportEntries].map((name) => [name, path.join(SRC, `${name}.ts`)]),
+  [...commandEntries, ...cliSupportEntries].map((name) => [`modules/${name}`, path.join(SRC, `${name}.ts`)]),
 );
 
 /** Entry points with a public type surface; these get declarations. */

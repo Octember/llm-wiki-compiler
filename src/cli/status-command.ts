@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import statusCommand from "@atomicstrata/llmwiki-core/commands/status";
+import statusCommand from "@atomicstrata/llmwiki-core/modules/commands/status";
 
 /** Register the `status` command on `program`. */
 export function registerStatusCommand(program: Command): void {

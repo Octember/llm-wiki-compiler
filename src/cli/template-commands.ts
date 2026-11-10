@@ -5,11 +5,11 @@
  * and install behavior stay in `src/commands/template.ts`.
  */
 import { Help, type Command } from "commander";
-import { templateInspectCommand, templateInitCommand, templateListCommand, templateStatusCommand, templateUpdateCommand, type TemplateInitOptions, type TemplateStatusOptions, type TemplateUpdateOptions } from "@atomicstrata/llmwiki-core/commands/template";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { templateTapAddCommand, templateTapForgetCommand, templateTapListCommand, templateTapRefreshCommand, templateTapRemoveCommand, type TapAddOptions, type TapForgetOptions, type TapOutputOptions } from "@atomicstrata/llmwiki-core/commands/template-tap";
-import { templateRemoteInspectCommand, templateSearchCommand, templateVerifyCommand, type RemoteOutputOptions, type TemplateSearchOptions } from "@atomicstrata/llmwiki-core/commands/template-remote";
-import { templatePublishAddCommand, templatePublishBuildCommand, templatePublishInitCommand, templatePublishRevokeCommand, templatePublishRotateCommand, templatePublishVerifyCommand, type TemplatePublishAddOptions, type TemplatePublishBuildOptions, type TemplatePublishInitOptions, type TemplatePublishRevokeOptions, type TemplatePublishRotateOptions, type TemplatePublishVerifyOptions } from "@atomicstrata/llmwiki-core/commands/template-publish";
+import { templateInspectCommand, templateInitCommand, templateListCommand, templateStatusCommand, templateUpdateCommand, type TemplateInitOptions, type TemplateStatusOptions, type TemplateUpdateOptions } from "@atomicstrata/llmwiki-core/modules/commands/template";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
+import { templateTapAddCommand, templateTapForgetCommand, templateTapListCommand, templateTapRefreshCommand, templateTapRemoveCommand, type TapAddOptions, type TapForgetOptions, type TapOutputOptions } from "@atomicstrata/llmwiki-core/modules/commands/template-tap";
+import { templateRemoteInspectCommand, templateSearchCommand, templateVerifyCommand, type RemoteOutputOptions, type TemplateSearchOptions } from "@atomicstrata/llmwiki-core/modules/commands/template-remote";
+import { templatePublishAddCommand, templatePublishBuildCommand, templatePublishInitCommand, templatePublishRevokeCommand, templatePublishRotateCommand, templatePublishVerifyCommand, type TemplatePublishAddOptions, type TemplatePublishBuildOptions, type TemplatePublishInitOptions, type TemplatePublishRevokeOptions, type TemplatePublishRotateOptions, type TemplatePublishVerifyOptions } from "@atomicstrata/llmwiki-core/modules/commands/template-publish";
 
 /** Register template list, inspect, and init commands. */
 export function registerTemplateCommands(program: Command): void {

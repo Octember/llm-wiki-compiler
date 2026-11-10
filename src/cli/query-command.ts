@@ -3,10 +3,10 @@
  */
 
 import type { Command } from "commander";
-import queryCommand, { assertQuerySaveOptions } from "@atomicstrata/llmwiki-core/commands/query";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
-import { applyLanguageOption } from "@atomicstrata/llmwiki-core/utils/output-language";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import queryCommand, { assertQuerySaveOptions } from "@atomicstrata/llmwiki-core/modules/commands/query";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/modules/cli/provider-option";
+import { applyLanguageOption } from "@atomicstrata/llmwiki-core/modules/utils/output-language";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 import { requireProvider } from "./require-provider.js";
 

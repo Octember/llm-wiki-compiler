@@ -3,8 +3,8 @@
  */
 
 import type { Command } from "commander";
-import importCommand from "@atomicstrata/llmwiki-core/commands/import";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import importCommand from "@atomicstrata/llmwiki-core/modules/commands/import";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
 /** Register the `import` command on `program`. */

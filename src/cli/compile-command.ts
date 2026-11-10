@@ -3,12 +3,12 @@
  */
 
 import type { Command } from "commander";
-import compileCommand from "@atomicstrata/llmwiki-core/commands/compile";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
-import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler/concurrency";
-import { applyLanguageOption } from "@atomicstrata/llmwiki-core/utils/output-language";
-import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/utils/sources-section";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import compileCommand from "@atomicstrata/llmwiki-core/modules/commands/compile";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/modules/cli/provider-option";
+import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/modules/compiler/concurrency";
+import { applyLanguageOption } from "@atomicstrata/llmwiki-core/modules/utils/output-language";
+import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/modules/utils/sources-section";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 import { readInstructions } from "./instructions.js";
 import { requireCompileProvider } from "./require-provider.js";

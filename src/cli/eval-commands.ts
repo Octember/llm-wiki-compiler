@@ -8,8 +8,8 @@
  */
 
 import type { Command } from "commander";
-import evalCommand, { evalCacheClearCommand, evalCacheShowCommand, evalReportCommand, evalHistoryCommand, evalJudgementsCommand } from "@atomicstrata/llmwiki-core/commands/eval";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
+import evalCommand, { evalCacheClearCommand, evalCacheShowCommand, evalReportCommand, evalHistoryCommand, evalJudgementsCommand } from "@atomicstrata/llmwiki-core/modules/commands/eval";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/modules/cli/provider-option";
 
 /** Register the `eval cache` sub-group (`clear`, `show`) under the parent `eval` command. */
 function registerEvalCacheCommands(evalCmd: Command): void {

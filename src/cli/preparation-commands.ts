@@ -58,19 +58,19 @@
  */
 
 import type { Command } from "commander";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { preparationCancelCommand } from "@atomicstrata/llmwiki-core/commands/preparation/cancel";
-import { preparationListCommand } from "@atomicstrata/llmwiki-core/commands/preparation/list";
-import { preparationShowCommand } from "@atomicstrata/llmwiki-core/commands/preparation/show";
-import { preparationPauseCommand } from "@atomicstrata/llmwiki-core/commands/preparation/pause";
-import { preparationResumeCommand } from "@atomicstrata/llmwiki-core/commands/preparation/resume";
-import { preparationFailCommand } from "@atomicstrata/llmwiki-core/commands/preparation/fail";
-import { preparationGateCommand } from "@atomicstrata/llmwiki-core/commands/preparation/gate";
-import { preparationPruneCommand } from "@atomicstrata/llmwiki-core/commands/preparation/prune";
-import { preparationRecoverCommand } from "@atomicstrata/llmwiki-core/commands/preparation/recovery";
-import { RESET_CONFIRM_DESCRIPTION, RESET_TOKEN_DESCRIPTION, preparationResetCommand } from "@atomicstrata/llmwiki-core/commands/preparation/reset";
-import { preparationPreviewCommand, preparationStageCommand } from "@atomicstrata/llmwiki-core/commands/preparation/stage";
-import { preparationSweepCommand } from "@atomicstrata/llmwiki-core/commands/preparation/sweep";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
+import { preparationCancelCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/cancel";
+import { preparationListCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/list";
+import { preparationShowCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/show";
+import { preparationPauseCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/pause";
+import { preparationResumeCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/resume";
+import { preparationFailCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/fail";
+import { preparationGateCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/gate";
+import { preparationPruneCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/prune";
+import { preparationRecoverCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/recovery";
+import { RESET_CONFIRM_DESCRIPTION, RESET_TOKEN_DESCRIPTION, preparationResetCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/reset";
+import { preparationPreviewCommand, preparationStageCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/stage";
+import { preparationSweepCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/sweep";
 
 /** Register the `preparation` command group on the root program. */
 export function registerPreparationCommands(program: Command): void {

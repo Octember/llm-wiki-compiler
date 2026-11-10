@@ -5,8 +5,8 @@
  */
 
 import type { Command } from "commander";
-import { profileShow, profileValidate, profileDiff, profileInit } from "@atomicstrata/llmwiki-core/commands/profile";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
+import { profileShow, profileValidate, profileDiff, profileInit } from "@atomicstrata/llmwiki-core/modules/commands/profile";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 
 /** Register the `profile` inspection and starter-authoring commands. */
 export function registerProfileCommands(program: Command): void {

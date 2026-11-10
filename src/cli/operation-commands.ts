@@ -13,11 +13,11 @@
  */
 
 import type { Command } from "commander";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { operationListCommand } from "@atomicstrata/llmwiki-core/commands/operation/list";
-import { operationInspectCommand } from "@atomicstrata/llmwiki-core/commands/operation/inspect";
-import { operationResumeCommand, operationCompensateCommand } from "@atomicstrata/llmwiki-core/commands/operation/drive";
-import { operationCancelCommand } from "@atomicstrata/llmwiki-core/commands/operation/cancel";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
+import { operationListCommand } from "@atomicstrata/llmwiki-core/modules/commands/operation/list";
+import { operationInspectCommand } from "@atomicstrata/llmwiki-core/modules/commands/operation/inspect";
+import { operationResumeCommand, operationCompensateCommand } from "@atomicstrata/llmwiki-core/modules/commands/operation/drive";
+import { operationCancelCommand } from "@atomicstrata/llmwiki-core/modules/commands/operation/cancel";
 
 /** A single `--json` machine-output flag shared by every subcommand. */
 interface JsonOption {

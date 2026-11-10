@@ -3,10 +3,10 @@
  * options and presentation together without expanding the main entrypoint.
  */
 import type { Command } from "commander";
-import nextCommand from "@atomicstrata/llmwiki-core/commands/next";
-import contextCommand, { type ContextCommandOptions } from "@atomicstrata/llmwiki-core/commands/context";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
+import nextCommand from "@atomicstrata/llmwiki-core/modules/commands/next";
+import contextCommand, { type ContextCommandOptions } from "@atomicstrata/llmwiki-core/modules/commands/context";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 import { verboseEnabled } from "./verbose.js";
 
 /** Register the `next` command on `program`. */

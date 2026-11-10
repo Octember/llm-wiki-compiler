@@ -3,9 +3,9 @@
  */
 
 import type { Command } from "commander";
-import watchCommand from "@atomicstrata/llmwiki-core/commands/watch";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
-import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler/concurrency";
+import watchCommand from "@atomicstrata/llmwiki-core/modules/commands/watch";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/modules/cli/provider-option";
+import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/modules/compiler/concurrency";
 import { requireCompileProvider } from "./require-provider.js";
 
 /** Register the `watch` command on `program`. */

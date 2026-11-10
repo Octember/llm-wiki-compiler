@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import viewCommand from "@atomicstrata/llmwiki-core/commands/view";
+import viewCommand from "@atomicstrata/llmwiki-core/modules/commands/view";
 import { resolvePort } from "./view-port.js";
 
 /** Register the `view` command on `program`. */

@@ -7,11 +7,11 @@
  */
 
 import type { Command } from "commander";
-import reviewListCommand from "@atomicstrata/llmwiki-core/commands/review-list";
-import reviewShowCommand from "@atomicstrata/llmwiki-core/commands/review-show";
-import reviewApproveCommand from "@atomicstrata/llmwiki-core/commands/review-approve";
-import reviewRejectCommand from "@atomicstrata/llmwiki-core/commands/review-reject";
-import reviewApproveBatchCommand from "@atomicstrata/llmwiki-core/commands/review-approve-batch";
+import reviewListCommand from "@atomicstrata/llmwiki-core/modules/commands/review-list";
+import reviewShowCommand from "@atomicstrata/llmwiki-core/modules/commands/review-show";
+import reviewApproveCommand from "@atomicstrata/llmwiki-core/modules/commands/review-approve";
+import reviewRejectCommand from "@atomicstrata/llmwiki-core/modules/commands/review-reject";
+import reviewApproveBatchCommand from "@atomicstrata/llmwiki-core/modules/commands/review-approve-batch";
 
 /** Register the review inspection, approval, batch approval, and rejection commands. */
 export function registerReviewCommands(program: Command): void {

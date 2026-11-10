@@ -30,13 +30,13 @@
  */
 
 import type { Command } from "commander";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { productInvokeCommand, productResumeCommand, productPreviewCommand } from "@atomicstrata/llmwiki-core/commands/product/action";
-import { productApplyCommand, type ProductApplyOptions } from "@atomicstrata/llmwiki-core/commands/product/apply";
-import { productStatusCommand, type ProductStatusOptions } from "@atomicstrata/llmwiki-core/commands/product/status";
-import type { ProductActionOptions } from "@atomicstrata/llmwiki-core/commands/product/inputs";
-import { productActivateCommand, productInstallCommand, type ProductPackageOptions } from "@atomicstrata/llmwiki-core/commands/product/package";
-import { productInitCommand } from "@atomicstrata/llmwiki-core/commands/product/init";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
+import { productInvokeCommand, productResumeCommand, productPreviewCommand } from "@atomicstrata/llmwiki-core/modules/commands/product/action";
+import { productApplyCommand, type ProductApplyOptions } from "@atomicstrata/llmwiki-core/modules/commands/product/apply";
+import { productStatusCommand, type ProductStatusOptions } from "@atomicstrata/llmwiki-core/modules/commands/product/status";
+import type { ProductActionOptions } from "@atomicstrata/llmwiki-core/modules/commands/product/inputs";
+import { productActivateCommand, productInstallCommand, type ProductPackageOptions } from "@atomicstrata/llmwiki-core/modules/commands/product/package";
+import { productInitCommand } from "@atomicstrata/llmwiki-core/modules/commands/product/init";
 
 /** Every verb here answers `--json` with the same envelope contract. */
 const JSON_DESCRIPTION = "Emit the machine-readable envelope instead of the human lines";

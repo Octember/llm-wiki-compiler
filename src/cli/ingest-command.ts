@@ -3,8 +3,8 @@
  */
 
 import type { Command } from "commander";
-import ingestCommand from "@atomicstrata/llmwiki-core/commands/ingest";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import ingestCommand from "@atomicstrata/llmwiki-core/modules/commands/ingest";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
 /** Register the `ingest` command on `program`. */

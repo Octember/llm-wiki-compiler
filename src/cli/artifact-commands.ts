@@ -7,8 +7,8 @@
  */
 
 import type { Command } from "commander";
-import { artifactWriteCommand, artifactVerifyCommand } from "@atomicstrata/llmwiki-core/commands/artifact";
-import type { ArtifactWriteOptions, ArtifactVerifyOptions } from "@atomicstrata/llmwiki-core/commands/artifact";
+import { artifactWriteCommand, artifactVerifyCommand } from "@atomicstrata/llmwiki-core/modules/commands/artifact";
+import type { ArtifactWriteOptions, ArtifactVerifyOptions } from "@atomicstrata/llmwiki-core/modules/commands/artifact";
 
 /** Register the `artifact` command group (`write`, `verify`) on `program`. */
 export function registerArtifactCommands(program: Command): void {

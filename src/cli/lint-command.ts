@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import lintCommand from "@atomicstrata/llmwiki-core/commands/lint";
+import lintCommand from "@atomicstrata/llmwiki-core/modules/commands/lint";
 
 /** Register the `lint` command on `program`. */
 export function registerLintCommand(program: Command): void {

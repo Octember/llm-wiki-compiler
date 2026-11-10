@@ -3,7 +3,7 @@
  */
 
 import type { Command } from "commander";
-import { rmCommand } from "@atomicstrata/llmwiki-core/commands/rm";
+import { rmCommand } from "@atomicstrata/llmwiki-core/modules/commands/rm";
 
 /** Register the `rm` command on `program`. */
 export function registerRmCommand(program: Command): void {

@@ -3,10 +3,10 @@
  */
 
 import type { Command } from "commander";
-import quickstartCommand from "@atomicstrata/llmwiki-core/commands/quickstart";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler/concurrency";
-import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import quickstartCommand from "@atomicstrata/llmwiki-core/modules/commands/quickstart";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
+import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/modules/compiler/concurrency";
+import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
 interface QuickstartOptions {
