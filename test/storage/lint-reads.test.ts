@@ -19,20 +19,20 @@
  * order; it is not a claim about what a crash leaves on disk.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, setSystemTime } from "bun:test";
 import * as fs from "fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 interface PlannedFault { call: string; nth: number; error: Error }
 /** What the mock saw, and what it was asked to disturb. */
-const tape = vi.hoisted(() => ({
+const tape = (() => ({
   calls: [] as string[], lastListing: null as unknown,
   reverseListings: false, fault: null as PlannedFault | null,
-}));
+}))();
 
-vi.mock("fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("fs/promises")>();
+vi.mock("fs/promises", async () => {
+  const actual = realFsPromises as typeof import("fs/promises");
   type Forwarded = (...args: unknown[]) => Promise<unknown>;
   const watch = (name: string): Forwarded => (...args) => {
     const call = `${name} ${String(args[0])}`;
@@ -57,6 +57,8 @@ import { lintFixProposeCommand } from "../../src/commands/lint-fix-propose.js";
 import { listCandidates } from "../../src/compiler/candidates.js";
 import { sha256Text } from "../../src/connectors/hash.js";
 import { useCommandProject } from "../fixtures/command-project.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
 
 const project = useCommandProject("lint-reads-");
 /** The project root as the commands see it: the resolved working directory. */
@@ -225,7 +227,7 @@ describe("the lint cache: exact bytes out, strict read back", () => {
 
   it("writes the same bytes at a fixed clock, through the writer's own calls in order", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-01-02T03:04:05.678Z"));
+    setSystemTime(new Date("2026-01-02T03:04:05.678Z"));
     await writeLintCache(root, summary());
     const rule = { rule: "broken-wikilink", severity: "error", count: 2, fileCount: 1, topFile: "wiki/concepts/a.md", topFileCount: 2 };
     const expected = { warnings: 0, errors: 2, at: "2026-01-02T03:04:05.678Z", freshness: { stalePages: 0, orphanedPages: 0 }, rules: [rule] };

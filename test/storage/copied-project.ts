@@ -38,7 +38,7 @@
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, vi } from "bun:test";
 import type { WikiPageScanReads } from "../../src/compiler/indexgen.js";
 import type { SourceFreshnessSources } from "../../src/freshness/index.js";
 import type { EffectiveProfileSources } from "../../src/profile/load.js";

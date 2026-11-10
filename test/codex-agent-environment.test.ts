@@ -7,7 +7,7 @@
 
 import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { useAimockLifecycle } from "./fixtures/aimock-helper.js";
 import { installFakeCodex } from "./fixtures/fake-codex.js";
 import { expectCLIFailure, expectCLIExit, runCLI } from "./fixtures/run-cli.js";

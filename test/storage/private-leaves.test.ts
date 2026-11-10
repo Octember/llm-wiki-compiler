@@ -17,16 +17,16 @@
  * "over the cap". One narrow mock of the no-follow opener injects the faults.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 /** The handle operations ("stat", "readFile", "close") the opened handle should fail at. */
-const failing = vi.hoisted(() => new Set<string>());
+const failing = (() => new Set<string>())();
 
-vi.mock("../../src/utils/no-follow-open.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/utils/no-follow-open.js")>();
+vi.mock("../../src/utils/no-follow-open.js", async () => {
+  const actual = realUtilsNoFollowOpen as typeof import("../../src/utils/no-follow-open.js");
   /** A view of a real handle whose named operations reject; `close` still really closes first. */
   const sabotaged = <T extends object>(handle: T): T => new Proxy(handle, {
     get(target, key) {
@@ -43,6 +43,8 @@ vi.mock("../../src/utils/no-follow-open.js", async (importOriginal) => {
 import {
   leafKindNoFollow, readPrivateLeafBytes, readPrivateLeafText, readPrivateLeafTextOrThrow,
 } from "../../src/storage/disk-private-leaves.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsNoFollowOpen = { ...(await import("../../src/utils/no-follow-open.js")) };
 
 const NOT_UTF8 = Buffer.from([0x00, 0xff, 0xfe, 0xc3, 0x28, 0x0a]);
 const TEXT = "[\"concept:alpha\"]";

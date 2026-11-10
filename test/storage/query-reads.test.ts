@@ -17,20 +17,20 @@
  * `node:fs/promises`; the mock reaching them is part of what is shown.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 interface ReadCall { requested: number; position: unknown; bytesRead: number }
 /** What the mock saw and what it should do to the next opened handle. */
-const tape = vi.hoisted(() => ({
+const tape = (() => ({
   reads: {} as Record<string, ReadCall[]>, wholeReads: [] as string[],
   shortReadOf: null as number | null, closeError: null as Error | null,
-}));
+}))();
 
-vi.mock("fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("fs/promises")>();
+vi.mock("fs/promises", async () => {
+  const actual = realFsPromises as typeof import("fs/promises");
   const open = (async (target: unknown, ...rest: unknown[]) => {
     const handle = await (actual.open as (...args: unknown[]) => Promise<fs.FileHandle>)(target, ...rest);
     const realRead = handle.read.bind(handle) as (...args: unknown[]) => Promise<{ bytesRead: number }>;
@@ -62,6 +62,8 @@ import { buildLiveRegistryEntry, loadPageRecordsByPageId } from "../../src/utils
 import { generateAnswer } from "../../src/commands/query.js";
 import { stageQueryProposal } from "../../src/commands/query-proposal.js";
 import { sha256Text } from "../../src/connectors/hash.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
 
 const CAP = 64 * 1024;
 const PAGE = (title: string): string => `---\ntitle: ${title}\nsummary: S.\n---\n\nBody of ${title}.\n`;

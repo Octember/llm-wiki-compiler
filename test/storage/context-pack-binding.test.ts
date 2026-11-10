@@ -34,7 +34,7 @@
 
 import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 // The hoisted `vi.mock` calls below run before this import is initialized, so each factory
 // refers to `passThrough` only inside its body, which runs when the mocked module is first imported.
 import { passThrough } from "./pass-through-mock.js";

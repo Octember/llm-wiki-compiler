@@ -7,7 +7,7 @@
  * Valid candidates co-existing with malformed ones must still be returned.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "bun:test";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import {

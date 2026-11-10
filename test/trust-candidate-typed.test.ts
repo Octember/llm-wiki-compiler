@@ -19,7 +19,7 @@
  *      (absent) typed fields.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "bun:test";
 import path from "path";
 import { readFile, writeFile } from "fs/promises";
 import {

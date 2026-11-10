@@ -3,7 +3,7 @@
  * admission. Fault injection changes only individual filesystem operations;
  * confinement, parsing, and classification still run against real fixtures.
  */
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi, type Mock } from "bun:test";
 import * as fs from "fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import os from "node:os";
@@ -15,6 +15,8 @@ import { listCandidates } from "../src/compiler/candidate-read.js";
 import { UnsafeCandidateDirError } from "../src/compiler/candidate-store-paths.js";
 import * as output from "../src/utils/output.js";
 import { acquireLock, releaseLock } from "../src/utils/lock.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
 
 vi.mock("fs/promises", async (original) => {
   const actual = await original<typeof fs>();
@@ -45,8 +47,8 @@ async function candidate(id: string, extra: Record<string, unknown> = {}) {
 
 /** Intercept one candidate read while forwarding all reads to the real filesystem. */
 async function beforeCandidateRead(file: string, action: (actual: typeof fs) => void | Promise<void>): Promise<void> {
-  const actual = await vi.importActual<typeof fs>("fs/promises");
-  vi.mocked(fs.readFile).mockImplementation(async (target, ...args) => {
+  const actual = realFsPromises as typeof fs;
+  (fs.readFile as unknown as Mock<typeof fs.readFile>).mockImplementation(async (target, ...args) => {
     if (target === file) await action(actual);
     return actual.readFile(target, ...args);
   });
@@ -100,8 +102,8 @@ it("allows in-directory leaf aliases and rejects escaping leaves and redirected 
 
 it("drops a page disappearing between listing and opening", async () => {
   const file = await put("wiki/concepts/alpha.md", "---\naliases: [Alias]\n---");
-  const actual = await vi.importActual<typeof fs>("fs/promises");
-  vi.mocked(fs.open).mockImplementationOnce(async (...args) => {
+  const actual = realFsPromises as typeof fs;
+  (fs.open as unknown as Mock<typeof fs.open>).mockImplementationOnce(async (...args) => {
     await actual.unlink(file);
     return actual.open(...args);
   });
@@ -111,9 +113,9 @@ it("drops a page disappearing between listing and opening", async () => {
 it("rejects a handle opened during a parent swap even after the path is restored", async () => {
   await put("wiki/concepts/alpha.md", "---\naliases: [Inside]\n---");
   await put("outside/alpha.md", "---\naliases: [Secret]\n---");
-  const actual = await vi.importActual<typeof fs>("fs/promises");
+  const actual = realFsPromises as typeof fs;
   const dir = path.join(root, "wiki/concepts");
-  vi.mocked(fs.open).mockImplementationOnce(async (...args) => {
+  (fs.open as unknown as Mock<typeof fs.open>).mockImplementationOnce(async (...args) => {
     await actual.rename(dir, `${dir}-saved`);
     await actual.symlink(path.join(root, "outside"), dir);
     const handle = await actual.open(...args);
@@ -128,30 +130,30 @@ it.each(["open", "read", "realpath", "readdir"] as const)("propagates genuine re
   const file = await put("wiki/concepts/alpha.md", "---\naliases: [Alias]\n---");
   const fault = Object.assign(new Error("I/O fault"), { code: "EIO" });
   if (operation === "read") {
-    const actual = await vi.importActual<typeof fs>("fs/promises");
-    vi.mocked(fs.open).mockImplementationOnce(async (...args) => {
+    const actual = realFsPromises as typeof fs;
+    (fs.open as unknown as Mock<typeof fs.open>).mockImplementationOnce(async (...args) => {
       const handle = await actual.open(...args);
       vi.spyOn(handle, "read").mockRejectedValueOnce(fault);
       return handle;
     });
   } else if (operation === "realpath") {
-    const actual = await vi.importActual<typeof fs>("fs/promises");
-    vi.mocked(fs.realpath).mockImplementation(async (target, ...args) => {
+    const actual = realFsPromises as typeof fs;
+    (fs.realpath as unknown as Mock<typeof fs.realpath>).mockImplementation(async (target, ...args) => {
       if (target === file) throw fault;
       return actual.realpath(target, ...args);
     });
-  } else vi.mocked(fs[operation]).mockRejectedValueOnce(fault);
+  } else (fs[operation] as unknown as Mock<typeof fs[operation]>).mockRejectedValueOnce(fault);
   await expect(collectAnswerCitationIndex(root)).rejects.toMatchObject({ code: "EIO" });
 });
 
 it("closes the collector handle on success and on a read fault", async () => {
   await put("wiki/concepts/alpha.md", "---\naliases: [Alias]\n---");
-  const actual = await vi.importActual<typeof fs>("fs/promises");
+  const actual = realFsPromises as typeof fs;
   let opened: FileHandle | undefined;
-  vi.mocked(fs.open).mockImplementation(async (...args) => { opened = await actual.open(...args); return opened; });
+  (fs.open as unknown as Mock<typeof fs.open>).mockImplementation(async (...args) => { opened = await actual.open(...args); return opened; });
   await collectAnswerCitationIndex(root);
   await expect(opened!.stat()).rejects.toMatchObject({ code: "EBADF" });
-  vi.mocked(fs.open).mockImplementation(async (...args) => {
+  (fs.open as unknown as Mock<typeof fs.open>).mockImplementation(async (...args) => {
     opened = await actual.open(...args);
     vi.spyOn(opened, "read").mockRejectedValueOnce(Object.assign(new Error("fault"), { code: "EIO" }));
     return opened;
@@ -171,8 +173,8 @@ it("does not hide candidate read faults while legacy listing keeps its default",
 
 it("does not hide candidate directory realpath faults in either listing mode", async () => {
   await candidate("alpha");
-  const actual = await vi.importActual<typeof fs>("fs/promises");
-  vi.mocked(fs.realpath).mockImplementation(async (target, ...args) => {
+  const actual = realFsPromises as typeof fs;
+  (fs.realpath as unknown as Mock<typeof fs.realpath>).mockImplementation(async (target, ...args) => {
     if (target === path.join(root, ".llmwiki/candidates")) throw Object.assign(new Error("I/O fault"), { code: "EACCES" });
     return actual.realpath(target, ...args);
   });

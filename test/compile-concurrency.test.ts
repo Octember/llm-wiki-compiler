@@ -9,7 +9,7 @@
  *     mergeExtractions' first-seen-wins reconciliation is unchanged.
  */
 
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "bun:test";
 import { rm, writeFile, readFile, readdir } from "fs/promises";
 import path from "path";
 import { makeCompileProjectRoot } from "./fixtures/compile-project.js";

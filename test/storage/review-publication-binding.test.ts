@@ -19,7 +19,7 @@
  * review-batch suites show those.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as answerIndex from "../../src/citations/answer-index.js";
 import type { AnswerCitationIndex } from "../../src/citations/answer-types.js";
 import * as answerPublication from "../../src/citations/answer-publication.js";

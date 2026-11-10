@@ -25,18 +25,18 @@
  */
 
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 
 type Op = "mkdir" | "rename" | "readFile" | "writeFile" | "unlink";
 
 /** `calls` are [operation, ...arguments]; `faults` reject one operation on one path. */
-const io = vi.hoisted(() => ({
+const io = (() => ({
   on: false,
   calls: [] as unknown[][],
   faults: {} as Partial<Record<string, { at: string; error: Error }>>,
-}));
+}))();
 
-const recorder = vi.hoisted(() => {
+const recorder = (() => {
   type Fn = (...args: unknown[]) => unknown;
   /** Note the call while a move runs; reject it if a fault names this path. */
   const wrap = (name: string, real: Fn): Fn => (...args: unknown[]) => {
@@ -57,7 +57,7 @@ const recorder = vi.hoisted(() => {
     /** For `fs/promises` and `node:fs/promises`: the five promise calls. */
     ofFsPromises: <T extends object>(actual: T): T => withWrapped(actual, ["mkdir", "rename", "readFile", "writeFile", "unlink"]),
   };
-});
+})();
 
 // All four specifiers: the function under test uses the bare names before the move and storage uses the `node:` names after it.
 vi.mock("fs", async (load) => recorder.ofFs(await load<typeof import("fs")>()));
@@ -72,8 +72,10 @@ import {
 import { candidateFileId, moveCandidateToArchive } from "../../src/utils/candidate-store.js";
 import { RULE_CANDIDATES_ARCHIVE_DIR } from "../../src/utils/constants.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
-const fs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+const fs = realFsPromises as typeof import("node:fs/promises");
 const TEXT = '{"id":"a","note":"zażółć 規則"}';
 const NOW = "2026-05-31T00:00:00.000Z";
 useTempRoot();

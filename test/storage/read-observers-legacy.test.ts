@@ -26,12 +26,12 @@
  * the real, unwrapped functions.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 type Recorded = "realpath" | "readFile" | "stat";
-const calls = vi.hoisted(() => ({ seen: [] as string[] }));
+const calls = (() => ({ seen: [] as string[] }))();
 
 vi.mock("fs/promises", async (load) => {
   const disk = await load<typeof import("fs/promises")>();
@@ -47,8 +47,10 @@ import { collectProjectState } from "../../src/project/state.js";
 import { classifyJournalFile } from "../../src/trust/journal-classify.js";
 import { journalHealth } from "../../src/trust/journal-health.js";
 import { loadBatch } from "../../src/trust/journal.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
-const fs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+const fs = realFsPromises as typeof import("node:fs/promises");
 let base = "";
 let root = "";
 const at = (relative: string): string => path.join(root, relative);

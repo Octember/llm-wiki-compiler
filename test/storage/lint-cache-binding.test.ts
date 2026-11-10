@@ -40,7 +40,7 @@
 
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, setSystemTime } from "bun:test";
 import {
   readLintCache, readLintCacheFrom, writeLintCache, writeLintCacheFrom, type LintCacheEntry, type LintCacheSources,
 } from "../../src/linter/cache.js";
@@ -108,7 +108,7 @@ mintOnceThenRemove(tracker, async () => {
   const dir = await tracker.create(PREFIX);
   const cache = path.join(dir, LAST_LINT_FILE);
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(AT));
+  setSystemTime(new Date(AT));
   await writeLintCache(dir, fullSummary(dir));
   const [fullBytes, fullEntry] = [await readFile(cache, "utf-8"), await readLintCache(dir)];
   await writeLintCache(dir, CLEAN);
@@ -134,7 +134,7 @@ function memory(failing: Failing = {}, onRelative: () => void = () => {}): { fil
   };
   return { files, log, sources };
 }
-const atFixedClock = (): void => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(AT)); };
+const atFixedClock = (): void => { vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date(AT)); };
 
 describe("writing the lint cache with no project directory", () => {
   it("K1 runs after the minting directory was removed, and the disk writer wrote the entry written out here", () => {
@@ -163,8 +163,8 @@ describe("writing the lint cache with no project directory", () => {
 
   it("K4 reads the clock AFTER the findings are aggregated: a clock moved during aggregation is the one written", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-01-02T00:00:00.000Z"));
-    const { files, sources } = memory({}, () => { vi.setSystemTime(new Date(AT)); });
+    setSystemTime(new Date("2026-01-02T00:00:00.000Z"));
+    const { files, sources } = memory({}, () => { setSystemTime(new Date(AT)); });
     await writeLintCacheFrom(sources, fullSummary(disk.dir));
     expect(files.get(LAST_LINT_FILE)).toBe(disk.fullBytes);
   });

@@ -16,7 +16,7 @@
  * `reset-disk-calls` show those.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { runScopedResetWith, stateResetCommand, type ScopedResetSteps } from "../../src/commands/state-reset.js";
 import * as resetPlan from "../../src/commands/reset-plan.js";
 import type { ResetExecutionV1, ResetPlanV1 } from "../../src/commands/reset-plan.js";

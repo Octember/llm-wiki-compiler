@@ -3,7 +3,7 @@
  * @description Offline signed-index refresh and continuity commit tests.
  */
 import { rm, unlink, writeFile } from "node:fs/promises";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import { addTap } from "../src/profile/templates/taps/manage.js";
 import { removeTap } from "../src/profile/templates/taps/manage.js";
 import { readIndexCache, writeIndexCache } from "../src/profile/templates/taps/cache.js";

@@ -18,12 +18,12 @@
  */
 
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 /** `calls` are "<operation> <last path segment> <argument>"; `failWrite` is raised by the write when set. */
-const io = vi.hoisted(() => ({ on: false, calls: [] as string[], failWrite: null as Error | null }));
+const io = (() => ({ on: false, calls: [] as string[], failWrite: null as Error | null }))();
 
-const recorder = vi.hoisted(() => {
+const recorder = (() => {
   const leaf = (file: unknown): string => String(file).slice(String(file).lastIndexOf("/") + 1);
   const note = (operation: string, file: unknown, detail: unknown): void => {
     if (io.on) io.calls.push(`${operation} ${leaf(file)} ${JSON.stringify(detail)}`);
@@ -45,7 +45,7 @@ const recorder = vi.hoisted(() => {
     return { ...actual, mkdir, writeFile, default: { ...actual, mkdir, writeFile } };
   };
   return { sync, asynchronous };
-});
+})();
 
 vi.mock("fs", async (original) => recorder.sync(await original<typeof import("fs")>()));
 vi.mock("node:fs", async (original) => recorder.sync(await original<typeof import("node:fs")>()));
@@ -55,8 +55,10 @@ vi.mock("node:fs/promises", async (original) => recorder.asynchronous(await orig
 import { schemaInitCommand } from "../../src/commands/schema.js";
 import { buildDefaultSchema } from "../../src/schema/index.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
-const fs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+const fs = realFsPromises as typeof import("node:fs/promises");
 const CALLS = ["existsSync schema.json null", 'mkdir .llmwiki {"recursive":true}', 'writeFile schema.json "utf-8"'];
 useTempRoot();
 let printed: string[] = [];

@@ -27,9 +27,9 @@
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "bun:test";
 
-const spies = vi.hoisted(() => ({ mkdir: vi.fn(), writeFile: vi.fn() }));
+const spies = (() => ({ mkdir: vi.fn(), writeFile: vi.fn() }))();
 
 vi.mock("fs/promises", async (load) => {
   const disk = await load<typeof import("fs/promises")>();

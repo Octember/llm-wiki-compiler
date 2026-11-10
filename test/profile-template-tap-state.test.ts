@@ -5,7 +5,7 @@
 import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import { addTap, forgetTap, listTaps, removeTap } from "../src/profile/templates/taps/manage.js";
 import { resolveTapPaths, type TapPaths } from "../src/profile/templates/taps/paths.js";
 import { readTapState, writeTapState } from "../src/profile/templates/taps/state-store.js";

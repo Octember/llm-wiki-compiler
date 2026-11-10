@@ -5,7 +5,7 @@
  */
 import path from "node:path";
 import { mkdir, readFile, realpath, rename, rmdir, writeFile } from "fs/promises";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { useTempRoot } from "./fixtures/temp-root.js";
 import { atomicWrite, AtomicWritePostCommitError } from "../src/utils/atomic-write.js";
 import { readConfinedLeaf } from "../src/utils/confined-read.js";
@@ -20,7 +20,7 @@ import { preflightApplyRecord } from "../src/workflows/stage-output-internals.js
 import { createLocalWorkflowHost } from "../src/local-workflow-host/index.js";
 import { createLocalWorkflowRuntime } from "../src/workflows/runtime.js";
 
-const fault = vi.hoisted(() => ({ target: "" }));
+const fault = (() => ({ target: "" }))();
 vi.mock("fs/promises", async (original) => {
   const fs = await original<typeof import("fs/promises")>();
   return { ...fs, rename: async (...args: Parameters<typeof fs.rename>) => {

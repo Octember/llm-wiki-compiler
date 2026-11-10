@@ -20,14 +20,14 @@
  * what is shown.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as real from "fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 type Faulted = "readFile" | "unlink" | "lstat";
 /** The one call made to fail, and every unlink the store issued. */
-const watch = vi.hoisted(() => ({ fail: null as null | { call: string; target: string; error: Error }, unlinked: [] as string[] }));
+const watch = (() => ({ fail: null as null | { call: string; target: string; error: Error }, unlinked: [] as string[] }))();
 
 vi.mock("fs/promises", async (load) => {
   const disk = await load<typeof import("fs/promises")>();

@@ -6,18 +6,18 @@
  */
 
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { useTempRoot } from "../fixtures/temp-root.js";
 
-const listingProbe = vi.hoisted(() => ({
+const listingProbe = (() => ({
   calls: [] as string[],
   mutateRoot: undefined as string | undefined,
   lateFile: undefined as string | undefined,
   mutated: false,
-}));
+}))();
 
 vi.mock("node:fs/promises", async () => {
-  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  const actual = realFsPromises as typeof import("node:fs/promises");
   return {
     ...actual,
     opendir: async (directory: Parameters<typeof actual.opendir>[0]) => {
@@ -39,6 +39,8 @@ vi.mock("node:fs/promises", async () => {
 import { scanPreparationLifecycle } from "../../src/preparations/lifecycle-snapshot/scan.js";
 import { lifecycleSnapshotFixture } from "./lifecycle-snapshot-fixture.js";
 import { lifecycleRegistryRoot } from "./lifecycle-storage-test-helpers.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
 describe("preparation lifecycle root enumeration", () => {
   const root = useTempRoot();

@@ -41,7 +41,7 @@
 
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import type { CandidateStoreMoveReads } from "../../src/compiler/candidate-custody.js";
 import {
   archiveRejectedCandidate, archiveRejectedCandidateFrom, loadRejectableCandidateOrFail, loadRejectableCandidateOrFailFrom,

@@ -7,13 +7,15 @@
 
 import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import {
   AtomicWriteCollisionError,
   AtomicWriteCommittedCleanupError,
   atomicWriteNoReplaceDurable,
 } from "../src/utils/atomic-write.js";
 import { useTempRoot } from "./fixtures/temp-root.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
 let growAfterStat: (() => Promise<void>) | undefined;
 let readRequests: number[] = [];
@@ -22,7 +24,7 @@ let positionalReadLimit: number | undefined;
 
 /** Instrument each opened handle without changing the filesystem implementation. */
 vi.mock("node:fs/promises", async () => {
-  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  const actual = realFsPromises as typeof import("node:fs/promises");
   return Object.assign({}, actual, {
     open: async (...args: Parameters<typeof actual.open>) => {
       const handle = await actual.open(...args);

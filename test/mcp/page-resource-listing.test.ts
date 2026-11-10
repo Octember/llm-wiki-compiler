@@ -21,18 +21,18 @@
  * `node:fs/promises`; the mock reaching it is part of what is shown.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as real from "fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 /** Every directory read seen, plus a planted answer or failure per directory. */
-const watch = vi.hoisted(() => ({
+const watch = (() => ({
   seen: [] as Array<{ target: string; extraArguments: number }>,
   answer: new Map<string, string[]>(),
   fail: new Map<string, Error>(),
-}));
+}))();
 
 vi.mock("fs/promises", async (load) => {
   const disk = await load<typeof import("fs/promises")>();

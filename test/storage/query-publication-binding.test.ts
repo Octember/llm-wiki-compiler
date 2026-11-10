@@ -35,7 +35,8 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
+import { restoreEnv, stubEnv } from "../stubs.js";
 // The hoisted `vi.mock` calls below run before this import is initialized, so each factory
 // refers to `passThrough` only inside its body, which runs when the mocked module is first imported.
 import { passThrough } from "./pass-through-mock.js";
@@ -116,7 +117,7 @@ const tracker = tempRootTracker();
 const minted = {} as Record<Name, Minted<Outcome>>;
 let rootReached: boolean[];
 
-beforeAll(() => { vi.stubEnv("LLMWIKI_EMBEDDINGS", "false"); ROOT_STEPS.forEach((step) => step.mockClear()); });
+beforeAll(() => { stubEnv("LLMWIKI_EMBEDDINGS", "false"); ROOT_STEPS.forEach((step) => step.mockClear()); });
 mintOnceThenRemove(tracker, async () => {
   for (const name of Object.keys(SCENARIOS) as Name[]) {
     const scenario: Scenario = SCENARIOS[name];
@@ -127,7 +128,7 @@ mintOnceThenRemove(tracker, async () => {
   }
   rootReached = ROOT_STEPS.map((step) => step.mock.calls.length > 0);
 });
-afterAll(() => { vi.unstubAllEnvs(); });
+afterAll(() => { restoreEnv(); });
 
 /** Hold `text` at `rel` in the mutable copy, listing it (and any new directory) as the disk would. */
 function hold(project: Copy, rel: string, text: string): void {

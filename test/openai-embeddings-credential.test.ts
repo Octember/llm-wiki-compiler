@@ -17,7 +17,7 @@
  * people to ignore the message that matters.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "bun:test";
 import { OpenAIProvider, resetForwardedKeyWarnings } from "../src/providers/openai.js";
 import * as output from "../src/utils/output.js";
 import { createEnvSnapshot } from "./fixtures/env-snapshot.js";

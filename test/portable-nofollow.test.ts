@@ -1,5 +1,5 @@
 /** Missing native no-follow support must not permit symlink reads or appends. */
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,10 +12,10 @@ vi.mock("node:fs", async (original) => {
   return { ...fs, constants: { ...fs.constants, O_NOFOLLOW: undefined, O_NONBLOCK: undefined, O_DIRECTORY: undefined } };
 });
 
-const race = vi.hoisted(() => ({
+const race = (() => ({
   beforeOpen: undefined as (() => Promise<void>) | undefined,
   afterOpen: undefined as (() => Promise<void>) | undefined,
-}));
+}))();
 vi.mock("fs/promises", async (original) => {
   const fs = await original<typeof import("fs/promises")>();
   return { ...fs, open: async (...args: Parameters<typeof fs.open>) => {

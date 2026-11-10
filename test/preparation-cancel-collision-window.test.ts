@@ -20,10 +20,12 @@
  * it is.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsAdvisoryFile = { ...(await import("../src/utils/advisory-file.js")) };
 
-vi.mock("../src/utils/advisory-file.js", async (importActual) => {
-  const actual = await importActual<typeof import("../src/utils/advisory-file.js")>();
+vi.mock("../src/utils/advisory-file.js", async () => {
+  const actual = realUtilsAdvisoryFile as typeof import("../src/utils/advisory-file.js");
   return {
     ...actual,
     // Reports the collision WITHOUT writing, which is exactly the state a lock

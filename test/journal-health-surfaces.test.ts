@@ -28,7 +28,7 @@
  * full `search`/`listPages`/`okf`/`json` envelopes do.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, mkdir, writeFile, access } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";

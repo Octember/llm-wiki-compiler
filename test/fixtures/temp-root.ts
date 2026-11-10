@@ -10,7 +10,7 @@
 import { mkdir, rm } from "fs/promises";
 import path from "path";
 import os from "os";
-import { beforeEach, afterEach, vi } from "vitest";
+import { beforeEach, afterEach, vi } from "bun:test";
 
 /**
  * Create a temp directory simulating an llmwiki project root.

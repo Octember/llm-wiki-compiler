@@ -18,10 +18,10 @@
  */
 
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 
 /** Every call of the confined-read primitive, as its raw argument list. */
-const primitive = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+const primitive = (() => ({ calls: [] as unknown[][] }))();
 
 vi.mock("../../src/utils/confined-read.js", async (load) => {
   const actual = await load<typeof import("../../src/utils/confined-read.js")>();
@@ -34,8 +34,10 @@ vi.mock("../../src/utils/confined-read.js", async (load) => {
 
 import { readViewerSource } from "../../src/viewer/source-access.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
-const fs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+const fs = realFsPromises as typeof import("node:fs/promises");
 const ONE_MIB = 1024 * 1024;
 const NESTED_ID = "papers/a.md";
 const NESTED_TEXT = "---\ntitle: Zażółć\n---\nRaw body — 規則は必ず守る\n";

@@ -27,7 +27,8 @@
  */
 
 import { realpath } from "node:fs/promises";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, setSystemTime } from "bun:test";
+import { restoreEnv, stubEnv } from "../stubs.js";
 import * as candidates from "../../src/compiler/candidates.js";
 import { writeCandidate } from "../../src/compiler/candidates.js";
 import { CandidateCustodyUnavailableError } from "../../src/compiler/candidate-custody.js";
@@ -88,7 +89,7 @@ async function runScenario(side: Side, ids: { bad: string; good: string }): Prom
   const statuses: string[] = [];
   const status = captureStatusLines(statuses, (text) => text.split(side.displayRoot).join("<root>"));
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(NOW);
+  setSystemTime(NOW);
   const out: string[] = [];
   try {
     for (const [name, id] of [["refuse-invalid", ids.bad], ["approve", ids.good]] as const) {
@@ -111,11 +112,11 @@ const shownFile: KeepLeaf = (rel, entry) => entry.isFile() && shown(rel);
 async function fromRoot<T>(root: string, fn: () => Promise<T>): Promise<T> {
   const previous = process.cwd();
   process.chdir(root);
-  vi.stubEnv(ENV_EMBEDDINGS, "off");
+  stubEnv(ENV_EMBEDDINGS, "off");
   try {
     return await fn();
   } finally {
-    vi.unstubAllEnvs();
+    restoreEnv();
     process.chdir(previous);
   }
 }

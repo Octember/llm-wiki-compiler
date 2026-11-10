@@ -36,10 +36,10 @@
  */
 
 import { gateDecision } from "./lifecycle-fixture.js";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { useTempRoot } from "../fixtures/temp-root.js";
 
-const observed = vi.hoisted(() => ({ captures: 0, bindings: [] as string[], registryWalks: 0 }));
+const observed = (() => ({ captures: 0, bindings: [] as string[], registryWalks: 0 }))();
 
 type OrphanScanModule = typeof import("../../src/preparations/orphan-scan.js");
 
@@ -48,8 +48,12 @@ type OrphanScanModule = typeof import("../../src/preparations/orphan-scan.js");
 // namespace, so a full re-enumeration of the lifecycle registry cost ZERO on that
 // meter. External review found the re-walk by reading the code, which is the
 // tell that the meter was pointed at the wrong thing.
+// Snapshot real modules before mock.module replaces them for this file.
+const realLifecycleRead = { ...(await import("../../src/preparations/lifecycle-snapshot/read.js")) };
+const realNamespace = { ...(await import("../../src/preparations/lifecycle-fs/namespace.js")) };
+
 vi.mock("../../src/preparations/orphan-scan.js", async () => {
-  const actual = await vi.importActual<OrphanScanModule>("../../src/preparations/orphan-scan.js");
+  const actual = realPreparationsOrphanScan as OrphanScanModule;
   return {
     ...actual,
     scanPreparationOrphans: async (...args: Parameters<OrphanScanModule["scanPreparationOrphans"]>) => {
@@ -75,9 +79,7 @@ type ReadModule = typeof import("../../src/preparations/lifecycle-snapshot/read.
 // operation costs overall, and the gap between them is the recorded
 // multi-observation debt that 9E owns.
 vi.mock("../../src/preparations/lifecycle-snapshot/read.js", async () => {
-  const actual = await vi.importActual<ReadModule>(
-    "../../src/preparations/lifecycle-snapshot/read.js",
-  );
+  const actual = realLifecycleRead as ReadModule;
   return {
     ...actual,
     withPreparationLifecycleRead: async (
@@ -90,9 +92,7 @@ vi.mock("../../src/preparations/lifecycle-snapshot/read.js", async () => {
 });
 
 vi.mock("../../src/preparations/lifecycle-fs/namespace.js", async () => {
-  const actual = await vi.importActual<NamespaceModule>(
-    "../../src/preparations/lifecycle-fs/namespace.js",
-  );
+  const actual = realNamespace as NamespaceModule;
   return {
     ...actual,
     // The real opener still runs, so every downstream revalidation and brand
@@ -118,6 +118,8 @@ import { rm } from "node:fs/promises";
 import {
   driveToFailed, LIFECYCLE_ACTOR, stagePreparation, tamperRun,
 } from "./lifecycle-fixture.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realPreparationsOrphanScan = { ...(await import("../../src/preparations/orphan-scan.js")) };
 
 const AT = "2026-07-31T02:00:00.000Z";
 

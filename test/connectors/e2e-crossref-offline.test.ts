@@ -5,7 +5,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import reviewApproveCommand from "../../src/commands/review-approve.js";
 import reviewShowCommand from "../../src/commands/review-show.js";
 import { listCandidates } from "../../src/compiler/candidates.js";

@@ -16,7 +16,7 @@
  * than the one that made it.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { readPreparationCancel } from "../src/preparations/cancellation.js";
 import { CLI, expectCLIExit, runCLI } from "./fixtures/run-cli.js";
 import {

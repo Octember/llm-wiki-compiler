@@ -19,7 +19,7 @@
  * is empty.
  */
 
-import { describe, it, beforeAll, afterAll, expect } from "vitest";
+import { describe, it, beforeAll, afterAll, expect } from "bun:test";
 import { mkdtemp, rm, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";

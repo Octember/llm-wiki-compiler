@@ -6,7 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { MAX_RUN_EVIDENCE_BLOB_BYTES, MAX_RUN_EVIDENCE_BYTES } from "../../src/operation-bundles/constants.js";
 import { mintOperationRunId } from "../../src/operation-bundles/ids.js";
 import { operationPaths } from "../../src/operation-bundles/paths.js";

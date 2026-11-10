@@ -1,0 +1,5 @@
+# Bun test runner settings. `bun run test` builds dist/ once first (integration
+# tests spawn dist/cli.js) and sets the 30s per-test timeout on the command line.
+[test]
+# Fresh-install packaging check runs only via `bun run test:pack`.
+pathIgnorePatterns = ["test/sdk/packaging.test.ts", ".claude/**", ".worktrees/**", "**/dist/**"]

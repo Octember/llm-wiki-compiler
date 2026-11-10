@@ -4,7 +4,7 @@
  * effects to consume closed candidate-ID snapshots instead of live arrays.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { appendConnectorEvent, connectorEvent } from "../../src/connectors/audit.js";
 import { renderCandidateIds } from "../../src/connectors/candidate-display.js";
 import { readEvents } from "../../src/events/store-read.js";

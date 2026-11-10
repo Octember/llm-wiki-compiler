@@ -10,7 +10,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { access } from "fs/promises";
 import path from "path";
-import { expect } from "vitest";
+import { expect } from "bun:test";
 
 const exec = promisify(execFile);
 
@@ -90,7 +90,7 @@ export function expectCLIFailure(result: CLIResult): void {
  * Run the llmwiki CLI with the given arguments and return its output +
  * rich diagnostics. Never throws — non-zero exits, spawn errors, and
  * missing-cwd errors are all captured into the returned CLIResult.
- * @param args - CLI arguments to pass after `node dist/cli.js`.
+ * @param args - CLI arguments to pass after `bun dist/cli.js`.
  * @param cwd - Working directory for the subprocess.
  * @param envOverrides - Optional environment variable overrides.
  */

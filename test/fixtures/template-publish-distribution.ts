@@ -9,7 +9,7 @@ import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { expect } from "vitest";
+import { expect } from "bun:test";
 import { parseTemplateCoordinate } from "../../src/profile/templates/signing/protocol.js";
 import type { SignedPackageEnvelope, SignedTapIndex } from "../../src/profile/templates/signing/types.js";
 import { signedIndex, signedPackage, TAP_KEY } from "./template-signing.js";

@@ -27,26 +27,26 @@
  */
 
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 
 /** `calls` are [function name, ...arguments] noted while `on`; `fault` rejects one `lstat` on one path. */
-const io = vi.hoisted(() => ({
+const io = (() => ({
   on: false,
   calls: [] as unknown[][],
   fault: null as null | { at: string; error: Error },
-}));
+}))();
 
 /**
  * The suite's `fs` tapper (`fs-taps.ts`, loaded in this hoisted block): each tapped call is noted with its arguments
  * while `on`, and the one faulted `lstat` path rejects with the fault instead of reaching the real function.
  */
-const tapper = vi.hoisted(async () => {
+const tapper = (async () => {
   const { fsTapper } = await import("./fs-taps.js");
   return fsTapper({
     note: (name, args) => { if (io.on) io.calls.push([name, ...args]); },
     answer: (name, args) => (name === "lstat" && io.fault !== null && io.fault.at === args[0] ? Promise.reject(io.fault.error) : undefined),
   });
-});
+})();
 
 // Both spellings of each module: `state-reset.ts` uses the bare names before the move, `reset-plan.ts` and storage the `node:` ones.
 vi.mock("fs", async (load) => (await tapper)(await load<typeof import("fs")>(), ["existsSync"]));
@@ -61,8 +61,10 @@ import { STATE_FILE } from "../../src/utils/constants.js";
 import * as lock from "../../src/utils/lock.js";
 import * as output from "../../src/utils/output.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
-const fs = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+const fs = realFsPromises as typeof import("node:fs/promises");
 const STATE_BYTES = "\u0000not json { at all";
 const ctx = useTempRoot();
 let statuses: string[] = [];

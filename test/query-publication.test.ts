@@ -2,7 +2,8 @@
  * Direct publication witnesses pin no-write refusals, exact canonical bytes,
  * mandatory fresh resolution and failures outside the citation recovery scope.
  */
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi, type Mock } from "bun:test";
+import { restoreEnv } from "./stubs.js";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { maybeSaveQueryPage } from "../src/commands/query-publication.js";
@@ -19,9 +20,9 @@ const ctx = useTempRoot();
 beforeEach(async () => {
   await stageCitationWorkspace(ctx.dir);
   await writeFile(path.join(ctx.dir, ".llmwiki/embeddings.json"), "sentinel embeddings");
-  vi.mocked(updateEmbeddingsLockedCore).mockClear();
+  (updateEmbeddingsLockedCore as unknown as Mock<typeof updateEmbeddingsLockedCore>).mockClear();
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => restoreEnv());
 
 /** Snapshot every publication surface, including nested index/embedding artifacts. */
 async function snapshot(): Promise<Record<string, Buffer>> {

@@ -4,7 +4,7 @@
  * bounded one-line result reasons, and typed revoked-Proxy rejection.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import {
   captureCandidateCustodyReceipts,
   CandidateCustodyBoundaryError,

@@ -19,7 +19,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { pruneUnitIdFor } from "../src/preparations/prune-delete.js";
 import { preparationPaths, preparationPruneUnitPaths } from "../src/preparations/paths.js";
 import { scanPreparationInventory } from "../src/preparations/capacity.js";

@@ -8,8 +8,8 @@
  * selection rather than crashing.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Mock } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
+import type { Mock } from "bun:test";
 import { defaultProfileLoad } from "./fixtures/profile-fixtures.js";
 
 const OUTDATED = { code: "embedding-index-outdated", message: "older" };

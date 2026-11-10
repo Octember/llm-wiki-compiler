@@ -10,7 +10,7 @@
  * directly via the exposed globals.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { readFile } from "fs/promises";
 import path from "path";
 import { JSDOM } from "jsdom";

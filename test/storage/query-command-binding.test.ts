@@ -19,7 +19,7 @@
  */
 
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import queryCommand, { queryCommandStepsOver, queryCommandWith, type QueryCommandSteps } from "../../src/commands/query.js";
 import * as queryReads from "../../src/commands/query-reads.js";
 import * as diskLocations from "../../src/storage/disk-locations.js";

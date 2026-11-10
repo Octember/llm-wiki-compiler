@@ -8,7 +8,7 @@
 
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { CodexAgentProvider } from "../src/providers/codex-agent.js";
 import type { LLMTool } from "../src/utils/provider.js";
 import { installFakeCodex, type FakeCodex } from "./fixtures/fake-codex.js";
@@ -83,9 +83,9 @@ async function expectBoundedTimeout(fake: FakeCodex): Promise<void> {
     const outcome = provider.complete("system", [{ role: "user", content: "x" }], 1)
       .then((value) => ({ value }), (error: Error) => ({ error }));
     await fake.ready();
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTime(400);
     await fake.waitForSignal("SIGTERM");
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTime(100);
     const result = await outcome;
     expect(result).toEqual({
       error: expect.objectContaining({ message: expect.stringMatching(/timed out/i) }),
@@ -144,7 +144,7 @@ describe("CodexAgentProvider process boundary", () => {
     await expect(access(call.cwd)).rejects.toThrow();
   });
 
-  it.runIf(process.platform !== "win32")(
+  it.if(process.platform !== "win32")(
     "bypasses PATH interpreter wrappers that would expand the child environment",
     async () => {
       const fake = await useFake();

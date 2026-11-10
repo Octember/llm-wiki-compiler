@@ -24,7 +24,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { mkdir, readdir, rm } from "fs/promises";
 import path from "path";
 import os from "os";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -72,7 +72,7 @@ export interface McpClientHandle {
  */
 export async function connectMcpClient(root: string): Promise<McpClientHandle> {
   const transport = new StdioClientTransport({
-    command: "node",
+    command: "bun",
     args: [CLI, "serve", "--root", root],
     stderr: "ignore",
   });

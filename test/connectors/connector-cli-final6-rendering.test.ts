@@ -4,7 +4,7 @@
  * while terminal output uses bounded, reversible, one-line ASCII escapes.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { connectorRunCommand } from "../../src/commands/connector.js";
 import type { ConfinedFetchResult } from "../../src/connectors/confined-fetch.js";
 import { runConnector, type RunConnectorResult } from "../../src/connectors/run.js";

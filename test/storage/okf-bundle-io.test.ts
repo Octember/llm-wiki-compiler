@@ -21,14 +21,14 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "bun:test";
 
 /** Every watched call, as `<function> <path relative to the test's base>`, and the names watched. */
-const calls = vi.hoisted(() => ({
+const calls = (() => ({
   log: [] as string[],
   base: "",
   watched: ["readdir", "stat", "readFile", "access", "lstat", "mkdir", "copyFile", "rm"],
-}));
+}))();
 
 vi.mock("fs/promises", async (load) => {
   const disk = (await load()) as Record<string, (...args: unknown[]) => unknown>;

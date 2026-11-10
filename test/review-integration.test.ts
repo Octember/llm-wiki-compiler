@@ -10,7 +10,7 @@
  * are marked it.skip and explained inline.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import path from "path";
 import { mkdir, rm, writeFile, readdir, readFile, access } from "fs/promises";
 import { tmpdir } from "os";
@@ -115,7 +115,7 @@ async function assertMissingIdFails(subcommand: string, suffix: string): Promise
 }
 
 // ---------------------------------------------------------------------------
-// dist/cli.js is built once via vitest globalSetup (see test/global-setup.ts)
+// dist/cli.js is built once by `bun run test` before the suite starts
 // ---------------------------------------------------------------------------
 
 describe("review integration tests", () => {

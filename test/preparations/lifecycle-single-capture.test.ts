@@ -20,15 +20,15 @@
  * "once". It fails at two captures and passes only at one.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 import { useTempRoot } from "../fixtures/temp-root.js";
 
-const listingProbe = vi.hoisted(() => ({
+const listingProbe = (() => ({
   calls: [] as string[],
-}));
+}))();
 
 vi.mock("node:fs/promises", async () => {
-  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  const actual = realFsPromises as typeof import("node:fs/promises");
   return {
     ...actual,
     opendir: async (directory: Parameters<typeof actual.opendir>[0]) => {
@@ -52,6 +52,8 @@ import {
   lifecycleSnapshotFixture, writeQuarantineReceipts,
 } from "./lifecycle-snapshot-fixture.js";
 import { resolvePreparationLifecyclePending } from "../../src/preparations/recovery.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
 /**
  * Exact `opendir` count for one physical lifecycle registry root. Matched by

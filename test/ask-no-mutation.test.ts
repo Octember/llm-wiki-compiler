@@ -16,7 +16,7 @@
  * fingerprint cannot make it pass vacuously.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "bun:test";
 import path from "node:path";
 import { buildCollidingProject, echoCallClaudeModule, mockQueryVector } from "./fixtures/typed-grounding.js";
 import { changedPaths as changed, fingerprintTree as fingerprint } from "./fixtures/tree-fingerprint.js";

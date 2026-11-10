@@ -31,7 +31,8 @@
 
 import { rm } from "node:fs/promises";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, setSystemTime } from "bun:test";
+import { restoreEnv, stubEnv } from "../stubs.js";
 import * as compileAccess from "../../src/compiler/compile-access.js";
 import * as finalize from "../../src/compiler/compile-finalize.js";
 import { emptyCompileResult } from "../../src/compiler/compile-phases.js";
@@ -102,7 +103,7 @@ async function runScenario(side: Side, provider: HeadingsProvider, options: Comp
   const statuses: string[] = [];
   const status = captureStatusLines(statuses);
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(NOW);
+  setSystemTime(NOW);
   try {
     const settled = await runWithProviderOverride(overrideOf(provider), () => side.compile(options)).then((result) => result, (error: Error) => `${error.name}: ${error.message}`);
     return JSON.stringify({ settled, statuses, tree: await side.tree() });
@@ -229,11 +230,11 @@ describe("the bound run's refusals, order, review delegation, and no ambient cal
     // Both runs must SUCCEED, so neither the zero counts nor the positive counts can come from an early failure.
     expect(resultOf(parsed(await runScenario(memorySide("deleted").side, new HeadingsProvider(), { concurrency: 1 }))).errors).toEqual([]);
     expect(spies.map((spy) => spy.mock.calls.length)).toEqual(spies.map(() => 0));
-    vi.stubEnv(ENV_EMBEDDINGS, "off");
+    stubEnv(ENV_EMBEDDINGS, "off");
     try {
       expect(resultOf(parsed(await runScenario(diskSide(root), new HeadingsProvider(), { concurrency: 1 }))).errors).toEqual([]);
     } finally {
-      vi.unstubAllEnvs();
+      restoreEnv();
     }
     expect(spies.map((spy) => spy.mock.calls.length > 0)).toEqual(spies.map(() => true));
     // Both recoveries of the ROOT run: the gate's own, then compile's own.

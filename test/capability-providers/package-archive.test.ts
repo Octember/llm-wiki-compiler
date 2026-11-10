@@ -8,7 +8,7 @@ import path from "node:path";
 import {
   appendFile, chmod, lstat, mkdir, mkdtemp, readFile, rename, symlink,
 } from "node:fs/promises";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import {
   extractProviderArchive, validateProviderArchivePath, verifyProviderTree,
 } from "../../src/capability-providers/packages/archive.js";

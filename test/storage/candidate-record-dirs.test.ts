@@ -17,7 +17,7 @@
  * disk's binding for the root they were given.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as answerManifest from "../../src/citations/answer-manifest.js";
 import { CandidateCustodyUnavailableError } from "../../src/compiler/candidate-custody.js";
 import {

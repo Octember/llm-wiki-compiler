@@ -6,7 +6,7 @@
  * pinned without expanding the already-full review.test.ts file.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "bun:test";
 import { writeCandidate, readCandidate } from "../src/compiler/candidates.js";
 import type { CandidateDraft } from "../src/compiler/candidates.js";
 import reviewListCommand from "../src/commands/review-list.js";

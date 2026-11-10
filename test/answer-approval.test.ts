@@ -2,7 +2,7 @@
  * Validated answers retain their proposals on refusal and require current
  * retained targets and profile eligibility, regardless of proposal observations.
  */
-import { expect, it, vi } from "vitest";
+import { expect, it, vi } from "bun:test";
 import * as planner from "../src/trust/planner.js";
 import { chmod, unlink } from "node:fs/promises";
 import path from "node:path";

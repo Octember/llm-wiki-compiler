@@ -28,7 +28,7 @@
  * neighbouring suite must keep calling the REAL reader.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "bun:test";
 
 const readCredentialRegistryState = vi.fn(async () => ({ kind: "absent" as const }));
 vi.mock("../../src/capability-providers/authority/credentials.js", () => ({

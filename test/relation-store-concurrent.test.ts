@@ -17,7 +17,7 @@
  * total equals N*K (none lost, none torn) and the header appears exactly once.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, mkdir, rm, writeFile, readFile } from "node:fs/promises";
@@ -57,7 +57,7 @@ afterEach(async () => { if (root) await rm(root, { recursive: true, force: true 
  * collapse under content-hash dedup.
  *
  * @param writer - The writer index, namespacing this process's endpoint slugs.
- * @returns A self-contained ESM script string to pass to `node -e`.
+ * @returns A self-contained ESM script string to pass to `bun -e`.
  */
 function workerScript(writer: number): string {
   return `import { createWiki } from ${JSON.stringify(DIST_INDEX)};
@@ -69,7 +69,7 @@ for (let i = 0; i < ${APPENDS_PER_WRITER}; i++) {
 
 /** Spawn one writer subprocess (separate node process), resolving on clean exit. */
 function spawnWriter(writer: number): Promise<void> {
-  return exec("node", ["--input-type=module", "-e", workerScript(writer)]).then(() => undefined);
+  return exec("bun", ["-e", workerScript(writer)]).then(() => undefined);
 }
 
 describe("relation store — concurrent writers (subprocess, spec 08)", () => {

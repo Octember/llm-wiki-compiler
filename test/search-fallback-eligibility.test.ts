@@ -16,7 +16,7 @@
  * enumerated candidates and the rendered prompt the selector sees.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "bun:test";
 import path from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { makeTempRoot } from "./fixtures/temp-root.js";
@@ -58,7 +58,6 @@ describe("buildSurfaceEligibleCandidates — privacy + surface specificity (Find
   let loadProfile: typeof import("../src/profile/load.js").loadProfile;
 
   beforeEach(async () => {
-    vi.resetModules();
     ({ buildSurfaceEligibleCandidates, buildNamespaceDirs } = await import("../src/utils/page-registry.js"));
     ({ loadProfile } = await import("../src/profile/load.js"));
   });
@@ -101,7 +100,6 @@ describe("selectFallbackRefs — namespace correctness + privacy drop (Findings 
   let loadProfile: typeof import("../src/profile/load.js").loadProfile;
 
   beforeEach(async () => {
-    vi.resetModules();
     ({ selectFallbackRefs } = await import("../src/search/retrieval.js"));
     ({ loadProfile } = await import("../src/profile/load.js"));
   });
@@ -142,7 +140,7 @@ describe("selectFallbackRefs — namespace correctness + privacy drop (Findings 
     const profile = await loadProfile(root);
     await selectFallbackRefs(root, "q", "search", profile);
     const { callClaude } = await import("../src/utils/llm.js");
-    const userMsg = vi.mocked(callClaude).mock.calls[0][0].messages[0].content as string;
+    const userMsg = (callClaude as unknown as Mock<typeof callClaude>).mock.calls[0][0].messages[0].content as string;
     expect(userMsg).not.toContain("papers/p-one");
     expect(userMsg).not.toContain("secrets/s-one");
     expect(userMsg).not.toContain("Secret One");
@@ -157,7 +155,6 @@ describe("selectFallbackRefs — collision + default project", () => {
   let loadProfile: typeof import("../src/profile/load.js").loadProfile;
 
   beforeEach(async () => {
-    vi.resetModules();
     ({ selectFallbackRefs } = await import("../src/search/retrieval.js"));
     ({ buildSurfaceEligibleCandidates, buildNamespaceDirs } = await import("../src/utils/page-registry.js"));
     ({ loadProfile } = await import("../src/profile/load.js"));

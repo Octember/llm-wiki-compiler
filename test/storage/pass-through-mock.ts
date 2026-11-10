@@ -14,7 +14,7 @@
  * ready), never as the factory argument itself.
  */
 
-import { vi } from "vitest";
+import { vi } from "bun:test";
 
 /** A `vi.mock` factory: the real module, with export `name` wrapped in a pass-through spy. */
 export function passThrough(name: string) {

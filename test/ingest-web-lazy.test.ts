@@ -9,18 +9,20 @@
  * the page into markdown, both in-process and through the real CLI.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "bun:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runCLI, expectCLIExit } from "./fixtures/run-cli.js";
+// Snapshot real modules before mock.module replaces them for this file.
+const realJsdom = { ...(await import("jsdom")) };
 
-const jsdomLoads = vi.hoisted(() => ({ count: 0 }));
-vi.mock("jsdom", async (importOriginal) => {
+const jsdomLoads = (() => ({ count: 0 }))();
+vi.mock("jsdom", async () => {
   jsdomLoads.count += 1;
-  return importOriginal<typeof import("jsdom")>();
+  return (realJsdom as typeof import("jsdom"));
 });
 
 const PAGE = `<!doctype html><html><head><title>Lazy Loading</title></head><body>
