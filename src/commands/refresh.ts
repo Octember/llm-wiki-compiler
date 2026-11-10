@@ -15,7 +15,7 @@ import {
 import * as output from "../utils/output.js";
 import type { CompileResult } from "../utils/types.js";
 
-interface RefreshCommandOptions {
+export interface RefreshCommandOptions {
   /** Use the same opt-in extraction mode as compile --no-pages-limit. */
   noPagesLimit?: boolean;
   stale?: boolean;

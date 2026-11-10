@@ -9,25 +9,24 @@
  */
 
 import type { Command } from "commander";
-import {
-  workflowListCommand,
-  workflowShowCommand,
-  workflowEventsCommand,
-  workflowStartCommand,
-  workflowStatusCommand,
-  workflowAdvanceCommand,
-  workflowGateApproveCommand,
-  workflowCancelCommand,
-  workflowFailCommand,
-  workflowResumeCommand,
-  workflowAdaptCommand,
-  workflowProjectCommand,
-  workflowSubmitCommand,
-  workflowActionListCommand,
-  workflowActionShowCommand,
-  workflowActionRunCommand,
-} from "../commands/workflow.js";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { lazyCommand, runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+
+const workflowListCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowListCommand));
+const workflowShowCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowShowCommand));
+const workflowEventsCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowEventsCommand));
+const workflowStartCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowStartCommand));
+const workflowStatusCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowStatusCommand));
+const workflowAdvanceCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowAdvanceCommand));
+const workflowGateApproveCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowGateApproveCommand));
+const workflowCancelCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowCancelCommand));
+const workflowFailCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowFailCommand));
+const workflowResumeCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowResumeCommand));
+const workflowAdaptCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowAdaptCommand));
+const workflowProjectCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowProjectCommand));
+const workflowSubmitCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowSubmitCommand));
+const workflowActionListCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowActionListCommand));
+const workflowActionShowCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowActionShowCommand));
+const workflowActionRunCommand = lazyCommand(() => import("../commands/workflow.js").then((module) => module.workflowActionRunCommand));
 
 /** Register the read-only discovery/inspection commands: `list`, `show`, `events`, `status`, `advance`, `project`. */
 function registerWorkflowInspectionCommands(workflowCmd: Command): void {

@@ -33,7 +33,7 @@ const WILDCARD_HOSTS = new Set([
 ]);
 
 /** Parsed CLI options. */
-interface ViewCommandOptions {
+export interface ViewCommandOptions {
   port?: string | number;
   host?: string;
   allowLan?: boolean;

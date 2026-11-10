@@ -26,7 +26,6 @@ import { registerRulesCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { registerContextCommands } from "./cli/context-commands.js";
 import { refreshCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { quickstartCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { startMCPServer } from "./mcp/server.js";
 import { applyLanguageOption } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { readInstructions } from "./cli/instructions.js";
@@ -151,7 +150,7 @@ addProviderOption(program.command("compile").description("Compile sources/ into 
       applyLanguageOption(options.lang);
       applySourcesSectionOption(options.sourcesSection);
       const systemPolicy = await readInstructions(options.instructions);
-      requireCompileProvider();
+      await requireCompileProvider();
       await compileCommand({ review: options.review, concurrency: parseConcurrencyFlag(options.concurrency), systemPolicy,
         noPagesLimit: options.pagesLimit === false });
     } catch (err) {
@@ -232,11 +231,11 @@ addProviderOption(program.command("query <question>").description("Ask a questio
       options: ProviderOption & { save?: boolean; review?: boolean; debug?: boolean; lang?: string; verbose?: boolean },
     ) => {
       try {
-        assertQuerySaveOptions(options);
+        await assertQuerySaveOptions(options);
         applyProviderOption(options);
         setVerbose(verboseEnabled(options.verbose));
         applyLanguageOption(options.lang);
-        requireProvider();
+        await requireProvider();
         await queryCommand(process.cwd(), question, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -253,7 +252,7 @@ addProviderOption(program.command("watch").description("Watch sources/ and auto-
   .action(async (options: ProviderOption & { concurrency?: string }) => {
     try {
       applyProviderOption(options);
-      requireCompileProvider();
+      await requireCompileProvider();
       await watchCommand({ concurrency: parseConcurrencyFlag(options.concurrency) });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -420,6 +419,7 @@ program
     try {
       // Per-tool credential checks happen inside the MCP layer so read-only
       // tools and ingest still work without an API key.
+      const { startMCPServer } = await import("./mcp/server.js");
       await startMCPServer({ root: options.root, version });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -433,19 +433,19 @@ program
  * surface as a stack trace. Programmatic callers use the underlying guards
  * directly so they can convert the throw into a structured envelope.
  */
-function requireProvider(): void {
-  requireAvailableProvider(ensureProviderAvailable);
+function requireProvider(): Promise<void> {
+  return requireAvailableProvider(ensureProviderAvailable);
 }
 
 /** Run the compile-aware provider guard through the legacy CLI error path. */
-function requireCompileProvider(): void {
-  requireAvailableProvider(ensureCompileProviderAvailable);
+function requireCompileProvider(): Promise<void> {
+  return requireAvailableProvider(ensureCompileProviderAvailable);
 }
 
 /** Print a provider-guard failure in red and exit through the legacy path. */
-function requireAvailableProvider(ensureAvailable: () => void): void {
+async function requireAvailableProvider(ensureAvailable: () => Promise<void>): Promise<void> {
   try {
-    ensureAvailable();
+    await ensureAvailable();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`\x1b[31mError:\x1b[0m ${message}`);

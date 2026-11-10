@@ -7,17 +7,17 @@
  */
 
 import type { Command } from "commander";
-import {
-  rulesApproveCommand,
-  rulesExportCommand,
-  rulesExtractCommand,
-  rulesListCommand,
-  rulesRejectCommand,
-} from "./rules.js";
 import { addProviderOption, applyProviderOption, type ProviderOption } from "../cli/provider-option.js";
+import { lazyCommand } from "../utils/lazy-command.js";
+
+const rulesApproveCommand = lazyCommand(() => import("./rules.js").then((module) => module.rulesApproveCommand));
+const rulesExportCommand = lazyCommand(() => import("./rules.js").then((module) => module.rulesExportCommand));
+const rulesExtractCommand = lazyCommand(() => import("./rules.js").then((module) => module.rulesExtractCommand));
+const rulesListCommand = lazyCommand(() => import("./rules.js").then((module) => module.rulesListCommand));
+const rulesRejectCommand = lazyCommand(() => import("./rules.js").then((module) => module.rulesRejectCommand));
 
 /** Provider guard injected by the CLI entrypoint. */
-type RequireProvider = () => void;
+type RequireProvider = () => Promise<void>;
 
 /**
  * Register the `rules` command group and its subcommands.
@@ -48,7 +48,7 @@ function registerExtract(rulesCommand: Command, requireProvider: RequireProvider
     .action(async (options: ProviderOption) =>
       runRulesAction(async () => {
         applyProviderOption(options);
-        requireProvider();
+        await requireProvider();
         await rulesExtractCommand();
       }),
     );

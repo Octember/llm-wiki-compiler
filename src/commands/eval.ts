@@ -33,7 +33,7 @@ import type { CitationJudgeCacheFiles } from "../eval/citation-support.js";
 import { diskEvalFileReads, type EvalFileReads } from "../eval/file-reads.js";
 import { diskEvalFileWrites } from "../eval/file-writes.js";
 
-interface EvalOptions {
+export interface EvalOptions {
   suite?: string;
   out?: string;
   sample?: string;
@@ -137,7 +137,7 @@ export async function evalCacheShowCommandFrom(reads: EvalFileReads): Promise<vo
   console.log(formatCacheShow(judgements, summary));
 }
 
-interface ReportOptions { out?: string }
+export interface ReportOptions { out?: string }
 
 /** Re-display the most recent eval report from history without running a new evaluation. */
 export async function evalReportCommand(options: ReportOptions = {}): Promise<void> {
@@ -155,7 +155,7 @@ export async function evalReportCommandFrom(reads: EvalFileReads, options: Repor
   console.log(output);
 }
 
-interface HistoryOptions { n?: string; out?: string }
+export interface HistoryOptions { n?: string; out?: string }
 
 /** Show a trend table of the last N eval runs from history.jsonl. */
 export async function evalHistoryCommand(options: HistoryOptions = {}): Promise<void> {
@@ -173,7 +173,7 @@ export async function evalHistoryCommandFrom(reads: EvalFileReads, options: Hist
   console.log(formatHistoryTable(reports));
 }
 
-interface JudgementsOptions { score?: string; page?: string; n?: string; out?: string }
+export interface JudgementsOptions { score?: string; page?: string; n?: string; out?: string }
 
 function filterJudgements(judgements: Awaited<ReturnType<typeof loadCitationCacheFrom>>, options: JudgementsOptions) {
   let result = judgements;

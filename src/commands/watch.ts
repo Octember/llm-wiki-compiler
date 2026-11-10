@@ -17,7 +17,7 @@ import * as output from "../utils/output.js";
 const DEBOUNCE_MS = 500;
 
 /** Options forwarded from the CLI to each auto-recompile pass. */
-interface WatchCommandOptions {
+export interface WatchCommandOptions {
   /** Max concurrent LLM calls per recompile (forwarded to CompileOptions). */
   concurrency?: number;
 }

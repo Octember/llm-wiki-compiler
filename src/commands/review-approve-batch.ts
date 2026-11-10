@@ -77,7 +77,7 @@ function diskReviewBatchSteps(root: string): ReviewBatchSteps {
 }
 
 /** CLI file and output options. */
-interface ReviewApproveBatchOptions {
+export interface ReviewApproveBatchOptions {
   input: string;
   json?: boolean;
 }

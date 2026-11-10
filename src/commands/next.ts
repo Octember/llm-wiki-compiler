@@ -23,7 +23,7 @@ import type {
 type StateLineRenderer = (state: ProjectState) => string;
 
 /** Options surfaced by Commander for `llmwiki next`. */
-interface NextCommandOptions {
+export interface NextCommandOptions {
   json?: boolean;
 }
 

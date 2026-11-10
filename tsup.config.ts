@@ -23,6 +23,10 @@ export default defineConfig(async (options) => {
   {
     ...shared,
     entry: ["src/cli.ts"],
+    // Commands are imported when they run, so each needs its own chunk;
+    // without splitting esbuild inlines them back into cli.js.
+    splitting: true,
+    esbuildOptions(options) { options.chunkNames = "cli-chunks/[name]-[hash]"; },
     // External packages are outside esbuild's import graph. Watch their source
     // explicitly and rebuild them before announcing a successful facade build.
     ...(options.watch ? {
@@ -41,7 +45,7 @@ export default defineConfig(async (options) => {
     // `clean: true` here would race the library entry's writes (tsup runs array
     // entries in parallel) and could delete dist/index.* on watch/incremental
     // rebuilds.
-    clean: ["dist/cli.js", "dist/cli.js.map"],
+    clean: ["dist/cli.js", "dist/cli.js.map", "dist/cli-chunks"],
     banner: {
       js: "#!/usr/bin/env node",
     },

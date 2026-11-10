@@ -125,7 +125,7 @@ function buildChunkProvenance(chunks: ChunkCitation[]): string {
 }
 
 /** Options for generateAnswer — programmatic-friendly. */
-interface GenerateAnswerOptions {
+export interface GenerateAnswerOptions {
   /**
    * On an embedding error, `fallback` (the default) selects pages without
    * embeddings and reports an `embedding-degraded` warning; `throw` rejects.

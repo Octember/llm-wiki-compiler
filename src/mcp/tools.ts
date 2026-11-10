@@ -80,7 +80,7 @@ function registerCompileTool(server: McpServer, root: string): void {
       inputSchema: {},
     },
     async () => withQuiet(async () => {
-      ensureCompileProviderAvailable();
+      await ensureCompileProviderAvailable();
       const result = await compileAndReport(root);
       return jsonResult(result);
     }),
@@ -112,7 +112,7 @@ function registerQueryTool(server: McpServer, root: string): void {
       },
     },
     async ({ question, save, debug }) => withQuiet(async () => {
-      ensureProviderAvailable();
+      await ensureProviderAvailable();
       const result = await generateAnswer(root, question, { save, debug });
       return jsonResult(result);
     }),
@@ -133,7 +133,7 @@ function registerSearchTool(server: McpServer, root: string): void {
       },
     },
     async ({ question }) => withQuiet(async () => {
-      ensureProviderAvailable();
+      await ensureProviderAvailable();
       const { refs, warnings } = await pickSearchRefs(root, question);
       const records = await loadSelectedRefs(root, refs);
       // S6: surface degrade warnings in the RESULT payload (not a log) so an
@@ -393,7 +393,7 @@ function registerVerifyArtifactTool(server: McpServer, root: string): void {
       if (invalid) return errorResult(invalid);
 
       const loaded = await loadNonDefaultProfile(root);
-      if (!loaded || !declaresArtifactTypes(loaded.profile)) {
+      if (!loaded || !(await declaresArtifactTypes(loaded.profile))) {
         return errorResult("no artifact types declared by the active profile");
       }
 

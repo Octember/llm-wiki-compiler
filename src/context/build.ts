@@ -59,7 +59,7 @@ import type {
 } from "./types.js";
 
 /** Caller-supplied build options; all fields except `prompt` are optional. */
-interface BuildContextPackOptions {
+export interface BuildContextPackOptions {
   /** Project root; defaults to `process.cwd()` at the call site. */
   root: string;
   /** Free-text prompt the agent supplied. */

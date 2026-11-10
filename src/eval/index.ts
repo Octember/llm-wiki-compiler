@@ -31,7 +31,8 @@ import { diskStoredEmbeddingReads } from "../utils/embeddings-storage.js";
 import { ensureProviderAvailable } from "../utils/provider-guard.js";
 import type { EvalReport, HealthResult, CitationCoverageResult, SourceUtilizationResult, CitationDepthResult, PageHealthDistributionResult, GraphHealthResult, CitationSupportResult, StatsResult } from "./types.js";
 
-export const DEFAULT_SAMPLE_SIZE = 20;
+export { DEFAULT_SAMPLE_SIZE } from "./defaults.js";
+import { DEFAULT_SAMPLE_SIZE } from "./defaults.js";
 
 interface EvalComponents {
   health: HealthResult;
