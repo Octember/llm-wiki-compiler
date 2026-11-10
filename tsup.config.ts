@@ -46,7 +46,7 @@ export default defineConfig(async (options) => {
     // `clean: true` here would race the library entry's writes (tsup runs array
     // entries in parallel) and could delete dist/index.* on watch/incremental
     // rebuilds.
-    clean: ["dist/cli.js", "dist/cli.js.map", "dist/cli-chunks"],
+    clean: ["dist/cli.js", "dist/cli.js.map"],
     // `--no-env-file`: Bun would otherwise load the working directory's `.env`
     // before any llmwiki code runs, defeating src/cli/environment.ts, which
     // must keep project credentials out when codex-agent is selected.

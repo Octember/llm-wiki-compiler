@@ -5,29 +5,24 @@
 import { defineConfig } from "tsup";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 const SRC = path.resolve("../../src");
 
 /**
- * Modules the CLI imports one at a time, published under `modules/` at their
- * source path (`@atomicstrata/llmwiki-core/modules/commands/ingest`). The CLI
- * loads a command's module when that command runs, so starting it does not
- * load every command. Workflow commands are composed in the standard
- * distribution, not here.
+ * Every module the CLI imports by its own path
+ * (`@atomicstrata/llmwiki-core/modules/commands/ingest`), read from the CLI's
+ * import statements so the built entries cannot drift from what it uses. The
+ * CLI loads a command's module when that command runs, so starting it does
+ * not load every command.
  */
-const commandEntries = readdirSync(path.join(SRC, "commands"), { recursive: true, encoding: "utf8" })
-  .filter((file) => file.endsWith(".ts") && !path.basename(file).startsWith("workflow"))
-  .map((file) => `commands/${file.slice(0, -".ts".length)}`);
-
-/** Small helpers the CLI needs while registering commands, before any runs. */
-const cliSupportEntries = [
-  "cli/provider-option", "cli/shared", "compiler/concurrency", "profile/templates/publish/bounded-read",
-  "utils/constants", "utils/output", "utils/output-language", "utils/provider-guard", "utils/sources-section",
-];
+const CLI_DIR = path.join(SRC, "cli");
+const moduleNames = new Set(readdirSync(CLI_DIR).flatMap((file) =>
+  [...readFileSync(path.join(CLI_DIR, file), "utf8").matchAll(/"@atomicstrata\/llmwiki-core\/modules\/([^"]+)"/g)]
+    .map((match) => match[1])));
 
 const moduleEntries = Object.fromEntries(
-  [...commandEntries, ...cliSupportEntries].map((name) => [`modules/${name}`, path.join(SRC, `${name}.ts`)]),
+  [...moduleNames].map((name) => [`modules/${name}`, path.join(SRC, `${name}.ts`)]),
 );
 
 /** Entry points with a public type surface; these get declarations. */

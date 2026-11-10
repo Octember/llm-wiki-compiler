@@ -106,9 +106,27 @@ for (const [usage, description, load] of COMMANDS) {
 const help = program.createHelp();
 program.configureHelp({ subcommandTerm: (command) => listed.get(command)?.usage ?? help.subcommandTerm(command) });
 
-program.hook("preSubcommand", async (_program, command) => {
+/** Add a listed command's options, action and subcommands from its module. */
+async function configure(command: Command): Promise<void> {
   const entry = listed.get(command);
   if (entry) (await entry.load())(command);
-});
+}
+
+program.hook("preSubcommand", (_program, command) => configure(command));
+
+// Commander's own `help <command>` prints the declared command without running
+// the hook, so this one configures the command before printing its help.
+program.helpCommand(false);
+program
+  .command("help [command]")
+  .description("display help for command")
+  .helpOption(false)
+  .allowExcessArguments()
+  .action(async (name?: string) => {
+    const command = name === undefined ? program : program.commands.find((candidate) => candidate.name() === name);
+    if (command === undefined) return program.help({ error: true });
+    await configure(command);
+    command.help();
+  });
 
 await program.parseAsync();
