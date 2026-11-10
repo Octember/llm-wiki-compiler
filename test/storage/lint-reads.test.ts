@@ -94,7 +94,7 @@ beforeEach(() => {
   Object.assign(tape, { calls: [], lastListing: null, reverseListings: false, fault: null });
 });
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { setSystemTime(); });
 
 describe("listDirectoryEntries: one typed listing, nothing added", () => {
   it("hands back the listing's own promise, and each entry answers for itself", async () => {
@@ -232,7 +232,6 @@ describe("the lint cache: exact bytes out, strict read back", () => {
   });
 
   it("writes the same bytes at a fixed clock, through the writer's own calls in order", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
     setSystemTime(new Date("2026-01-02T03:04:05.678Z"));
     await writeLintCache(root, summary());
     const rule = { rule: "broken-wikilink", severity: "error", count: 2, fileCount: 1, topFile: "wiki/concepts/a.md", topFileCount: 2 };

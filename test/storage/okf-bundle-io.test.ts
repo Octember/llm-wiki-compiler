@@ -36,7 +36,7 @@ const realFsPromises = { ...(await import("fs/promises")) };
 // Synchronous on purpose: Bun runs the factory eagerly, and an `await` inside it
 // never resumes, hanging the file at load.
 vi.mock("fs/promises", () => {
-  const disk = realFsPromises as Record<string, (...args: unknown[]) => unknown>;
+  const disk = realFsPromises as unknown as Record<string, (...args: unknown[]) => unknown>;
   const watched = Object.fromEntries(calls.watched.map((name) => [name, (target: unknown, ...rest: unknown[]) => {
     calls.log.push(`${name} ${path.relative(calls.base, String(target)) || "."}`);
     return disk[name]!(target, ...rest);

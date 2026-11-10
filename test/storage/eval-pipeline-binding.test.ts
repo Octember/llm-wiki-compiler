@@ -126,9 +126,9 @@ const onDisk = (root: string): Evaluate => (suite, sampleSize, record) => runEva
 const offline = (): void => { stubEnv("LLMWIKI_PROVIDER", "offline"); stubEnv("LLMWIKI_EMBEDDING_PROVIDER", ""); };
 const withoutCredential = (): void => { stubEnv("LLMWIKI_PROVIDER", "openai"); stubEnv("OPENAI_API_KEY", ""); };
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date(AT)); offline(); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(stub); });
+beforeAll(() => { setSystemTime(new Date(AT)); offline(); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(stub); });
 beforeEach(() => { offline(); (callClaude as unknown as Mock<typeof callClaude>).mockReset().mockImplementation(stub); log.length = 0; answers.length = 0; });
-afterAll(() => { restoreEnv(); vi.useRealTimers(); });
+afterAll(() => { restoreEnv(); setSystemTime(); });
 mintOnceThenRemove(tracker, async () => {
   project = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, FILES), async (root) => ({ real: await realpath(root), runs: await fiveRuns(onDisk(root)) }));
   withoutCredential();

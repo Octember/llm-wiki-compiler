@@ -100,7 +100,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  restoreEnv(); vi.useRealTimers();
+  restoreEnv(); setSystemTime();
   await nodeFs.rm(project, { recursive: true, force: true });
 });
 
@@ -135,7 +135,7 @@ describe("the cache commands: clear and load", () => {
 
 describe("the judge's cache: cold writes one line per verdict, warm writes and asks nothing", () => {
   it("cold: asks whether the cache is there, then for each pair makes the directory and appends one exact line", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date("2026-01-02T03:04:05.678Z"));
+    setSystemTime(new Date("2026-01-02T03:04:05.678Z"));
     const judge = await createCitationJudge(project);
     const first = await judge(pairOf("h1"));
     const afterFirst = await bytesOf(CACHE);

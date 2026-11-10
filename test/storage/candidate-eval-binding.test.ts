@@ -129,9 +129,9 @@ async function fiveRuns(evaluate: Evaluate): Promise<Run[]> {
 
 const tracker = tempRootTracker();
 let project: Minted<Run[]>;
-beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date(AT)); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(modelStub); });
+beforeAll(() => { setSystemTime(new Date(AT)); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(modelStub); });
 beforeEach(() => { offline(); (callClaude as unknown as Mock<typeof callClaude>).mockReset().mockImplementation(modelStub); log.length = 0; });
-afterAll(() => { restoreEnv(); vi.useRealTimers(); });
+afterAll(() => { restoreEnv(); setSystemTime(); });
 mintOnceThenRemove(tracker, async () => {
   project = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, FILES), (root) => fiveRuns((suite, sampleSize) => evaluateCandidates(root, suite, sampleSize)));
 });

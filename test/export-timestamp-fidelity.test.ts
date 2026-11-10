@@ -71,7 +71,7 @@ const AFFECTED_FORMATS: ReadonlyArray<{
 
 let dir: string;
 afterEach(async () => {
-  vi.useRealTimers();
+  setSystemTime();
   if (dir) await rm(dir, { recursive: true, force: true });
 });
 
@@ -88,7 +88,6 @@ async function seedWiki(): Promise<string> {
 
 /** Collect the wiki with the system clock pinned to `at`. */
 async function collectAt(root: string, at: Date): Promise<ExportPage[]> {
-  vi.useFakeTimers({ toFake: ["Date"] });
   setSystemTime(at);
   return collectExportPages(root);
 }

@@ -56,8 +56,8 @@ export async function withEmbeddingEnvironment<T>(env: EmbeddingEnvironment, rec
 
 /** Fake only `Date` for the whole suite, registering the two hooks where this is called. */
 export function freezeDateDuringSuite(): void {
-  beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); });
-  afterAll(() => { vi.useRealTimers(); });
+  beforeAll(() => { });
+  afterAll(() => { setSystemTime(); });
 }
 
 /** One step's call record: `record` keeps each call in this step's `calls` and in the suite's shared `log`. */

@@ -113,9 +113,9 @@ async function mintLinked(): Promise<void> {
   linkRoots.push(outside, escaping);
 }
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date(AT)); });
+beforeAll(() => { setSystemTime(new Date(AT)); });
 beforeEach(() => { setSystemTime(new Date(AT)); });
-afterAll(() => { vi.useRealTimers(); });
+afterAll(() => { setSystemTime(); });
 mintOnceThenRemove(tracker, async () => {
   for (const name of NAMES) minted.set(name, await mintCopied(tracker, PREFIX, (root) => seeded(root, PROJECTS[name]), collectStats));
   await mintLinked();

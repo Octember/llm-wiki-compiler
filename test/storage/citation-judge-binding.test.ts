@@ -113,9 +113,9 @@ let seeded: Minted<Outcome>;
 let unpersisted: Minted<Outcome>;
 const onDiskMake = (root: string): Make => (options) => createCitationJudge(root, options);
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"] }); setSystemTime(new Date(AT)); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(stub); });
+beforeAll(() => { setSystemTime(new Date(AT)); (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(stub); });
 beforeEach(() => { setSystemTime(new Date(AT)); (callClaude as unknown as Mock<typeof callClaude>).mockReset().mockImplementation(stub); log.length = 0; });
-afterAll(() => { vi.useRealTimers(); });
+afterAll(() => { setSystemTime(); });
 mintOnceThenRemove(tracker, async () => {
   cold = await mintCopied(tracker, PREFIX, async () => {}, (root) => coldSequence(onDiskMake(root)));
   seeded = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, { [CACHE]: SEEDED_TEXT }), (root) => seededSequence(onDiskMake(root)));

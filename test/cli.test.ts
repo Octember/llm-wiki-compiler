@@ -75,7 +75,7 @@ describe("CLI smoke tests", () => {
           ANTHROPIC_BASE_URL: "http://localhost:11434",
         },
       });
-      expect.fail("should have thrown");
+      expect.unreachable("should have thrown");
     } catch (err: unknown) {
       const error = err as { stderr?: string; code?: number };
       // Should exit with non-zero or print an error
@@ -129,7 +129,7 @@ describe("CLI smoke tests", () => {
           LLMWIKI_CLAUDE_SETTINGS_PATH: workspace.settingsPath,
         },
       });
-      expect.fail("should have thrown");
+      expect.unreachable("should have thrown");
     } catch (err: unknown) {
       const error = err as { stderr?: string; code?: number };
       expect(error.code).not.toBe(0);

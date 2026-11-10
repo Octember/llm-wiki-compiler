@@ -214,7 +214,8 @@ describe("the citation index keeps its strict rule", () => {
     const wholeReads: unknown[] = [];
     (fs.open as unknown as Mock<typeof fs.open>).mockImplementation(async (...args) => {
       const handle = await actual.open(...args);
-      vi.spyOn(handle, "readFile").mockImplementation(async (...read) => { wholeReads.push(read); return ""; });
+      (vi.spyOn(handle, "readFile") as unknown as Mock<(...read: unknown[]) => Promise<string>>)
+        .mockImplementation(async (...read) => { wholeReads.push(read); return ""; });
       return handle;
     });
     const index = await collectAnswerCitationIndex(root);

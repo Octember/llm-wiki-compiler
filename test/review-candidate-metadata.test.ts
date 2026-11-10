@@ -28,7 +28,7 @@ const BODY = [
 ].join("\n");
 
 function collectLogOutput(spy: ReturnType<typeof vi.spyOn>): string {
-  return spy.mock.calls.map((args) => args.join(" ")).join("\n");
+  return spy.mock.calls.map((args: unknown[]) => args.join(" ")).join("\n");
 }
 
 /**

@@ -98,11 +98,10 @@ async function askedOnDisk(root: string): Promise<OnDisk> {
 }
 
 mintOnceThenRemove(tracker, async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
   setSystemTime(new Date(AT));
   project = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, FILES), askedOnDisk);
 });
-afterAll(() => { vi.useRealTimers(); });
+afterAll(() => { setSystemTime(); });
 
 /** The cache over a map: each call logged, a write kept or refused. Relative paths are taken from the project's real root, as the disk command's are. */
 function cacheOver(events: string[], written: Map<string, string>, refusal?: Error): LintCacheSources {

@@ -62,10 +62,13 @@ async function candidate(id: string, extra: Record<string, unknown> = {}) {
   }));
 }
 
+/** One overload-erased signature, so a mock can forward any spelling of the call. */
+type ForwardedRead = (target: never, ...rest: never[]) => Promise<unknown>;
+
 /** Intercept one candidate read while forwarding all reads to the real filesystem. */
 async function beforeCandidateRead(file: string, action: (actual: typeof fs) => void | Promise<void>): Promise<void> {
   const actual = realFsPromises as typeof fs;
-  (fs.readFile as unknown as Mock<typeof fs.readFile>).mockImplementation(async (target, ...args) => {
+  (fs.readFile as unknown as Mock<ForwardedRead>).mockImplementation(async (target, ...args) => {
     if (target === file) await action(actual);
     return actual.readFile(target, ...args);
   });
@@ -158,11 +161,11 @@ it.each(["open", "read", "realpath", "readdir"] as const)("propagates genuine re
     });
   } else if (operation === "realpath") {
     const actual = realFsPromises as typeof fs;
-    (fs.realpath as unknown as Mock<typeof fs.realpath>).mockImplementation(async (target, ...args) => {
+    (fs.realpath as unknown as Mock<ForwardedRead>).mockImplementation(async (target, ...args) => {
       if (target === file) throw fault;
       return actual.realpath(target, ...args);
     });
-  } else (fs[operation] as unknown as Mock<typeof fs[operation]>).mockRejectedValueOnce(fault);
+  } else (fs[operation] as unknown as Mock<(typeof fs)[typeof operation]>).mockRejectedValueOnce(fault);
   await expect(collectAnswerCitationIndex(root)).rejects.toMatchObject({ code: "EIO" });
 });
 
@@ -194,7 +197,7 @@ it("does not hide candidate read faults while legacy listing keeps its default",
 it("does not hide candidate directory realpath faults in either listing mode", async () => {
   await candidate("alpha");
   const actual = realFsPromises as typeof fs;
-  (fs.realpath as unknown as Mock<typeof fs.realpath>).mockImplementation(async (target, ...args) => {
+  (fs.realpath as unknown as Mock<ForwardedRead>).mockImplementation(async (target, ...args) => {
     if (target === path.join(root, ".llmwiki/candidates")) throw Object.assign(new Error("I/O fault"), { code: "EIO" });
     return actual.realpath(target, ...args);
   });

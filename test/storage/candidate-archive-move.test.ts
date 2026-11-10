@@ -89,7 +89,9 @@ const source = (): string => queue("a.json");
 const target = (): string => queue("archive", "a.json");
 const errorWith = (code: string): Error => Object.assign(new Error(`injected ${code}`), { code });
 const textAt = (file: string): Promise<string> => fs.readFile(file, "utf-8");
-const missing = (file: string): Promise<void> => expect(fs.lstat(file)).rejects.toMatchObject({ code: "ENOENT" });
+const missing = async (file: string): Promise<void> => {
+  await expect(fs.lstat(file)).rejects.toMatchObject({ code: "ENOENT" });
+};
 
 /** Write the pending file, and the archive directory unless told not to. */
 async function seed(withArchive = true): Promise<void> {

@@ -102,13 +102,12 @@ const resultOf = (shown: Shown): CompileResult => { if (typeof shown.settled ===
 async function runScenario(side: Side, provider: HeadingsProvider, options: CompileOptions = OPTIONS): Promise<string> {
   const statuses: string[] = [];
   const status = captureStatusLines(statuses);
-  vi.useFakeTimers({ toFake: ["Date"] });
   setSystemTime(NOW);
   try {
     const settled = await runWithProviderOverride(overrideOf(provider), () => side.compile(options)).then((result) => result, (error: Error) => `${error.name}: ${error.message}`);
     return JSON.stringify({ settled, statuses, tree: await side.tree() });
   } finally {
-    vi.useRealTimers();
+    setSystemTime();
     status.mockRestore();
   }
 }

@@ -93,7 +93,6 @@ interface Side {
 async function runScenario(side: Side): Promise<string[]> {
   const statuses: string[] = [];
   const status = captureStatusLines(statuses);
-  vi.useFakeTimers({ toFake: ["Date"] });
   setSystemTime(NOW);
   const out: string[] = [];
   const settle = async (name: string, act: () => Promise<unknown>): Promise<void> => {
@@ -109,7 +108,7 @@ async function runScenario(side: Side): Promise<string[]> {
     }
     await settle("unchanged", async () => side.unchanged(await side.load()));
   } finally {
-    vi.useRealTimers();
+    setSystemTime();
     status.mockRestore();
   }
   return out;

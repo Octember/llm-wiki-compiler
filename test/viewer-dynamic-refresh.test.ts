@@ -335,13 +335,13 @@ describe("ViewerSnapshotManager unit behavior", () => {
 });
 
 describe("Viewer HTTP server dynamic refresh integration", () => {
+  // advanceClock moves only the clock (setSystemTime); real timers keep running.
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ["Date"] });
     builderSpy.mockClear();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    setSystemTime();
   });
 
   it("keeps snapshot static by default in startViewerServer (opt-in)", async () => {

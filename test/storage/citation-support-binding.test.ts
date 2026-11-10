@@ -120,14 +120,13 @@ let uncited: Minted<Run>;
 const onDisk = (root: string): Evaluate => (sampleSize, previousHashes) => evaluateCitationSupport(root, sampleSize, previousHashes);
 
 beforeAll(() => {
-  vi.useFakeTimers({ toFake: ["Date"] });
   setSystemTime(new Date(AT));
   stubEnv("LLMWIKI_PROVIDER", "anthropic");
   stubEnv("LLMWIKI_MODEL", "model-a");
   (callClaude as unknown as Mock<typeof callClaude>).mockImplementation(stub);
 });
 beforeEach(() => { (callClaude as unknown as Mock<typeof callClaude>).mockReset().mockImplementation(stub); log.length = 0; plan.length = 0; });
-afterAll(() => { restoreEnv(); vi.useRealTimers(); });
+afterAll(() => { restoreEnv(); setSystemTime(); });
 mintOnceThenRemove(tracker, async () => {
   cited = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, CITED), (root) => fiveRuns(onDisk(root)));
   uncited = await mintCopied(tracker, PREFIX, (root) => writeFiles(root, { "wiki/concepts/plain.md": page("No citation here.") }), (root) => ran(onDisk(root), []));
