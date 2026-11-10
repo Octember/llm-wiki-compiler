@@ -1,7 +1,7 @@
 {
   "version": 1,
   "typescript": "5.9.3",
-  "configuration": "1f5a6de71f87f9e2a3a8b940ed0f86af09f11eb0fef1c3b892ca1e32789507ff",
+  "configuration": "1515d5ed735816e08789f279eb3b87ab98e99ecb4d7fd433e6b6ae227566cfef",
   "counts": {
     "test/artifacts/artifact-health-surfaces.test.ts": 3,
     "test/artifacts/artifact-ref-layer-b.test.ts": 1,

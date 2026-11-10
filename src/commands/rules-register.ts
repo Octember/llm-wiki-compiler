@@ -7,17 +7,10 @@
  */
 
 import type { Command } from "commander";
-import {
-  rulesApproveCommand,
-  rulesExportCommand,
-  rulesExtractCommand,
-  rulesListCommand,
-  rulesRejectCommand,
-} from "./rules.js";
 import { addProviderOption, applyProviderOption, type ProviderOption } from "../cli/provider-option.js";
 
 /** Provider guard injected by the CLI entrypoint. */
-type RequireProvider = () => void;
+type RequireProvider = () => void | Promise<void>;
 
 /**
  * Register the `rules` command group and its subcommands.
@@ -48,7 +41,8 @@ function registerExtract(rulesCommand: Command, requireProvider: RequireProvider
     .action(async (options: ProviderOption) =>
       runRulesAction(async () => {
         applyProviderOption(options);
-        requireProvider();
+        await requireProvider();
+        const { rulesExtractCommand } = await import("./rules.js");
         await rulesExtractCommand();
       }),
     );
@@ -59,7 +53,10 @@ function registerList(rulesCommand: Command): void {
   rulesCommand
     .command("list")
     .description("List pending rule candidates")
-    .action(async () => runRulesAction(() => rulesListCommand()));
+    .action(async () => runRulesAction(async () => {
+      const { rulesListCommand } = await import("./rules.js");
+      return rulesListCommand();
+    }));
 }
 
 /** Register `rules approve`. */
@@ -67,7 +64,10 @@ function registerApprove(rulesCommand: Command): void {
   rulesCommand
     .command("approve <id>")
     .description("Approve a rule candidate (status -> approved)")
-    .action(async (id: string) => runRulesAction(() => rulesApproveCommand(id)));
+    .action(async (id: string) => runRulesAction(async () => {
+      const { rulesApproveCommand } = await import("./rules.js");
+      return rulesApproveCommand(id);
+    }));
 }
 
 /** Register `rules reject`. */
@@ -75,7 +75,10 @@ function registerReject(rulesCommand: Command): void {
   rulesCommand
     .command("reject <id>")
     .description("Reject a rule candidate (status -> rejected, archived)")
-    .action(async (id: string) => runRulesAction(() => rulesRejectCommand(id)));
+    .action(async (id: string) => runRulesAction(async () => {
+      const { rulesRejectCommand } = await import("./rules.js");
+      return rulesRejectCommand(id);
+    }));
 }
 
 /** Register `rules export`. */
@@ -85,7 +88,10 @@ function registerExport(rulesCommand: Command): void {
     .description("Emit rule candidates as a JSON array for the rule importer (dist/exports/rule-candidates.json)")
     .option("--scope <scope>", "approved (default), proposed, or all")
     .action(async (options: { scope?: string }) =>
-      runRulesAction(() => rulesExportCommand(options)),
+      runRulesAction(async () => {
+        const { rulesExportCommand } = await import("./rules.js");
+        return rulesExportCommand(options);
+      }),
     );
 }
 

@@ -30,13 +30,11 @@
  */
 
 import type { Command } from "commander";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { productInvokeCommand, productResumeCommand, productPreviewCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { productApplyCommand, type ProductApplyOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { productStatusCommand, type ProductStatusOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import type { ProductActionOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { productActivateCommand, productInstallCommand, type ProductPackageOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { productInitCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
+import type { ProductApplyOptions } from "@atomicstrata/llmwiki-core/commands/product/apply";
+import type { ProductStatusOptions } from "@atomicstrata/llmwiki-core/commands/product/status";
+import type { ProductActionOptions } from "@atomicstrata/llmwiki-core/commands/product/inputs";
+import type { ProductPackageOptions } from "@atomicstrata/llmwiki-core/commands/product/package";
 
 /** Every verb here answers `--json` with the same envelope contract. */
 const JSON_DESCRIPTION = "Emit the machine-readable envelope instead of the human lines";
@@ -65,6 +63,7 @@ export function registerProductCommands(program: Command): void {
     .description("Install, activate, and run product packages");
   registerPackageVerbs(product);
   registerActionVerbs(product);
+  registerReviewVerbs(product);
 }
 
 /** The verbs that put a package in the project and make it authoritative. */
@@ -74,21 +73,30 @@ function registerPackageVerbs(product: Command): void {
     .description("Install a local product package inertly (activates nothing)")
     .option("--json", JSON_DESCRIPTION)
     .action(async (sourceDir: string, options: ProductPackageOptions) =>
-      runExitCodeCommand(() => productInstallCommand(process.cwd(), sourceDir, options)));
+      runExitCodeCommand(async () => {
+        const { productInstallCommand } = await import("@atomicstrata/llmwiki-core/commands/product/package");
+        return productInstallCommand(process.cwd(), sourceDir, options);
+      }));
 
   product
     .command("activate <packageDigest>")
     .description("Make one installed package this project's knowledge and operations authority")
     .option("--json", JSON_DESCRIPTION)
     .action(async (packageDigest: string, options: ProductPackageOptions) =>
-      runExitCodeCommand(() => productActivateCommand(process.cwd(), packageDigest, options)));
+      runExitCodeCommand(async () => {
+        const { productActivateCommand } = await import("@atomicstrata/llmwiki-core/commands/product/package");
+        return productActivateCommand(process.cwd(), packageDigest, options);
+      }));
 
   product
     .command("init <sourceDir>")
     .description("Cold-init a project: install + activate a package, then scaffold its entity directories")
     .option("--json", JSON_DESCRIPTION)
     .action(async (sourceDir: string, options: ProductPackageOptions) =>
-      runExitCodeCommand(() => productInitCommand(process.cwd(), sourceDir, options)));
+      runExitCodeCommand(async () => {
+        const { productInitCommand } = await import("@atomicstrata/llmwiki-core/commands/product/init");
+        return productInitCommand(process.cwd(), sourceDir, options);
+      }));
 }
 
 /** The verbs that run the active product's actions. */
@@ -97,7 +105,10 @@ function registerActionVerbs(product: Command): void {
     .command("preview <token>")
     .description("Report what invoking this action would do, writing nothing"))
     .action(async (token: string, options: ProductActionOptions) =>
-      runExitCodeCommand(() => productPreviewCommand(process.cwd(), token, options)));
+      runExitCodeCommand(async () => {
+        const { productPreviewCommand } = await import("@atomicstrata/llmwiki-core/commands/product/action");
+        return productPreviewCommand(process.cwd(), token, options);
+      }));
 
   // THE DESCRIPTION NAMES THE LIMIT. An operator reading `--help` is deciding
   // whether this verb changes their wiki, and the honest answer is that it does
@@ -106,7 +117,10 @@ function registerActionVerbs(product: Command): void {
     .command("invoke <token>")
     .description("Run an action to a reviewable handoff bundle (proposes the change; applies nothing)"))
     .action(async (token: string, options: ProductActionOptions) =>
-      runExitCodeCommand(() => productInvokeCommand(process.cwd(), token, options)));
+      runExitCodeCommand(async () => {
+        const { productInvokeCommand } = await import("@atomicstrata/llmwiki-core/commands/product/action");
+        return productInvokeCommand(process.cwd(), token, options);
+      }));
 
   // The route back from a review gate. `invoke` reports `awaiting-review` and
   // names this command, so it must exist: a surface that tells an operator to
@@ -115,8 +129,14 @@ function registerActionVerbs(product: Command): void {
     .command("resume <runId> <token>")
     .description("Continue a run that stopped at a review gate, after deciding it with `preparation gate`"))
     .action(async (runId: string, token: string, options: ProductActionOptions) =>
-      runExitCodeCommand(() => productResumeCommand(process.cwd(), runId, token, options)));
+      runExitCodeCommand(async () => {
+        const { productResumeCommand } = await import("@atomicstrata/llmwiki-core/commands/product/action");
+        return productResumeCommand(process.cwd(), runId, token, options);
+      }));
+}
 
+/** The verbs that review readiness and apply what an invocation proposed. */
+function registerReviewVerbs(product: Command): void {
   // The readiness review. It sits beside the acting verbs deliberately: an
   // operator asking "can this product actually do its optional work here?"
   // should not have to know that the answer lives in a credential registry.
@@ -129,7 +149,10 @@ function registerActionVerbs(product: Command): void {
     .option("--skip <dimension>", "Record that you are declining this optional capability")
     .option("--unskip <dimension>", "Clear a previously recorded skip")
     .action(async (options: ProductStatusOptions) =>
-      runExitCodeCommand(() => productStatusCommand(process.cwd(), options)));
+      runExitCodeCommand(async () => {
+        const { productStatusCommand } = await import("@atomicstrata/llmwiki-core/commands/product/status");
+        return productStatusCommand(process.cwd(), options);
+      }));
 
   // AND THIS DESCRIPTION NAMES THE OTHER HALF, for the same reason: `apply` is
   // the one verb in the group that changes the wiki, so `--help` says WRITES
@@ -139,5 +162,8 @@ function registerActionVerbs(product: Command): void {
     .description("Approve and apply a bundle `invoke` proposed — WRITES the change to your wiki. The bundle digest is resolved across every workspace, so no --workspace flag exists or is needed")
     .option("--json", JSON_DESCRIPTION)
     .action(async (bundle: string, options: ProductApplyOptions) =>
-      runExitCodeCommand(() => productApplyCommand(process.cwd(), bundle, options)));
+      runExitCodeCommand(async () => {
+        const { productApplyCommand } = await import("@atomicstrata/llmwiki-core/commands/product/apply");
+        return productApplyCommand(process.cwd(), bundle, options);
+      }));
 }

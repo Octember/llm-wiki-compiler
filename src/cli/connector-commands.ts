@@ -4,8 +4,7 @@
  */
 
 import type { Command } from "commander";
-import { connectorListCommand, connectorRunCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import type { ConnectorRunOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
+import type { ConnectorRunOptions } from "@atomicstrata/llmwiki-core/commands/connector";
 
 /** Register connector discovery and run commands on the root Commander program. */
 export function registerConnectorCommands(program: Command): void {
@@ -18,6 +17,7 @@ export function registerConnectorCommands(program: Command): void {
     .description("List registered connectors and their activation/profile binding state")
     .action(async () => {
       try {
+        const { connectorListCommand } = await import("@atomicstrata/llmwiki-core/commands/connector");
         await connectorListCommand();
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -31,6 +31,7 @@ export function registerConnectorCommands(program: Command): void {
     .option("--input <pair...>", "Connector input as key=value")
     .action(async (id: string, options: ConnectorRunOptions) => {
       try {
+        const { connectorRunCommand } = await import("@atomicstrata/llmwiki-core/commands/connector");
         await connectorRunCommand(id, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);

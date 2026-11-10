@@ -16,6 +16,7 @@ export default defineConfig({
       { find: /^@atomicstrata\/llmwiki-core\/local-workflow-host$/, replacement: fileURLToPath(new URL("./src/local-workflow-host/index.ts", import.meta.url)) },
       { find: /^@atomicstrata\/llmwiki-core$/, replacement: fileURLToPath(new URL("./src/core-index.ts", import.meta.url)) },
       { find: /^@atomicstrata\/llmwiki-core\/local-workflow-contracts$/, replacement: fileURLToPath(new URL("./src/local-workflow-host/shared-contracts.ts", import.meta.url)) },
+      { find: /^@atomicstrata\/llmwiki-core\/((?:commands|cli|compiler|profile|utils)\/.+)$/, replacement: fileURLToPath(new URL("./src/", import.meta.url)) + "$1.ts" },
       { find: /^llm-wiki-compiler$/, replacement: fileURLToPath(new URL("./src/index.ts", import.meta.url)) },
       ...["llmwiki-dev-backend", "llmwiki-limited-isolation-backend"].map(name => ({
         find: new RegExp("^" + name + "$"),

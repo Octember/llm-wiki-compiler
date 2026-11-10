@@ -3,10 +3,9 @@
  * options and presentation together without expanding the main entrypoint.
  */
 import type { Command } from "commander";
-import { nextCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { contextCommand, type ContextCommandOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { setVerbose } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+import type { ContextCommandOptions } from "@atomicstrata/llmwiki-core/commands/context";
+import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
 
 /** Register advisory commands with the main CLI verbose-option policy. */
 export function registerContextCommands(program: Command, verboseEnabled: (flag?: boolean) => boolean): void {
@@ -15,7 +14,10 @@ export function registerContextCommands(program: Command, verboseEnabled: (flag?
     .description("Show the recommended next action for this llmwiki project (read-only)")
     .option("--json", "Emit a stable JSON envelope for agent consumption")
     .action(async (options: { json?: boolean }) =>
-      runExitCodeCommand(() => nextCommand({ json: options.json })),
+      runExitCodeCommand(async () => {
+        const { default: nextCommand } = await import("@atomicstrata/llmwiki-core/commands/next");
+        return nextCommand({ json: options.json });
+      }),
     );
   
   program
@@ -40,6 +42,9 @@ export function registerContextCommands(program: Command, verboseEnabled: (flag?
     .option("--verbose", "Print detailed progress (or set LLMWIKI_VERBOSE=1)")
     .action(async (prompt: string, options: ContextCommandOptions & { verbose?: boolean }) => {
       setVerbose(verboseEnabled(options.verbose));
-      return runExitCodeCommand(() => contextCommand(prompt, options));
+      return runExitCodeCommand(async () => {
+        const { default: contextCommand } = await import("@atomicstrata/llmwiki-core/commands/context");
+        return contextCommand(prompt, options);
+      });
     });
 }

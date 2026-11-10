@@ -8,8 +8,7 @@
  */
 
 import type { Command } from "commander";
-import { evalCommand, evalCacheClearCommand, evalCacheShowCommand, evalReportCommand, evalHistoryCommand, evalJudgementsCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
 
 /** Register the `eval cache` sub-group (`clear`, `show`) under the parent `eval` command. */
 function registerEvalCacheCommands(evalCmd: Command): void {
@@ -19,16 +18,20 @@ function registerEvalCacheCommands(evalCmd: Command): void {
     .command("clear")
     .description("Delete the cache so all judgements re-run on the next full eval")
     .action(async () => {
-      try { await evalCacheClearCommand(); }
-      catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
+      try {
+        const { evalCacheClearCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
+        await evalCacheClearCommand();
+      } catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
     });
 
   evalCacheCmd
     .command("show")
     .description("Print a score distribution summary of cached citation judgements")
     .action(async () => {
-      try { await evalCacheShowCommand(); }
-      catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
+      try {
+        const { evalCacheShowCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
+        await evalCacheShowCommand();
+      } catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
     });
 }
 
@@ -43,6 +46,7 @@ export function registerEvalCommands(program: Command): void {
     .option("--candidates", "evaluate pending concept/query drafts instead of live pages")
     .action(async (opts: ProviderOption & { suite: string; out: string; sample: string }) => {
       try {
+        const { default: evalCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
         applyProviderOption(opts);
         await evalCommand(opts);
       } catch (err) {
@@ -52,14 +56,20 @@ export function registerEvalCommands(program: Command): void {
     });
 
   registerEvalCacheCommands(evalCmd);
+  registerEvalHistoryCommands(evalCmd);
+}
 
+/** Register the stored-result readers under `eval`: `report`, `history`, `judgements`. */
+function registerEvalHistoryCommands(evalCmd: Command): void {
   evalCmd
     .command("report")
     .description("Re-display the most recent eval report without running a new eval")
     .option("--out <format>", "terminal or json", "terminal")
     .action(async (opts) => {
-      try { await evalReportCommand(opts); }
-      catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
+      try {
+        const { evalReportCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
+        await evalReportCommand(opts);
+      } catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
     });
 
   evalCmd
@@ -68,8 +78,10 @@ export function registerEvalCommands(program: Command): void {
     .option("--n <count>", "number of runs to show", "10")
     .option("--out <format>", "terminal or json", "terminal")
     .action(async (opts) => {
-      try { await evalHistoryCommand(opts); }
-      catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
+      try {
+        const { evalHistoryCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
+        await evalHistoryCommand(opts);
+      } catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
     });
 
   evalCmd
@@ -80,7 +92,9 @@ export function registerEvalCommands(program: Command): void {
     .option("--n <count>", "limit number of judgements shown")
     .option("--out <format>", "terminal or json", "terminal")
     .action(async (opts) => {
-      try { await evalJudgementsCommand(opts); }
-      catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
+      try {
+        const { evalJudgementsCommand } = await import("@atomicstrata/llmwiki-core/commands/eval");
+        await evalJudgementsCommand(opts);
+      } catch (err) { console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`); process.exit(1); }
     });
 }

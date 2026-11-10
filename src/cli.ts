@@ -8,33 +8,17 @@
 
 import { createRequire } from "module";
 import { Command } from "commander";
-import { ingestCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { ingestSessionCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { viewCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { resolvePort } from "./cli/view-port.js";
-import { visualizeCommand, type VisualizeOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { compileCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { rmCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { queryCommand, assertQuerySaveOptions } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { watchCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { lintCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { statusCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { exportCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { importCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { recoverCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { registerRulesCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+import type { VisualizeOptions } from "@atomicstrata/llmwiki-core/commands/visualize";
+import { registerRulesCommand } from "@atomicstrata/llmwiki-core/commands/rules-register";
 import { registerContextCommands } from "./cli/context-commands.js";
-import { refreshCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { quickstartCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { startMCPServer } from "./mcp/server.js";
-import { applyLanguageOption } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { applyLanguageOption } from "@atomicstrata/llmwiki-core/utils/output-language";
+import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/utils/sources-section";
 import { readInstructions } from "./cli/instructions.js";
-import { ensureCompileProviderAvailable, ensureProviderAvailable } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { setVerbose } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { ENV_VERBOSE } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { setVerbose } from "@atomicstrata/llmwiki-core/utils/output";
+import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/compiler/concurrency";
+import { ENV_VERBOSE } from "@atomicstrata/llmwiki-core/utils/constants";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
 import { registerStateCommands } from "./cli/state-commands.js";
 import { registerSchemaCommands } from "./cli/schema-commands.js";
 import { registerProfileCommands } from "./cli/profile-commands.js";
@@ -47,7 +31,7 @@ import { registerConnectorCommands } from "./cli/connector-commands.js";
 import { registerOperationCommands } from "./cli/operation-commands.js";
 import { registerProductCommands } from "./cli/product-commands.js";
 import { registerPreparationCommands } from "./cli/preparation-commands.js";
-import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/compiler-cli";
+import { addProviderOption, applyProviderOption, type ProviderOption } from "@atomicstrata/llmwiki-core/cli/provider-option";
 import { loadCliEnvironment } from "./cli/environment.js";
 
 loadCliEnvironment();
@@ -78,6 +62,7 @@ program
   .action(async (source: string, options: { verbose?: boolean }) => {
     try {
       setVerbose(verboseEnabled(options.verbose));
+      const { default: ingestCommand } = await import("@atomicstrata/llmwiki-core/commands/ingest");
       await ingestCommand(source);
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -92,6 +77,7 @@ program
   .action(async (targetPath: string, options: { verbose?: boolean }) => {
     try {
       setVerbose(verboseEnabled(options.verbose));
+      const { default: ingestSessionCommand } = await import("@atomicstrata/llmwiki-core/commands/ingest-session");
       await ingestSessionCommand(targetPath);
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -109,6 +95,7 @@ program
   .action(async (options: { port?: string; host?: string; allowLan?: boolean; open?: boolean }) => {
     try {
       const port = resolvePort(options.port);
+      const { default: viewCommand } = await import("@atomicstrata/llmwiki-core/commands/view");
       await viewCommand({ ...options, port });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -151,7 +138,9 @@ addProviderOption(program.command("compile").description("Compile sources/ into 
       applyLanguageOption(options.lang);
       applySourcesSectionOption(options.sourcesSection);
       const systemPolicy = await readInstructions(options.instructions);
-      requireCompileProvider();
+      const { ensureCompileProviderAvailable } = await import("@atomicstrata/llmwiki-core/utils/provider-guard");
+      requireAvailableProvider(ensureCompileProviderAvailable);
+      const { default: compileCommand } = await import("@atomicstrata/llmwiki-core/commands/compile");
       await compileCommand({ review: options.review, concurrency: parseConcurrencyFlag(options.concurrency), systemPolicy,
         noPagesLimit: options.pagesLimit === false });
     } catch (err) {
@@ -166,6 +155,7 @@ program
   .option("--dry-run", "Print what would be deleted and kept without changing anything")
   .action(async (source: string, options: { dryRun?: boolean }) => {
     try {
+      const { rmCommand } = await import("@atomicstrata/llmwiki-core/commands/rm");
       const code = await rmCommand(source, { dryRun: options.dryRun });
       process.exit(code);
     } catch (err) {
@@ -187,10 +177,12 @@ addProviderOption(program.command("refresh").description("Recompile only stale/c
     try {
       applyProviderOption(options);
       setVerbose(verboseEnabled(options.verbose));
+      const { ensureCompileProviderAvailable } = await import("@atomicstrata/llmwiki-core/utils/provider-guard");
+      const { default: refreshCommand } = await import("@atomicstrata/llmwiki-core/commands/refresh");
       const code = await refreshCommand(
         { stale: options.stale, dryRun: options.dryRun, concurrency: parseConcurrencyFlag(options.concurrency),
           noPagesLimit: options.pagesLimit === false },
-        requireCompileProvider,
+        () => requireAvailableProvider(ensureCompileProviderAvailable),
       );
       process.exit(code);
     } catch (err) {
@@ -208,6 +200,7 @@ program
   .description("Recover an incomplete compile (revert a crashed compile's journal) without a full recompile.")
   .action(async () => {
     try {
+      const { recoverCommand } = await import("@atomicstrata/llmwiki-core/commands/recover");
       await recoverCommand();
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -215,7 +208,10 @@ program
     }
   });
 
-registerRulesCommand(program, requireProvider);
+registerRulesCommand(program, async () => {
+  const { ensureProviderAvailable } = await import("@atomicstrata/llmwiki-core/utils/provider-guard");
+  requireAvailableProvider(ensureProviderAvailable);
+});
 
 addProviderOption(program.command("query <question>").description("Ask a question against the wiki"))
   .option("--save", "Save the answer as a wiki page")
@@ -232,11 +228,13 @@ addProviderOption(program.command("query <question>").description("Ask a questio
       options: ProviderOption & { save?: boolean; review?: boolean; debug?: boolean; lang?: string; verbose?: boolean },
     ) => {
       try {
+        const { default: queryCommand, assertQuerySaveOptions } = await import("@atomicstrata/llmwiki-core/commands/query");
         assertQuerySaveOptions(options);
         applyProviderOption(options);
         setVerbose(verboseEnabled(options.verbose));
         applyLanguageOption(options.lang);
-        requireProvider();
+        const { ensureProviderAvailable } = await import("@atomicstrata/llmwiki-core/utils/provider-guard");
+        requireAvailableProvider(ensureProviderAvailable);
         await queryCommand(process.cwd(), question, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -253,7 +251,9 @@ addProviderOption(program.command("watch").description("Watch sources/ and auto-
   .action(async (options: ProviderOption & { concurrency?: string }) => {
     try {
       applyProviderOption(options);
-      requireCompileProvider();
+      const { ensureCompileProviderAvailable } = await import("@atomicstrata/llmwiki-core/utils/provider-guard");
+      requireAvailableProvider(ensureCompileProviderAvailable);
+      const { default: watchCommand } = await import("@atomicstrata/llmwiki-core/commands/watch");
       await watchCommand({ concurrency: parseConcurrencyFlag(options.concurrency) });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -268,6 +268,7 @@ program
   .option("--depth <hops>", "Hops around --focus (default 1)")
   .action(async (options: VisualizeOptions) => {
     try {
+      const { default: visualizeCommand } = await import("@atomicstrata/llmwiki-core/commands/visualize");
       process.exitCode = await visualizeCommand(process.cwd(), options);
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err));
@@ -283,6 +284,7 @@ program
   .option("--fix-propose <n>", "Propose the nth previewed repair for review; applies nothing")
   .action(async (options: { tiered?: boolean; fixPreview?: boolean; fixPropose?: string }) => {
     try {
+      const { default: lintCommand } = await import("@atomicstrata/llmwiki-core/commands/lint");
       await lintCommand({
         tiered: options.tiered,
         fixPreview: options.fixPreview,
@@ -300,6 +302,7 @@ program
   .option("--json", "Emit the status snapshot as JSON (same shape as the MCP wiki_status tool)")
   .action(async (options: { json?: boolean }) => {
     try {
+      const { default: statusCommand } = await import("@atomicstrata/llmwiki-core/commands/status");
       const code = await statusCommand({ json: options.json });
       process.exit(code);
     } catch (err) {
@@ -342,6 +345,7 @@ program
   .action(async (options: { target?: string; source?: string; projectId?: string; out?: string; verbose?: boolean }) => {
     try {
       setVerbose(verboseEnabled(options.verbose));
+      const { default: exportCommand } = await import("@atomicstrata/llmwiki-core/commands/export");
       await exportCommand(process.cwd(), options);
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -362,6 +366,7 @@ program
   .action(async (options: { okf: string; trusted?: boolean; dryRun?: boolean; verbose?: boolean }) => {
     try {
       setVerbose(verboseEnabled(options.verbose));
+      const { default: importCommand } = await import("@atomicstrata/llmwiki-core/commands/import");
       await importCommand(process.cwd(), options);
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -400,6 +405,7 @@ program
     },
   ) => {
     setVerbose(verboseEnabled(options.verbose));
+    const { default: quickstartCommand } = await import("@atomicstrata/llmwiki-core/commands/quickstart");
     return runExitCodeCommand(() => quickstartCommand(source, {
       review: options.review,
       open: options.open,
@@ -420,6 +426,7 @@ program
     try {
       // Per-tool credential checks happen inside the MCP layer so read-only
       // tools and ingest still work without an API key.
+      const { startMCPServer } = await import("./mcp/server.js");
       await startMCPServer({ root: options.root, version });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -428,21 +435,11 @@ program
   });
 
 /**
- * Run the shared provider guard but match the legacy CLI error path:
- * print the error in red and exit 1 instead of letting the throw
- * surface as a stack trace. Programmatic callers use the underlying guards
- * directly so they can convert the throw into a structured envelope.
+ * Run a provider guard but match the legacy CLI error path: print the error in
+ * red and exit 1 instead of letting the throw surface as a stack trace.
+ * Programmatic callers use the guards directly so they can convert the throw
+ * into a structured envelope.
  */
-function requireProvider(): void {
-  requireAvailableProvider(ensureProviderAvailable);
-}
-
-/** Run the compile-aware provider guard through the legacy CLI error path. */
-function requireCompileProvider(): void {
-  requireAvailableProvider(ensureCompileProviderAvailable);
-}
-
-/** Print a provider-guard failure in red and exit through the legacy path. */
 function requireAvailableProvider(ensureAvailable: () => void): void {
   try {
     ensureAvailable();
