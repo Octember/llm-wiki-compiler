@@ -9,26 +9,18 @@ import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 import { verboseEnabled } from "./verbose.js";
 
-/** Register the `next` command on `program`. */
-export function registerNextCommand(program: Command): void {
-  program
-    .command("next")
-    .description("Show the recommended next action for this llmwiki project (read-only)")
+/** Add the options and action of the `next` command. */
+export function registerNextCommand(command: Command): void {
+  command
     .option("--json", "Emit a stable JSON envelope for agent consumption")
     .action(async (options: { json?: boolean }) =>
       runExitCodeCommand(() => nextCommand({ json: options.json })),
     );
 }
 
-/** Register the `context` command on `program`. */
-export function registerContextCommand(program: Command): void {
-  program
-    .command("context <prompt>")
-    .description(
-      "Build an agent-ready evidence pack for <prompt> from the compiled wiki " +
-        "(read-only; provider credentials optional — semantic retrieval is used " +
-        "when available and falls back to lexical otherwise)",
-    )
+/** Add the options and action of the `context` command. */
+export function registerContextCommand(command: Command): void {
+  command
     .option("--budget <tokens>", "Approximate output token budget (default 8000)")
     .option("--format <format>", "Output format: json | markdown (default markdown)")
     .option("--json", "Emit the stable v1 JSON envelope (overrides --format)")

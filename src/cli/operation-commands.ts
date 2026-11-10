@@ -60,12 +60,8 @@ function registerOperationDriveCommands(operationCmd: Command): void {
     .action(async (target: string, options: JsonOption) => runExitCodeCommand(() => operationCancelCommand(process.cwd(), target, options)));
 }
 
-/** Register the `operation` command group on `program`. */
-export function registerOperationCommands(program: Command): void {
-  const operationCmd = program
-    .command("operation")
-    .description("Inspect and drive operation-bundle execution/recovery (list, inspect, resume, compensate, cancel)");
-
+/** Register the `operation` command group. */
+export function registerOperationCommands(operationCmd: Command): void {
   registerOperationReadCommands(operationCmd);
   registerOperationDriveCommands(operationCmd);
 }

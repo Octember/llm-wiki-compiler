@@ -9,11 +9,7 @@ import { profileShow, profileValidate, profileDiff, profileInit } from "@atomics
 import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 
 /** Register the `profile` inspection and starter-authoring commands. */
-export function registerProfileCommands(program: Command): void {
-  const profileCmd = program
-    .command("profile")
-    .description("Create or inspect the active wiki profile");
-
+export function registerProfileCommands(profileCmd: Command): void {
   profileCmd
     .command("init")
     .description("Create a minimal editable profile in an empty project")

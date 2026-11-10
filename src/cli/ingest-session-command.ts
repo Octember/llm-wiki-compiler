@@ -7,11 +7,9 @@ import ingestSessionCommand from "@atomicstrata/llmwiki-core/modules/commands/in
 import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
-/** Register the `ingest-session` command on `program`. */
-export function registerIngestSessionCommand(program: Command): void {
-  program
-    .command("ingest-session <path>")
-    .description("Ingest a coding-agent session export (Claude, Codex, Cursor) into sources/")
+/** Add the options and action of the `ingest-session` command. */
+export function registerIngestSessionCommand(command: Command): void {
+  command
     .option("--verbose", "Print detailed progress (or set LLMWIKI_VERBOSE=1)")
     .action(async (targetPath: string, options: { verbose?: boolean }) => {
       try {

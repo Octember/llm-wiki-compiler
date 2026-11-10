@@ -5,11 +5,9 @@
 import type { Command } from "commander";
 import visualizeCommand, { type VisualizeOptions } from "@atomicstrata/llmwiki-core/modules/commands/visualize";
 
-/** Register the `visualize` command on `program`. */
-export function registerVisualizeCommand(program: Command): void {
-  program
-    .command("visualize")
-    .description("Create Obsidian graph configuration and Canvas knowledge maps without overwriting edits")
+/** Add the options and action of the `visualize` command. */
+export function registerVisualizeCommand(command: Command): void {
+  command
     .option("--focus <nodeId>", "Centre the canvas on one node, e.g. papers/alpha")
     .option("--depth <hops>", "Hops around --focus (default 1)")
     .action(async (options: VisualizeOptions) => {

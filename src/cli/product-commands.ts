@@ -58,11 +58,8 @@ function withActionOptions(command: Command): Command {
     .option("--json", JSON_DESCRIPTION);
 }
 
-/** Register the `product` command group on the root program. */
-export function registerProductCommands(program: Command): void {
-  const product = program
-    .command("product")
-    .description("Install, activate, and run product packages");
+/** Register the `product` command group. */
+export function registerProductCommands(product: Command): void {
   registerPackageVerbs(product);
   registerActionVerbs(product);
 }

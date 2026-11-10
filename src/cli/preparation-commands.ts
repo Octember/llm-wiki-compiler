@@ -72,11 +72,8 @@ import { RESET_CONFIRM_DESCRIPTION, RESET_TOKEN_DESCRIPTION, preparationResetCom
 import { preparationPreviewCommand, preparationStageCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/stage";
 import { preparationSweepCommand } from "@atomicstrata/llmwiki-core/modules/commands/preparation/sweep";
 
-/** Register the `preparation` command group on the root program. */
-export function registerPreparationCommands(program: Command): void {
-  const preparation = program
-    .command("preparation")
-    .description("Inspect and drive preparation runs");
+/** Register the `preparation` command group. */
+export function registerPreparationCommands(preparation: Command): void {
   registerReadVerbs(preparation);
   registerDriveVerbs(preparation);
 }

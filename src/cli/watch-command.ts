@@ -8,9 +8,9 @@ import { addProviderOption, applyProviderOption, type ProviderOption } from "@at
 import { parseConcurrencyFlag } from "@atomicstrata/llmwiki-core/modules/compiler/concurrency";
 import { requireCompileProvider } from "./require-provider.js";
 
-/** Register the `watch` command on `program`. */
-export function registerWatchCommand(program: Command): void {
-  addProviderOption(program.command("watch").description("Watch sources/ and auto-recompile on changes"))
+/** Add the options and action of the `watch` command. */
+export function registerWatchCommand(command: Command): void {
+  addProviderOption(command)
     .option(
       "--concurrency <n>",
       "Max concurrent LLM calls per recompile (or set LLMWIKI_COMPILE_CONCURRENCY; default 5)",

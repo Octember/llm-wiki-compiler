@@ -14,11 +14,7 @@ import reviewRejectCommand from "@atomicstrata/llmwiki-core/modules/commands/rev
 import reviewApproveBatchCommand from "@atomicstrata/llmwiki-core/modules/commands/review-approve-batch";
 
 /** Register the review inspection, approval, batch approval, and rejection commands. */
-export function registerReviewCommands(program: Command): void {
-  const reviewCommand = program
-    .command("review")
-    .description("Inspect and act on pending compile review candidates");
-
+export function registerReviewCommands(reviewCommand: Command): void {
   reviewCommand
     .command("list")
     .description("List pending review candidates")

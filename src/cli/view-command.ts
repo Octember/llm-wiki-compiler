@@ -6,11 +6,9 @@ import type { Command } from "commander";
 import viewCommand from "@atomicstrata/llmwiki-core/modules/commands/view";
 import { resolvePort } from "./view-port.js";
 
-/** Register the `view` command on `program`. */
-export function registerViewCommand(program: Command): void {
-  program
-    .command("view")
-    .description("Start a local read-only web viewer for the current wiki project")
+/** Add the options and action of the `view` command. */
+export function registerViewCommand(command: Command): void {
+  command
     .option("--port <port>", "Port to bind (default 0 — OS-assigned)")
     .option("--host <host>", "Host to bind (requires --allow-lan; default 127.0.0.1)")
     .option("--allow-lan", "Bind beyond loopback (requires --host); off by default for privacy")

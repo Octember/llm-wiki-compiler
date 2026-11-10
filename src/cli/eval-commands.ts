@@ -32,11 +32,9 @@ function registerEvalCacheCommands(evalCmd: Command): void {
     });
 }
 
-/** Register the `eval` command group (root eval + `cache`/`report`/`history`/`judgements`) on `program`. */
-export function registerEvalCommands(program: Command): void {
-  const evalCmd = addProviderOption(
-    program.command("eval").description("Evaluate wiki quality (health, citation coverage, LLM judge)"),
-  )
+/** Register the `eval` command group (root eval + `cache`/`report`/`history`/`judgements`). */
+export function registerEvalCommands(command: Command): void {
+  const evalCmd = addProviderOption(command)
     .option("--suite <level>", "fast (deterministic) or full (+ LLM judge)", "fast")
     .option("--out <format>", "terminal or json", "terminal")
     .option("--sample <n>", "number of citations to judge in full suite", "20")

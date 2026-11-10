@@ -5,11 +5,9 @@
 import type { Command } from "commander";
 import { recoverCommand } from "@atomicstrata/llmwiki-core/modules/commands/recover";
 
-/** Register the `recover` command on `program`. */
-export function registerRecoverCommand(program: Command): void {
-  program
-    .command("recover")
-    .description("Recover an incomplete compile (revert a crashed compile's journal) without a full recompile.")
+/** Add the options and action of the `recover` command. */
+export function registerRecoverCommand(command: Command): void {
+  command
     .action(async () => {
       try {
         await recoverCommand();

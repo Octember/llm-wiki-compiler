@@ -9,12 +9,8 @@
 import type { Command } from "commander";
 import { schemaInitCommand, schemaShowCommand } from "@atomicstrata/llmwiki-core/modules/commands/schema";
 
-/** Register the `schema` command group (`init`, `show`) on `program`. */
-export function registerSchemaCommands(program: Command): void {
-  const schemaCmd = program
-    .command("schema")
-    .description("Inspect or initialize the project's wiki schema config");
-
+/** Register the `schema` command group (`init`, `show`). */
+export function registerSchemaCommands(schemaCmd: Command): void {
   schemaCmd
     .command("init")
     .description("Write a starter schema file to .llmwiki/schema.json")

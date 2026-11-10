@@ -198,12 +198,8 @@ function registerWorkflowGateCommands(workflowCmd: Command): void {
     });
 }
 
-/** Register the `workflow` command group and its `action`/`gate` sub-groups on `program`. */
-export function registerWorkflowCommands(program: Command): void {
-  const workflowCmd = program
-    .command("workflow")
-    .description("Run and inspect declarative profile workflows (experimental)");
-
+/** Register the `workflow` command group and its `action`/`gate` sub-groups. */
+export function registerWorkflowCommands(workflowCmd: Command): void {
   registerWorkflowInspectionCommands(workflowCmd);
   registerWorkflowRunCommands(workflowCmd);
   registerWorkflowActionCommands(workflowCmd);

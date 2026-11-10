@@ -10,9 +10,9 @@ import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 import { requireProvider } from "./require-provider.js";
 
-/** Register the `query` command on `program`. */
-export function registerQueryCommand(program: Command): void {
-  addProviderOption(program.command("query <question>").description("Ask a question against the wiki"))
+/** Add the options and action of the `query` command. */
+export function registerQueryCommand(command: Command): void {
+  addProviderOption(command)
     .option("--save", "Save the answer as a wiki page")
     .option("--review", "Stage the answer for review instead of publishing (requires --save)")
     .option("--debug", "Print which pages and chunks were selected and their scores")

@@ -7,11 +7,9 @@ import importCommand from "@atomicstrata/llmwiki-core/modules/commands/import";
 import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
-/** Register the `import` command on `program`. */
-export function registerImportCommand(program: Command): void {
-  program
-    .command("import")
-    .description("Import an OKF bundle as review candidates (default) or live pages (--trusted)")
+/** Add the options and action of the `import` command. */
+export function registerImportCommand(command: Command): void {
+  command
     .requiredOption("--okf <dir>", "Path to the OKF bundle directory to import")
     .option(
       "--trusted",

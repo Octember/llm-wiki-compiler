@@ -5,11 +5,9 @@
 import type { Command } from "commander";
 import statusCommand from "@atomicstrata/llmwiki-core/modules/commands/status";
 
-/** Register the `status` command on `program`. */
-export function registerStatusCommand(program: Command): void {
-  program
-    .command("status")
-    .description("Report project status: page/source counts, stale and orphaned pages, pending changes, review queue, and state health")
+/** Add the options and action of the `status` command. */
+export function registerStatusCommand(command: Command): void {
+  command
     .option("--json", "Emit the status snapshot as JSON (same shape as the MCP wiki_status tool)")
     .action(async (options: { json?: boolean }) => {
       try {

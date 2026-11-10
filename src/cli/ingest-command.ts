@@ -7,11 +7,9 @@ import ingestCommand from "@atomicstrata/llmwiki-core/modules/commands/ingest";
 import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
-/** Register the `ingest` command on `program`. */
-export function registerIngestCommand(program: Command): void {
-  program
-    .command("ingest <source>")
-    .description("Ingest a URL or local file into sources/")
+/** Add the options and action of the `ingest` command. */
+export function registerIngestCommand(command: Command): void {
+  command
     .option("--verbose", "Print detailed progress (or set LLMWIKI_VERBOSE=1)")
     .action(async (source: string, options: { verbose?: boolean }) => {
       try {

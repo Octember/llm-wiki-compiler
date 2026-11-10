@@ -10,9 +10,9 @@ import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 import { requireCompileProvider } from "./require-provider.js";
 
-/** Register the `refresh` command on `program`. */
-export function registerRefreshCommand(program: Command): void {
-  addProviderOption(program.command("refresh").description("Recompile only stale/changed pages without touching unrelated new sources"))
+/** Add the options and action of the `refresh` command. */
+export function registerRefreshCommand(command: Command): void {
+  addProviderOption(command)
     .option("--no-pages-limit", "Use source-supported extraction without a requested concept count during the scoped recompile")
     .option("--stale", "Resolve stale/orphaned pages and recompile them")
     .option("--dry-run", "Print the refresh plan without calling the LLM or writing files")

@@ -23,9 +23,9 @@ interface CompileOptions extends ProviderOption {
   verbose?: boolean;
 }
 
-/** Register the `compile` command on `program`. */
-export function registerCompileCommand(program: Command): void {
-  addProviderOption(program.command("compile").description("Compile sources/ into an interlinked wiki"))
+/** Add the options and action of the `compile` command. */
+export function registerCompileCommand(command: Command): void {
+  addProviderOption(command)
     .option("--no-pages-limit", "Remove the requested 3–8 concepts per source; allow source-supported results with no pages")
     .option("--instructions <path>", "Add UTF-8 project instructions for this compile (max 64 KiB); changing or omitting them recompiles affected pages")
     .option(

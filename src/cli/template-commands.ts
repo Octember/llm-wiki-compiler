@@ -12,10 +12,8 @@ import { templateRemoteInspectCommand, templateSearchCommand, templateVerifyComm
 import { templatePublishAddCommand, templatePublishBuildCommand, templatePublishInitCommand, templatePublishRevokeCommand, templatePublishRotateCommand, templatePublishVerifyCommand, type TemplatePublishAddOptions, type TemplatePublishBuildOptions, type TemplatePublishInitOptions, type TemplatePublishRevokeOptions, type TemplatePublishRotateOptions, type TemplatePublishVerifyOptions } from "@atomicstrata/llmwiki-core/modules/commands/template-publish";
 
 /** Register template list, inspect, and init commands. */
-export function registerTemplateCommands(program: Command): void {
-  const template = program
-    .command("template")
-    .description("List, inspect, and install profile templates")
+export function registerTemplateCommands(template: Command): void {
+  template
     .configureHelp({
       subcommandTerm: (command) => {
         const term = new Help().subcommandTerm(command);

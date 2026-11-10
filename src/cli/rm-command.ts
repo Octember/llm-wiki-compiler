@@ -5,11 +5,9 @@
 import type { Command } from "commander";
 import { rmCommand } from "@atomicstrata/llmwiki-core/modules/commands/rm";
 
-/** Register the `rm` command on `program`. */
-export function registerRmCommand(program: Command): void {
-  program
-    .command("rm <source>")
-    .description("Delete a source and the concept pages derived exclusively from it")
+/** Add the options and action of the `rm` command. */
+export function registerRmCommand(command: Command): void {
+  command
     .option("--dry-run", "Print what would be deleted and kept without changing anything")
     .action(async (source: string, options: { dryRun?: boolean }) => {
       try {

@@ -7,11 +7,9 @@ import exportCommand from "@atomicstrata/llmwiki-core/modules/commands/export";
 import { setVerbose } from "@atomicstrata/llmwiki-core/modules/utils/output";
 import { verboseEnabled } from "./verbose.js";
 
-/** Register the `export` command on `program`. */
-export function registerExportCommand(program: Command): void {
-  program
-    .command("export")
-    .description("Export wiki content to portable formats (llms.txt, JSON, GraphML, Marp, …)")
+/** Add the options and action of the `export` command. */
+export function registerExportCommand(command: Command): void {
+  command
     .option("--target <name>", "Limit export to a single target format")
     .option(
       "--source <kind>",

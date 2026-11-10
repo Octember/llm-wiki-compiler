@@ -5,11 +5,9 @@
 import type { Command } from "commander";
 import lintCommand from "@atomicstrata/llmwiki-core/modules/commands/lint";
 
-/** Register the `lint` command on `program`. */
-export function registerLintCommand(program: Command): void {
-  program
-    .command("lint")
-    .description("Run rule-based quality checks against the wiki")
+/** Add the options and action of the `lint` command. */
+export function registerLintCommand(command: Command): void {
+  command
     .option("--tiered", "Separate broken content, model judgements, and stale derived views")
     .option("--fix-preview", "Preview deterministic repairs without applying them")
     .option("--fix-propose <n>", "Propose the nth previewed repair for review; applies nothing")

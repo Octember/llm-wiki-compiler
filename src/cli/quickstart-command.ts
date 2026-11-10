@@ -14,13 +14,9 @@ interface QuickstartOptions {
   lang?: string; json?: boolean; concurrency?: string; verbose?: boolean;
 }
 
-/** Register the `quickstart` command on `program`. */
-export function registerQuickstartCommand(program: Command): void {
-  program
-    .command("quickstart <source>")
-    .description(
-      "Ingest a source and compile it into a wiki in one step. Recommends the next action when finished.",
-    )
+/** Add the options and action of the `quickstart` command. */
+export function registerQuickstartCommand(command: Command): void {
+  command
     .option("--review", "Generate review candidates instead of mutating wiki/")
     .option("--no-open", "Skip the viewer handoff after a successful compile")
     .option(
