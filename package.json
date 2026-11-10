@@ -27,6 +27,7 @@
     "release:check-docs": "node scripts/check-release-docs.mjs",
     "release:check-docs:current": "node scripts/check-release-docs.mjs --current-version",
     "test": "node scripts/run-tests.mjs",
+    "test:profile": "node scripts/test-profile.mjs",
     "test:watch": "vitest",
     "typecheck:tests": "node scripts/typecheck-tests.ts",
     "typecheck:tests:update": "node scripts/typecheck-tests.ts --update",
