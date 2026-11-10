@@ -16,7 +16,6 @@
 
 import type { LLMProvider, LLMMessage, LLMTool } from "../utils/provider.js";
 import { VoyageEmbeddingProvider } from "./voyage-embed.js";
-import { jsonSchemaToZodShape } from "./json-schema-to-zod.js";
 
 /**
  * Load the Agent SDK on first request. It is the largest dependency in the
@@ -194,7 +193,11 @@ export class ClaudeAgentProvider extends VoyageEmbeddingProvider implements LLMP
   ): Promise<string> {
     const requested = tools[0];
     const qualifiedName = `mcp__${TOOL_SERVER_NAME}__${requested.name}`;
-    const { query, createSdkMcpServer, tool } = await loadAgentSdk();
+    // The schema converter pulls in zod, which only this call needs.
+    const [{ query, createSdkMcpServer, tool }, { jsonSchemaToZodShape }] = await Promise.all([
+      loadAgentSdk(),
+      import("./json-schema-to-zod.js"),
+    ]);
     const sdkTool = tool(
       requested.name,
       requested.description,
