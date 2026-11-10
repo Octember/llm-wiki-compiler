@@ -26,7 +26,7 @@
     "mcp:manifest": "node scripts/mcp-manifest.mjs",
     "release:check-docs": "node scripts/check-release-docs.mjs",
     "release:check-docs:current": "node scripts/check-release-docs.mjs --current-version",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.mjs",
     "test:watch": "vitest",
     "typecheck:tests": "node scripts/typecheck-tests.ts",
     "typecheck:tests:update": "node scripts/typecheck-tests.ts --update",

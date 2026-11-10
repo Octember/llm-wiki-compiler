@@ -54,6 +54,14 @@ npm test         # Run all tests
 npm run dev      # Watch mode for development
 ```
 
+**Test speed on macOS:** `npm test` runs through `scripts/run-tests.mjs`, which
+puts the suite's temporary files on a RAM disk for the run and detaches it
+afterwards. The durable write paths fsync every file they touch, and macOS
+fsync costs about 10 ms per call on the system disk, so the full suite takes
+about 3.5 minutes this way instead of about 8.5. Set `LLMWIKI_TEST_RAMDISK=0`
+to use the normal temp directory. Other platforms are unaffected. Arguments
+pass through to vitest: `npm test -- test/viewer-server.test.ts`.
+
 **Automatic checks via git hooks:**
 
 After `npm install`, husky wires up hooks that run automatically:
