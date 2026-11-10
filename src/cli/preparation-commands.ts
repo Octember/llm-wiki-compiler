@@ -59,7 +59,18 @@
 
 import type { Command } from "commander";
 import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
-import { RESET_CONFIRM_DESCRIPTION, RESET_TOKEN_DESCRIPTION } from "@atomicstrata/llmwiki-core/commands/preparation/reset";
+import { preparationCancelCommand } from "@atomicstrata/llmwiki-core/commands/preparation/cancel";
+import { preparationListCommand } from "@atomicstrata/llmwiki-core/commands/preparation/list";
+import { preparationShowCommand } from "@atomicstrata/llmwiki-core/commands/preparation/show";
+import { preparationPauseCommand } from "@atomicstrata/llmwiki-core/commands/preparation/pause";
+import { preparationResumeCommand } from "@atomicstrata/llmwiki-core/commands/preparation/resume";
+import { preparationFailCommand } from "@atomicstrata/llmwiki-core/commands/preparation/fail";
+import { preparationGateCommand } from "@atomicstrata/llmwiki-core/commands/preparation/gate";
+import { preparationPruneCommand } from "@atomicstrata/llmwiki-core/commands/preparation/prune";
+import { preparationRecoverCommand } from "@atomicstrata/llmwiki-core/commands/preparation/recovery";
+import { RESET_CONFIRM_DESCRIPTION, RESET_TOKEN_DESCRIPTION, preparationResetCommand } from "@atomicstrata/llmwiki-core/commands/preparation/reset";
+import { preparationPreviewCommand, preparationStageCommand } from "@atomicstrata/llmwiki-core/commands/preparation/stage";
+import { preparationSweepCommand } from "@atomicstrata/llmwiki-core/commands/preparation/sweep";
 
 /** Register the `preparation` command group on the root program. */
 export function registerPreparationCommands(program: Command): void {
@@ -68,9 +79,6 @@ export function registerPreparationCommands(program: Command): void {
     .description("Inspect and drive preparation runs");
   registerReadVerbs(preparation);
   registerDriveVerbs(preparation);
-  registerControlVerbs(preparation);
-  registerReclaimVerbs(preparation);
-  registerResetVerb(preparation);
 }
 
 /**
@@ -86,20 +94,14 @@ function registerReadVerbs(preparation: Command): void {
     .description("List preparation runs and any problems observed while reading them")
     .option("--json", "Emit the machine-readable envelope instead of the human table")
     .action(async (options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationListCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/list");
-        return preparationListCommand(process.cwd(), options);
-      }));
+      runExitCodeCommand(() => preparationListCommand(process.cwd(), options)));
 
   preparation
     .command("show <runId>")
     .description("Show one preparation run's durable state, by reference")
     .option("--json", "Emit the machine-readable envelope instead of the human lines")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationShowCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/show");
-        return preparationShowCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationShowCommand(process.cwd(), runId, options)));
 
   preparation
     .command("preview <planFile>")
@@ -108,14 +110,11 @@ function registerReadVerbs(preparation: Command): void {
     .option("--allowance <count>", "Control-transition budget to project against")
     .option("--seed <file>", "JSON file holding the plan's declared initial input")
     .action(async (planFile: string, options: { json?: boolean; allowance?: string; seed?: string }) =>
-      runExitCodeCommand(async () => {
-        const { preparationPreviewCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/stage");
-        return preparationPreviewCommand(process.cwd(), planFile, options);
-      }));
+      runExitCodeCommand(() => preparationPreviewCommand(process.cwd(), planFile, options)));
 
 }
 
-/** The verbs that start a run and decide it: stage, fail, gate. */
+/** The verbs that drive a run: stage, control, gate, hand off, and reclaim. */
 function registerDriveVerbs(preparation: Command): void {
   preparation
     .command("stage <planFile>")
@@ -124,20 +123,14 @@ function registerDriveVerbs(preparation: Command): void {
     .option("--allowance <count>", "Control-transition budget for this run")
     .option("--seed <file>", "JSON file holding the plan's declared initial input")
     .action(async (planFile: string, options: { json?: boolean; allowance?: string; seed?: string }) =>
-      runExitCodeCommand(async () => {
-        const { preparationStageCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/stage");
-        return preparationStageCommand(process.cwd(), planFile, options);
-      }));
+      runExitCodeCommand(() => preparationStageCommand(process.cwd(), planFile, options)));
 
   preparation
     .command("fail <runId>")
     .description("Drive one preparation run to the terminal failed state")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationFailCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/fail");
-        return preparationFailCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationFailCommand(process.cwd(), runId, options)));
 
   preparation
     .command("gate <runId> <gateId> <decision>")
@@ -145,23 +138,14 @@ function registerDriveVerbs(preparation: Command): void {
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .option("--reason <code>", "Reason code recorded on the gate proof")
     .action(async (runId: string, gateId: string, decision: string, options: { json?: boolean; reason?: string }) =>
-      runExitCodeCommand(async () => {
-        const { preparationGateCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/gate");
-        return preparationGateCommand(process.cwd(), runId, gateId, decision, options);
-      }));
-}
+      runExitCodeCommand(() => preparationGateCommand(process.cwd(), runId, gateId, decision, options)));
 
-/** The verbs that hold, release, cancel, and park a run. */
-function registerControlVerbs(preparation: Command): void {
   preparation
     .command("pause <runId>")
     .description("Hold one preparation run at its durable safe checkpoint")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationPauseCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/pause");
-        return preparationPauseCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationPauseCommand(process.cwd(), runId, options)));
 
   // REGISTERED BESIDE `pause`, because the pair is the contract. A build that
   // offers the hold without the release is the shape review refused.
@@ -170,57 +154,36 @@ function registerControlVerbs(preparation: Command): void {
     .description("Return one paused preparation run to running")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationResumeCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/resume");
-        return preparationResumeCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationResumeCommand(process.cwd(), runId, options)));
 
   preparation
     .command("cancel <runId>")
     .description("Request cancellation of one preparation run")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationCancelCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/cancel");
-        return preparationCancelCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationCancelCommand(process.cwd(), runId, options)));
 
   preparation
     .command("recover <runId>")
     .description("Park one stranded preparation run and report lifecycle maintenance")
     .option("--json", "Emit the machine-readable envelope instead of the human lines")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationRecoverCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/recovery");
-        return preparationRecoverCommand(process.cwd(), runId, options);
-      }));
-}
+      runExitCodeCommand(() => preparationRecoverCommand(process.cwd(), runId, options)));
 
-/** The destructive verbs: reclaim the bytes of terminal or provably absent runs. */
-function registerReclaimVerbs(preparation: Command): void {
   preparation
     .command("prune <runId>")
     .description("Reclaim one retention-eligible terminal preparation run's bytes")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (runId: string, options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationPruneCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/prune");
-        return preparationPruneCommand(process.cwd(), runId, options);
-      }));
+      runExitCodeCommand(() => preparationPruneCommand(process.cwd(), runId, options)));
 
   preparation
     .command("sweep")
     .description("Reclaim the bytes of preparations whose runs are provably absent")
     .option("--json", "Emit the machine-readable envelope instead of the human line")
     .action(async (options: { json?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { preparationSweepCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/sweep");
-        return preparationSweepCommand(process.cwd(), options);
-      }));
-}
+      runExitCodeCommand(() => preparationSweepCommand(process.cwd(), options)));
 
-/** The project-key repair verb, registered alone because it is CLI-only. */
-function registerResetVerb(preparation: Command): void {
   // THE ONLY VERB WITH NO SDK SIBLING, and the asymmetry is the point rather
   // than an omission: `reset` is CLI-only, enforced in the service. Registering
   // it here is what makes the repair reachable at all — until it landed, the
@@ -241,8 +204,5 @@ function registerResetVerb(preparation: Command): void {
     .option("--json", "Emit the machine-readable envelope instead of the human lines")
     .action(async (options: {
       confirm?: string; continue?: string; token?: string; supersede?: boolean; json?: boolean;
-    }) => runExitCodeCommand(async () => {
-      const { preparationResetCommand } = await import("@atomicstrata/llmwiki-core/commands/preparation/reset");
-      return preparationResetCommand(process.cwd(), options);
-    }));
+    }) => runExitCodeCommand(() => preparationResetCommand(process.cwd(), options)));
 }

@@ -5,6 +5,7 @@
  */
 
 import type { Command } from "commander";
+import { profileShow, profileValidate, profileDiff, profileInit } from "@atomicstrata/llmwiki-core/commands/profile";
 import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
 
 /** Register the `profile` inspection and starter-authoring commands. */
@@ -19,10 +20,7 @@ export function registerProfileCommands(program: Command): void {
     .argument("<profile-id>", "Lowercase profile name using letters, numbers, and hyphens")
     .requiredOption("--entity <entity-type>", "First kind of page to model")
     .action(async (profileId: string, options: { entity: string }) =>
-      runExitCodeCommand(async () => {
-        const { profileInit } = await import("@atomicstrata/llmwiki-core/commands/profile");
-        return profileInit(profileId, options);
-      }),
+      runExitCodeCommand(() => profileInit(profileId, options)),
     );
 
   profileCmd
@@ -30,7 +28,6 @@ export function registerProfileCommands(program: Command): void {
     .description("Print the active profile's id, digest, and source file")
     .action(async () => {
       try {
-        const { profileShow } = await import("@atomicstrata/llmwiki-core/commands/profile");
         await profileShow();
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -38,18 +35,10 @@ export function registerProfileCommands(program: Command): void {
       }
     });
 
-  registerProfileCheckCommands(profileCmd);
-}
-
-/** Register the read-only `profile validate` and `profile diff` checks. */
-function registerProfileCheckCommands(profileCmd: Command): void {
   profileCmd
     .command("validate")
     .description("Validate the active profile; exit non-zero with a message if invalid")
-    .action(async () => runExitCodeCommand(async () => {
-      const { profileValidate } = await import("@atomicstrata/llmwiki-core/commands/profile");
-      return profileValidate();
-    }));
+    .action(async () => runExitCodeCommand(() => profileValidate()));
 
   profileCmd
     .command("diff")
@@ -60,9 +49,6 @@ function registerProfileCheckCommands(profileCmd: Command): void {
     .option("--from <file>", "Old profile for a pure offline diff (requires --to)")
     .option("--to <file>", "New profile for a pure offline diff (requires --from)")
     .action(async (options: { candidate?: string; from?: string; to?: string }) =>
-      runExitCodeCommand(async () => {
-        const { profileDiff } = await import("@atomicstrata/llmwiki-core/commands/profile");
-        return profileDiff(options);
-      }),
+      runExitCodeCommand(() => profileDiff(options)),
     );
 }

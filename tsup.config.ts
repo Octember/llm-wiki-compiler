@@ -23,8 +23,8 @@ export default defineConfig(async (options) => {
   {
     ...shared,
     entry: ["src/cli.ts"],
-    // The CLI imports the MCP server and the workflow commands when they run.
-    // Without splitting, esbuild inlines them and their imports into cli.js.
+    // The CLI imports a command's module when that command runs. Without
+    // splitting, esbuild inlines every command and its imports into cli.js.
     splitting: true,
     esbuildOptions(options) { options.chunkNames = "cli-chunks/[name]-[hash]"; },
     // External packages are outside esbuild's import graph. Watch their source

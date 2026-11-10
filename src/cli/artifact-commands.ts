@@ -7,6 +7,7 @@
  */
 
 import type { Command } from "commander";
+import { artifactWriteCommand, artifactVerifyCommand } from "@atomicstrata/llmwiki-core/commands/artifact";
 import type { ArtifactWriteOptions, ArtifactVerifyOptions } from "@atomicstrata/llmwiki-core/commands/artifact";
 
 /** Register the `artifact` command group (`write`, `verify`) on `program`. */
@@ -22,7 +23,6 @@ export function registerArtifactCommands(program: Command): void {
     .option("--body-file <path>", "Body file, read as strict UTF-8 (exactly one of --body / --body-file)")
     .action(async (options: ArtifactWriteOptions) => {
       try {
-        const { artifactWriteCommand } = await import("@atomicstrata/llmwiki-core/commands/artifact");
         await artifactWriteCommand(options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -38,7 +38,6 @@ export function registerArtifactCommands(program: Command): void {
     .requiredOption("--sha256 <hex>", "64-character lowercase-hex sha256 to verify against")
     .action(async (options: ArtifactVerifyOptions) => {
       try {
-        const { artifactVerifyCommand } = await import("@atomicstrata/llmwiki-core/commands/artifact");
         await artifactVerifyCommand(options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);

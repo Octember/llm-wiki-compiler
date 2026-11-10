@@ -7,6 +7,7 @@
  */
 
 import type { Command } from "commander";
+import { schemaInitCommand, schemaShowCommand } from "@atomicstrata/llmwiki-core/commands/schema";
 
 /** Register the `schema` command group (`init`, `show`) on `program`. */
 export function registerSchemaCommands(program: Command): void {
@@ -19,7 +20,6 @@ export function registerSchemaCommands(program: Command): void {
     .description("Write a starter schema file to .llmwiki/schema.json")
     .action(async () => {
       try {
-        const { schemaInitCommand } = await import("@atomicstrata/llmwiki-core/commands/schema");
         await schemaInitCommand();
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -32,7 +32,6 @@ export function registerSchemaCommands(program: Command): void {
     .description("Print the resolved schema for this project")
     .action(async () => {
       try {
-        const { schemaShowCommand } = await import("@atomicstrata/llmwiki-core/commands/schema");
         await schemaShowCommand();
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);

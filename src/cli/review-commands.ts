@@ -7,8 +7,11 @@
  */
 
 import type { Command } from "commander";
-import type { ReviewApproveOptions } from "@atomicstrata/llmwiki-core/commands/review-approve";
-import type { ReviewApproveBatchOptions } from "@atomicstrata/llmwiki-core/commands/review-approve-batch";
+import reviewListCommand from "@atomicstrata/llmwiki-core/commands/review-list";
+import reviewShowCommand from "@atomicstrata/llmwiki-core/commands/review-show";
+import reviewApproveCommand from "@atomicstrata/llmwiki-core/commands/review-approve";
+import reviewRejectCommand from "@atomicstrata/llmwiki-core/commands/review-reject";
+import reviewApproveBatchCommand from "@atomicstrata/llmwiki-core/commands/review-approve-batch";
 
 /** Register the review inspection, approval, batch approval, and rejection commands. */
 export function registerReviewCommands(program: Command): void {
@@ -19,50 +22,30 @@ export function registerReviewCommands(program: Command): void {
   reviewCommand
     .command("list")
     .description("List pending review candidates")
-    .action(withReviewErrors(async () => {
-      const { default: reviewListCommand } = await import("@atomicstrata/llmwiki-core/commands/review-list");
-      return reviewListCommand();
-    }));
+    .action(withReviewErrors(reviewListCommand));
 
   reviewCommand
     .command("show <id>")
     .description("Print a single candidate's metadata and body")
-    .action(withReviewErrors(async (id: string) => {
-      const { default: reviewShowCommand } = await import("@atomicstrata/llmwiki-core/commands/review-show");
-      return reviewShowCommand(id);
-    }));
+    .action(withReviewErrors(reviewShowCommand));
 
-  registerReviewDecisionCommands(reviewCommand);
-}
-
-/** Register the deciding commands: `approve`, `approve-batch`, `reject`. */
-function registerReviewDecisionCommands(reviewCommand: Command): void {
   reviewCommand
     .command("approve <id>")
     .description("Approve a candidate and promote it into wiki/concepts/")
     .option("--draft-content-hash <hex>", "Required for connector candidates: sha256 printed by review show")
-    .action(withReviewErrors(async (id: string, options: ReviewApproveOptions) => {
-      const { default: reviewApproveCommand } = await import("@atomicstrata/llmwiki-core/commands/review-approve");
-      return reviewApproveCommand(id, options);
-    }));
+    .action(withReviewErrors(reviewApproveCommand));
 
   reviewCommand
     .command("approve-batch")
     .description("Approve a manifest of candidates with one shared finalization")
     .requiredOption("--input <file>", "Versioned JSON approval manifest")
     .option("--json", "Print a single machine-readable result")
-    .action(async (options: ReviewApproveBatchOptions) => {
-      const { default: reviewApproveBatchCommand } = await import("@atomicstrata/llmwiki-core/commands/review-approve-batch");
-      return reviewApproveBatchCommand(options);
-    });
+    .action(reviewApproveBatchCommand);
 
   reviewCommand
     .command("reject <id>")
     .description("Reject a candidate and archive it without touching wiki/")
-    .action(withReviewErrors(async (id: string) => {
-      const { default: reviewRejectCommand } = await import("@atomicstrata/llmwiki-core/commands/review-reject");
-      return reviewRejectCommand(id);
-    }));
+    .action(withReviewErrors(reviewRejectCommand));
 }
 
 /** Preserve the legacy human error handling for each non-batch review action. */

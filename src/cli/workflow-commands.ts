@@ -9,63 +9,60 @@
  */
 
 import type { Command } from "commander";
+import {
+  workflowListCommand,
+  workflowShowCommand,
+  workflowEventsCommand,
+  workflowStartCommand,
+  workflowStatusCommand,
+  workflowAdvanceCommand,
+  workflowGateApproveCommand,
+  workflowCancelCommand,
+  workflowFailCommand,
+  workflowResumeCommand,
+  workflowAdaptCommand,
+  workflowProjectCommand,
+  workflowSubmitCommand,
+  workflowActionListCommand,
+  workflowActionShowCommand,
+  workflowActionRunCommand,
+} from "../commands/workflow.js";
 import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/cli/shared";
 
-/** Register the read-only discovery/inspection commands: `list`, `show`, `events`. */
+/** Register the read-only discovery/inspection commands: `list`, `show`, `events`, `status`, `advance`, `project`. */
 function registerWorkflowInspectionCommands(workflowCmd: Command): void {
   workflowCmd
     .command("list")
     .description("List workflows declared in the active profile")
-    .action(async () => runExitCodeCommand(async () => {
-      const { workflowListCommand } = await import("../commands/workflow.js");
-      return workflowListCommand();
-    }));
+    .action(async () => runExitCodeCommand(() => workflowListCommand()));
 
   workflowCmd
     .command("show <workflow-id>")
     .description("Show one workflow's stages (reads/writes/gates), projectionFile, and actions")
-    .action(async (workflowId: string) => runExitCodeCommand(async () => {
-      const { workflowShowCommand } = await import("../commands/workflow.js");
-      return workflowShowCommand(workflowId);
-    }));
+    .action(async (workflowId: string) => runExitCodeCommand(() => workflowShowCommand(workflowId)));
 
   workflowCmd
     .command("events <run-id>")
     .description("Show one run's recorded audit events (the in-record events[] trail)")
-    .action(async (runId: string) => runExitCodeCommand(async () => {
-      const { workflowEventsCommand } = await import("../commands/workflow.js");
-      return workflowEventsCommand(runId);
-    }));
-}
+    .action(async (runId: string) => runExitCodeCommand(() => workflowEventsCommand(runId)));
 
-/** Register the run-position commands: `status`, `advance`, `project`. */
-function registerWorkflowPositionCommands(workflowCmd: Command): void {
   workflowCmd
     .command("status [run-id]")
     .description("Show workflow run status (all runs, or one by id)")
-    .action(async (runId?: string) => runExitCodeCommand(async () => {
-      const { workflowStatusCommand } = await import("../commands/workflow.js");
-      return workflowStatusCommand(runId);
-    }));
+    .action(async (runId?: string) => runExitCodeCommand(() => workflowStatusCommand(runId)));
 
   workflowCmd
     .command("advance <run-id>")
     .description("Advance a workflow run to the next stage")
-    .action(async (runId: string) => runExitCodeCommand(async () => {
-      const { workflowAdvanceCommand } = await import("../commands/workflow.js");
-      return workflowAdvanceCommand(runId);
-    }));
+    .action(async (runId: string) => runExitCodeCommand(() => workflowAdvanceCommand(runId)));
 
   workflowCmd
     .command("project <run-id>")
     .description("Write a DERIVED markdown projection of a run to its workflow's projectionFile")
-    .action(async (runId: string) => runExitCodeCommand(async () => {
-      const { workflowProjectCommand } = await import("../commands/workflow.js");
-      return workflowProjectCommand(runId);
-    }));
+    .action(async (runId: string) => runExitCodeCommand(() => workflowProjectCommand(runId)));
 }
 
-/** Register the run-lifecycle commands: `start`, `adapt`. */
+/** Register the run-lifecycle commands: `start`, `adapt`, `submit`, `cancel`, `fail`, `resume`. */
 function registerWorkflowRunCommands(workflowCmd: Command): void {
   workflowCmd
     .command("start <workflow>")
@@ -73,7 +70,6 @@ function registerWorkflowRunCommands(workflowCmd: Command): void {
     .option("--input <pair...>", "Run input as key=value (repeatable)")
     .action(async (workflow: string, options: { input?: string[] }) => {
       try {
-        const { workflowStartCommand } = await import("../commands/workflow.js");
         await workflowStartCommand(workflow, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -88,15 +84,9 @@ function registerWorkflowRunCommands(workflowCmd: Command): void {
     .option("--apply", "Re-anchor the run to the active def (requires a run-id)")
     .option("--confirm", "Authorize a lossy adaptation (drop/cancel an unmappable stage)")
     .action(async (runId: string | undefined, options: { dryRun?: boolean; apply?: boolean; confirm?: boolean }) =>
-      runExitCodeCommand(async () => {
-        const { workflowAdaptCommand } = await import("../commands/workflow.js");
-        return workflowAdaptCommand(runId, options);
-      }),
+      runExitCodeCommand(() => workflowAdaptCommand(runId, options)),
     );
-}
 
-/** Register `submit`: record a stage output for the run's current stage. */
-function registerWorkflowSubmitCommand(workflowCmd: Command): void {
   workflowCmd
     .command("submit <run-id>")
     .description("Submit a stage output (page/relation/lifecycle/artifact/human-input) for the current stage")
@@ -110,13 +100,14 @@ function registerWorkflowSubmitCommand(workflowCmd: Command): void {
     .option("--output-file <path>", "JSON payload file (relation/human-input)")
     .action(async (runId: string, options) => {
       try {
-        const { workflowSubmitCommand } = await import("../commands/workflow.js");
         await workflowSubmitCommand(runId, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
         process.exit(1);
       }
     });
+
+  registerWorkflowTerminationCommands(workflowCmd);
 }
 
 /** Register the terminal-state commands: `cancel`, `fail`, `resume`. */
@@ -126,7 +117,6 @@ function registerWorkflowTerminationCommands(workflowCmd: Command): void {
     .description("Cancel an active workflow run")
     .action(async (runId: string) => {
       try {
-        const { workflowCancelCommand } = await import("../commands/workflow.js");
         await workflowCancelCommand(runId);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -140,7 +130,6 @@ function registerWorkflowTerminationCommands(workflowCmd: Command): void {
     .option("--detail <reason>", "Human-readable failure reason recorded on the run-failed event")
     .action(async (runId: string, options: { detail?: string }) => {
       try {
-        const { workflowFailCommand } = await import("../commands/workflow.js");
         await workflowFailCommand(runId, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -153,7 +142,6 @@ function registerWorkflowTerminationCommands(workflowCmd: Command): void {
     .description("Resume a failed workflow run (or report its position)")
     .action(async (runId: string) => {
       try {
-        const { workflowResumeCommand } = await import("../commands/workflow.js");
         await workflowResumeCommand(runId);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -169,18 +157,12 @@ function registerWorkflowActionCommands(workflowCmd: Command): void {
   actionCmd
     .command("list")
     .description("List workflow actions declared in the active profile")
-    .action(async () => runExitCodeCommand(async () => {
-      const { workflowActionListCommand } = await import("../commands/workflow.js");
-      return workflowActionListCommand();
-    }));
+    .action(async () => runExitCodeCommand(() => workflowActionListCommand()));
 
   actionCmd
     .command("show <action-id>")
     .description("Show one workflow action and its effective permission per surface")
-    .action(async (actionId: string) => runExitCodeCommand(async () => {
-      const { workflowActionShowCommand } = await import("../commands/workflow.js");
-      return workflowActionShowCommand(actionId);
-    }));
+    .action(async (actionId: string) => runExitCodeCommand(() => workflowActionShowCommand(actionId)));
 
   actionCmd
     .command("run <action-id>")
@@ -189,7 +171,6 @@ function registerWorkflowActionCommands(workflowCmd: Command): void {
     .option("--input-json <json>", "Action inputs as a JSON object (typed; merged over --input)")
     .action(async (actionId: string, options: { input?: string[]; inputJson?: string }) => {
       try {
-        const { workflowActionRunCommand } = await import("../commands/workflow.js");
         await workflowActionRunCommand(actionId, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -209,7 +190,6 @@ function registerWorkflowGateCommands(workflowCmd: Command): void {
     .option("--actor-label <label>", "Optional human-readable actor label")
     .action(async (runId: string, gateId: string, options: { actor?: string; actorLabel?: string }) => {
       try {
-        const { workflowGateApproveCommand } = await import("../commands/workflow.js");
         await workflowGateApproveCommand(runId, gateId, options);
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
@@ -225,10 +205,7 @@ export function registerWorkflowCommands(program: Command): void {
     .description("Run and inspect declarative profile workflows (experimental)");
 
   registerWorkflowInspectionCommands(workflowCmd);
-  registerWorkflowPositionCommands(workflowCmd);
   registerWorkflowRunCommands(workflowCmd);
-  registerWorkflowSubmitCommand(workflowCmd);
-  registerWorkflowTerminationCommands(workflowCmd);
   registerWorkflowActionCommands(workflowCmd);
   registerWorkflowGateCommands(workflowCmd);
 }

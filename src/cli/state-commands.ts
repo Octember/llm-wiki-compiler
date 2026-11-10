@@ -7,6 +7,7 @@
  */
 
 import type { Command } from "commander";
+import { stateResetCommand } from "@atomicstrata/llmwiki-core/commands/state-reset";
 
 /** Register the `state` command group (currently just `state reset`) on `program`. */
 export function registerStateCommands(program: Command): void {
@@ -24,7 +25,6 @@ export function registerStateCommands(program: Command): void {
     .option("--scope <scope>", "state|wiki|raw|log|checkpoints|all — every scope PREVIEWS its per-file plan without --yes and DELETES those files with it")
     .action(async (options: { yes?: boolean; scope?: string }) => {
       try {
-        const { stateResetCommand } = await import("@atomicstrata/llmwiki-core/commands/state-reset");
         await stateResetCommand({ yes: options.yes, scope: options.scope });
       } catch (err) {
         console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);
