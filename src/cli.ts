@@ -26,7 +26,6 @@ import { registerRulesCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { registerContextCommands } from "./cli/context-commands.js";
 import { refreshCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { quickstartCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-import { startMCPServer } from "./mcp/server.js";
 import { applyLanguageOption } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { applySourcesSectionOption } from "@atomicstrata/llmwiki-core/compiler-cli";
 import { readInstructions } from "./cli/instructions.js";
@@ -420,6 +419,8 @@ program
     try {
       // Per-tool credential checks happen inside the MCP layer so read-only
       // tools and ingest still work without an API key.
+      // Loaded here so only `serve` pays for the MCP SDK and its schema library.
+      const { startMCPServer } = await import("./mcp/server.js");
       await startMCPServer({ root: options.root, version });
     } catch (err) {
       console.error(`\x1b[31mError:\x1b[0m ${err instanceof Error ? err.message : err}`);

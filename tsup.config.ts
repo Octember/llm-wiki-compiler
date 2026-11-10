@@ -23,6 +23,14 @@ export default defineConfig(async (options) => {
   {
     ...shared,
     entry: ["src/cli.ts"],
+    // The CLI loads the MCP server with a dynamic import. Without splitting,
+    // esbuild inlines that module and hoists its package imports to the top of
+    // cli.js, so every command would load the MCP SDK again. The chunks get a
+    // directory of their own so the targeted clean below can remove stale ones.
+    splitting: true,
+    esbuildOptions(esbuild) {
+      esbuild.chunkNames = "cli-chunks/[name]-[hash]";
+    },
     // External packages are outside esbuild's import graph. Watch their source
     // explicitly and rebuild them before announcing a successful facade build.
     ...(options.watch ? {
@@ -41,7 +49,7 @@ export default defineConfig(async (options) => {
     // `clean: true` here would race the library entry's writes (tsup runs array
     // entries in parallel) and could delete dist/index.* on watch/incremental
     // rebuilds.
-    clean: ["dist/cli.js", "dist/cli.js.map"],
+    clean: ["dist/cli.js", "dist/cli.js.map", "dist/cli-chunks"],
     banner: {
       js: "#!/usr/bin/env node",
     },
