@@ -26,6 +26,11 @@ import { stubSelectPages } from "./fixtures/fallback-stub.js";
 import type { ProfilePack } from "../src/profile/types.js";
 
 vi.mock("../src/utils/llm.js", () => ({ callClaude: vi.fn() }));
+const { callClaude: mockedCallClaude } = await import("../src/utils/llm.js");
+
+// Bun's restoreAllMocks leaves a vi.fn's calls and stubbed value in place, so
+// the provider stub is reset per test or one test's calls leak into the next.
+afterEach(() => (mockedCallClaude as unknown as Mock<typeof mockedCallClaude>).mockReset());
 
 /** A mixed profile: `papers` opts out of search; `secrets` opts out of both. */
 const MIXED_PROFILE: ProfilePack = {

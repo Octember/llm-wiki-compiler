@@ -18,10 +18,9 @@
  */
 
 import { ChildProcess, spawn } from "child_process";
-import path from "path";
 import { afterEach } from "bun:test";
+import { CLI, CLI_RUNTIME_FLAGS } from "./run-cli.js";
 
-const CLI = path.resolve("dist/cli.js");
 // Parses either `http://127.0.0.1:PORT` or the bracketed-IPv6 form
 // `http://[::1]:PORT` — group 1 captures the host without the brackets.
 const READINESS_RE = /Viewer ready at http:\/\/(?:\[([^\]]+)\]|([^\s:]+)):(\d+)/;
@@ -94,7 +93,7 @@ async function spawnAwaitingReadiness(
   label: string,
   options: SpawnOptions,
 ): Promise<ViewerProcessHandle> {
-  const child = spawn("bun", [CLI, ...argv], {
+  const child = spawn("bun", [...CLI_RUNTIME_FLAGS, CLI, ...argv], {
     cwd,
     env: options.env,
     stdio: ["ignore", "pipe", "pipe"],

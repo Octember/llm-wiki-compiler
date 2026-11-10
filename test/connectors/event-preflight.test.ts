@@ -14,6 +14,7 @@ import { EventStoreFullError } from "../../src/events/types.js";
 import type { AppendEventInput } from "../../src/events/store.js";
 import { buildNewsroomProject } from "../fixtures/newsroom-profile.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realUtilsConstants = { ...(await import("../../src/utils/constants.js")) };
 

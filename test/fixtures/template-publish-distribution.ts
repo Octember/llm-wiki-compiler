@@ -8,7 +8,6 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { expect } from "bun:test";
 import { parseTemplateCoordinate } from "../../src/profile/templates/signing/protocol.js";
 import type { SignedPackageEnvelope, SignedTapIndex } from "../../src/profile/templates/signing/types.js";
@@ -137,7 +136,8 @@ function currentIndex(envelope: SignedPackageEnvelope): SignedTapIndex {
 }
 
 function offlineEnvironment(root: string): NodeJS.ProcessEnv {
-  const guard = `--import=${pathToFileURL(path.join(root, "execution-guard.mjs")).href}`;
+  // Bun ignores NODE_OPTIONS; BUN_OPTIONS preloads the guard before the CLI.
+  const guard = `--preload=${path.join(root, "execution-guard.mjs")}`;
   const environmentRoot = path.join(root, "environment");
   return {
     ...process.env,
@@ -157,7 +157,9 @@ function offlineEnvironment(root: string): NodeJS.ProcessEnv {
     HTTPS_PROXY: "http://127.0.0.1:1",
     ALL_PROXY: "http://127.0.0.1:1",
     NO_PROXY: "",
-    NODE_OPTIONS: guard,
+    BUN_OPTIONS: guard,
+    // The runtime's own transpiler cache is not a CLI write; keep it out of the watched tree.
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
   };
 }
 

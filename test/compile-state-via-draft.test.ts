@@ -20,6 +20,7 @@ import path from "path";
 import { AnthropicProvider } from "../src/providers/anthropic.js";
 import { makeCompileProjectRoot } from "./fixtures/compile-project.js";
 import { readPersistedState } from "./fixtures/state-json.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realUtilsState = { ...(await import("../src/utils/state.js")) };
 

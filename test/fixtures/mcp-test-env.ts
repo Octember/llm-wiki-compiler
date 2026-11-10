@@ -30,7 +30,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { registerWikiTools } from "../../src/mcp/tools.js";
 import { registerWikiResources } from "../../src/mcp/resources.js";
-import { CLI } from "./run-cli.js";
+import { CLI, CLI_RUNTIME_FLAGS } from "./run-cli.js";
 
 /** Live container for the current test's temp root path. */
 export interface McpRootHandle {
@@ -73,7 +73,7 @@ export interface McpClientHandle {
 export async function connectMcpClient(root: string): Promise<McpClientHandle> {
   const transport = new StdioClientTransport({
     command: "bun",
-    args: [CLI, "serve", "--root", root],
+    args: [...CLI_RUNTIME_FLAGS, CLI, "serve", "--root", root],
     stderr: "ignore",
   });
   const client = new Client({ name: "test-client", version: "0.0.0" });

@@ -33,8 +33,11 @@ import path from "node:path";
 type Recorded = "realpath" | "readFile" | "stat";
 const calls = (() => ({ seen: [] as string[] }))();
 
-vi.mock("fs/promises", async (load) => {
-  const disk = await load<typeof import("fs/promises")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
+vi.mock("fs/promises", async () => {
+  const disk = (realFsPromises as typeof import("fs/promises"));
   const recording = Object.fromEntries((["realpath", "readFile", "stat"] as Recorded[]).map((name) => [name, (...args: unknown[]): unknown => {
     calls.seen.push(`${name} ${String(args[0])}`);
     return (disk[name] as (...inner: unknown[]) => unknown)(...args);
@@ -47,8 +50,6 @@ import { collectProjectState } from "../../src/project/state.js";
 import { classifyJournalFile } from "../../src/trust/journal-classify.js";
 import { journalHealth } from "../../src/trust/journal-health.js";
 import { loadBatch } from "../../src/trust/journal.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 let base = "";

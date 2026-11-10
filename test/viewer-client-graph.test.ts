@@ -122,7 +122,7 @@ describe("viewer-graph.js — staleIdsFromEnvelope (client-side freshness join)"
   // Compared via a sorted array, not `toEqual(new Set(...))`: the Set the eval'd
   // module returns is constructed in the JSDOM window's realm, and cross-realm
   // Set instances (structurally identical, different `Set` constructor) fail
-  // vitest's deep-equal even though their contents match.
+  // the runner's deep-equal even though their contents match.
   it("collects only stale/orphaned page ids, skipping fresh/unverified", async () => {
     const win = makeWindow();
     const vg = await loadGraphHelpers(win);

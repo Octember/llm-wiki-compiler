@@ -48,22 +48,21 @@ type OrphanScanModule = typeof import("../../src/preparations/orphan-scan.js");
 // namespace, so a full re-enumeration of the lifecycle registry cost ZERO on that
 // meter. External review found the re-walk by reading the code, which is the
 // tell that the meter was pointed at the wrong thing.
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realLifecycleRead = { ...(await import("../../src/preparations/lifecycle-snapshot/read.js")) };
 const realNamespace = { ...(await import("../../src/preparations/lifecycle-fs/namespace.js")) };
+const realPreparationsOrphanScan = { ...(await import("../../src/preparations/orphan-scan.js")) };
 
 vi.mock("../../src/preparations/orphan-scan.js", async () => {
   const actual = realPreparationsOrphanScan as OrphanScanModule;
   return {
     ...actual,
-    scanPreparationOrphans: async (...args: Parameters<OrphanScanModule["scanPreparationOrphans"]>) => {
-      observed.registryWalks += 1;
-      return actual.scanPreparationOrphans(...args);
-    },
-    // THE BOUND BODY WALKS THE SAME REGISTRY. An importer that reached it instead
-    // of the root form would re-walk unseen unless it is metered too. The root
-    // form calls it from INSIDE the module, which this wrapper does not see, so
-    // one call through either imported name counts once.
+    // THE ROOT FORM DELEGATES TO THIS BOUND BODY, and Bun's module mock rebinds
+    // the module's own reference to it, so metering this one name counts a walk
+    // through either imported entry point exactly once. Metering the root form
+    // too would count its single walk twice; the positive control below proves
+    // both names still move the meter.
     scanPreparationOrphansFrom: async (...args: Parameters<OrphanScanModule["scanPreparationOrphansFrom"]>) => {
       observed.registryWalks += 1;
       return actual.scanPreparationOrphansFrom(...args);
@@ -118,8 +117,6 @@ import { rm } from "node:fs/promises";
 import {
   driveToFailed, LIFECYCLE_ACTOR, stagePreparation, tamperRun,
 } from "./lifecycle-fixture.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realPreparationsOrphanScan = { ...(await import("../../src/preparations/orphan-scan.js")) };
 
 const AT = "2026-07-31T02:00:00.000Z";
 

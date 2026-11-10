@@ -39,7 +39,8 @@ describe("template tap refresh", () => {
     expect(await refreshTap(fixture.paths, "official", servesTemplateBytes(fixture.index))).toEqual({ tap: "official", sequence: 1, packages: 1, warnings: [] });
     const state = await readTapState(fixture.paths);
     expect(state.taps.official.publisherPins.highestSequence).toBe(1);
-    expect(state.taps.official.publisherPins.coordinates).toHaveProperty("official/atomicstrata/team@1.0.0");
+    // Array form: a dotted string is a property PATH in bun:test, and this key contains dots.
+    expect(state.taps.official.publisherPins.coordinates).toHaveProperty(["official/atomicstrata/team@1.0.0"]);
   });
 
   it("refuses tampered signed bytes without advancing state", async () => {

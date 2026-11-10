@@ -3,7 +3,7 @@
  * judge only. No network or credentials: exercise revision, evidence and sampling
  * boundaries while proving the pending/live filesystem remains untouched.
  */
-import { beforeEach, afterEach, vi, type Mock } from "bun:test";
+import { beforeEach, afterEach, vi, type Mock, describe, it, expect } from "bun:test";
 import { restoreEnv, stubEnv } from "./stubs.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";

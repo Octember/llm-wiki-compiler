@@ -66,7 +66,7 @@ it.each([false, true])("refuses edited body even with forged digest = %s", async
   if (forgeDigest) candidate.citationManifest!.bodyDigest = sha256Text(parseFrontmatter(candidate.body).body);
   const before = await replaceCandidate(root.dir, candidate.id, candidate);
   await expectApprovalRefused(root.dir, candidate, before);
-  const message = (console.log as import("vitest").Mock).mock.calls.flat().join(" ");
+  const message = (console.log as import("bun:test").Mock).mock.calls.flat().join(" ");
   expect(message).toContain(forgeDigest ? "broken" : "candidate-edited");
 });
 
@@ -77,5 +77,5 @@ it.each(["orphan", "invalid-kind"])("admission refuses %s manifest metadata befo
   else Object.assign(raw, { candidateKind: { name: "unsupported", version: 2 } });
   const before = await replaceCandidate(root.dir, candidate.id, raw);
   await expectApprovalRefused(root.dir, candidate, before);
-  expect((console.log as import("vitest").Mock).mock.calls.flat().join(" ")).toContain("InvalidCandidateMetadata");
+  expect((console.log as import("bun:test").Mock).mock.calls.flat().join(" ")).toContain("InvalidCandidateMetadata");
 });

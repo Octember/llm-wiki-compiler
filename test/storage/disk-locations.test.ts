@@ -30,6 +30,10 @@ import path from "node:path";
 /** When set, the next `statSync` throws this instead of answering. */
 const statFault = (() => ({ error: null as Error | null }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFs = { ...(await import("node:fs")) };
+const realCompilerIndex = { ...(await import("../../src/compiler/index.js")) };
+
 vi.mock("node:fs", async () => {
   const actual = realFs as typeof import("node:fs");
   const statSync = ((...args: Parameters<typeof actual.statSync>) => {
@@ -52,9 +56,6 @@ vi.mock("../../src/compiler/index.js", async () => ({
 import { locationExistsSync, locationIsNonDirectorySync } from "../../src/storage/disk-locations.js";
 import { createWikiCore } from "../../src/sdk/core.js";
 import compileCommand from "../../src/commands/compile.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFs = { ...(await import("node:fs")) };
-const realCompilerIndex = { ...(await import("../../src/compiler/index.js")) };
 
 const NO_SOURCES_WARNING = "No sources found. Run `llmwiki ingest <url>` first.";
 

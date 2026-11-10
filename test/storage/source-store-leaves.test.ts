@@ -29,8 +29,11 @@ type Faulted = "readFile" | "unlink" | "lstat";
 /** The one call made to fail, and every unlink the store issued. */
 const watch = (() => ({ fail: null as null | { call: string; target: string; error: Error }, unlinked: [] as string[] }))();
 
-vi.mock("fs/promises", async (load) => {
-  const disk = await load<typeof import("fs/promises")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("fs/promises", async () => {
+  const disk = (realFsPromises as typeof import("fs/promises"));
   const forward = (call: Faulted) => (target: unknown, ...rest: unknown[]): unknown => {
     if (call === "unlink") watch.unlinked.push(String(target));
     if (watch.fail?.call === call && watch.fail.target === target) return Promise.reject(watch.fail.error);

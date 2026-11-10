@@ -3,9 +3,9 @@
  * @description PROCESS-LEVEL concurrent-writer test for the append-only relation
  * store (spec 08 requires a real cross-process test for JSONL stores; FIX #13).
  *
- * APPROACH: spawn N SEPARATE `node` subprocesses, each importing the PUBLIC SDK
+ * APPROACH: spawn N SEPARATE `bun` subprocesses, each importing the PUBLIC SDK
  * (`createWiki().createRelation`) from the BUILT `dist/index.js` (built once by
- * the vitest global setup) and appending K relations with DISTINCT endpoint
+ * `bun run test` before the suite starts) and appending K relations with DISTINCT endpoint
  * slugs (so content hashes differ and dedup never collapses them) against the
  * SAME project root, all at once. Because `createRelation` takes the project lock
  * with a BLOCKING acquire (prior commit 90b6952), the concurrent writers must

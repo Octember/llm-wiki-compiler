@@ -27,6 +27,9 @@ const listingProbe = (() => ({
   calls: [] as string[],
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   return {
@@ -52,8 +55,6 @@ import {
   lifecycleSnapshotFixture, writeQuarantineReceipts,
 } from "./lifecycle-snapshot-fixture.js";
 import { resolvePreparationLifecyclePending } from "../../src/preparations/recovery.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 /**
  * Exact `opendir` count for one physical lifecycle registry root. Matched by

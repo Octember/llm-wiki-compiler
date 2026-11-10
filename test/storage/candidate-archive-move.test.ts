@@ -59,11 +59,16 @@ const recorder = (() => {
   };
 })();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 // All four specifiers: the function under test uses the bare names before the move and storage uses the `node:` names after it.
-vi.mock("fs", async (load) => recorder.ofFs(await load<typeof import("fs")>()));
-vi.mock("node:fs", async (load) => recorder.ofFs(await load<typeof import("node:fs")>()));
-vi.mock("fs/promises", async (load) => recorder.ofFsPromises(await load<typeof import("fs/promises")>()));
-vi.mock("node:fs/promises", async (load) => recorder.ofFsPromises(await load<typeof import("node:fs/promises")>()));
+const realFs = { ...(await import("fs")) };
+
+vi.mock("fs", async () => recorder.ofFs((realFs as typeof import("fs"))));
+vi.mock("node:fs", async () => recorder.ofFs((realFs as typeof import("node:fs"))));
+vi.mock("fs/promises", async () => recorder.ofFsPromises((realFsPromises as typeof import("fs/promises"))));
+vi.mock("node:fs/promises", async () => recorder.ofFsPromises((realFsPromises as typeof import("node:fs/promises"))));
 
 import { resolveConfinedCandidatesDir } from "../../src/compiler/candidate-store-paths.js";
 import {
@@ -72,8 +77,6 @@ import {
 import { candidateFileId, moveCandidateToArchive } from "../../src/utils/candidate-store.js";
 import { RULE_CANDIDATES_ARCHIVE_DIR } from "../../src/utils/constants.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 const TEXT = '{"id":"a","note":"zażółć 規則"}';

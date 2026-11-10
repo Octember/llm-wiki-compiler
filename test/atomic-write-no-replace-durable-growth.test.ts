@@ -14,13 +14,14 @@ import {
   atomicWriteNoReplaceDurable,
 } from "../src/utils/atomic-write.js";
 import { useTempRoot } from "./fixtures/temp-root.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 let growAfterStat: (() => Promise<void>) | undefined;
 let readRequests: number[] = [];
 let unboundedReadCalls = 0;
 let positionalReadLimit: number | undefined;
+
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
 
 /** Instrument each opened handle without changing the filesystem implementation. */
 vi.mock("node:fs/promises", async () => {

@@ -28,6 +28,9 @@ import path from "node:path";
 /** The next `lstat` of exactly `target` rejects with `error`. */
 const fault = (() => ({ target: "", error: null as Error | null }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
 vi.mock("fs/promises", async () => {
   const actual = realFsPromises as typeof import("fs/promises");
   const lstat = ((target: unknown, ...rest: unknown[]) => {
@@ -44,8 +47,6 @@ vi.mock("fs/promises", async () => {
 import { locationKindNoFollow } from "../../src/storage/disk-local-reads.js";
 import { createLocationTextExclusive, overwriteLocationText } from "../../src/storage/disk-locations.js";
 import { saveSource } from "../../src/utils/source-writer.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("fs/promises")) };
 
 const SOURCE_ID = "/fixed/external/input/alpha.md";
 /** A source document as ingest builds one; only `ingestedAt` is volatile. */

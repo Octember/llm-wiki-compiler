@@ -35,10 +35,11 @@ import type { ProductInvokeResultV1 } from "../../src/products/service.js";
 import {
   activatedProject, verticalService, VERTICAL_ACTION_ID, VERTICAL_WORKSPACE_ID,
 } from "./product-vertical-fixture.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realHandlersIntentCompile = { ...(await import("../../src/operations-packs/handlers/intent-compile.js")) };
 
 type IntentModule = typeof import("../../src/operations-packs/handlers/intent-compile.js");
+
+// Snapshot real modules before mock.module replaces them for this file.
+const realHandlersIntentCompile = { ...(await import("../../src/operations-packs/handlers/intent-compile.js")) };
 
 // The reviewer's mutation, applied to the family the runtime dispatches to: the
 // result keeps every other field the phase publishes, so ONLY the draft set is

@@ -31,6 +31,9 @@ const tape = (() => ({
   reverseListings: false, fault: null as PlannedFault | null,
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
 vi.mock("fs/promises", async () => {
   const actual = realFsPromises as typeof import("fs/promises");
   type Forwarded = (...args: unknown[]) => Promise<unknown>;
@@ -57,8 +60,6 @@ import { lintFixProposeCommand } from "../../src/commands/lint-fix-propose.js";
 import { listCandidates } from "../../src/compiler/candidates.js";
 import { sha256Text } from "../../src/connectors/hash.js";
 import { useCommandProject } from "../fixtures/command-project.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("fs/promises")) };
 
 const project = useCommandProject("lint-reads-");
 /** The project root as the commands see it: the resolved working directory. */
@@ -133,12 +134,17 @@ describe("collectAllPages, generic scope: concepts then queries, as listed", () 
     expect(recorded("readFile").every((call) => call.endsWith('"utf-8"'))).toBe(true);
   });
 
-  it("keeps the order each listing returned: a reversed listing reverses that directory only", async () => {
+  // Node's readdir arrived name-sorted (libuv sorts); Bun's returns raw directory
+  // order. The disk adapter now orders names itself, so output never depends on
+  // the runtime or filesystem: a reversed raw listing must change nothing.
+  it("orders each directory by name whatever order readdir returned", async () => {
     const asListed = relativePaths(await collectAllPages(root));
     tape.reverseListings = true;
     const reversed = relativePaths(await collectAllPages(root));
-    expect(reversed).toEqual([...asListed.slice(0, 3).reverse(), ...asListed.slice(3).reverse()]);
-    expect(reversed).not.toEqual(asListed);
+    expect(asListed).toEqual([
+      "wiki/concepts/a.md", "wiki/concepts/b.md", "wiki/concepts/c.md", "wiki/queries/q1.md", "wiki/queries/q2.md",
+    ]);
+    expect(reversed).toEqual(asListed);
   });
 
   it("lists nothing for absent directories, and passes a read failure on untouched", async () => {

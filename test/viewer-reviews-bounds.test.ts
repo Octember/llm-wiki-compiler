@@ -23,6 +23,9 @@ import { describe, expect, it, vi, type Mock } from "bun:test";
 import { makeTempRoot } from "./fixtures/temp-root.js";
 import { CANDIDATES_DIR } from "../src/utils/constants.js";
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   return { ...actual, readFile: vi.fn(actual.readFile) };
@@ -30,13 +33,10 @@ vi.mock("node:fs/promises", async () => {
 
 import { readFile } from "node:fs/promises";
 import { listCandidatePage, writeFreshCandidate } from "../src/compiler/candidates.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 /** Candidate files read from disk since the counter was last reset. */
 function candidateReadCount(): number {
-  return vi
-    .mocked(readFile)
+  return (readFile as unknown as Mock<typeof readFile>)
     .mock.calls.filter(([file]) => typeof file === "string" && file.includes(CANDIDATES_DIR)).length;
 }
 

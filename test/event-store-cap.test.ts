@@ -25,6 +25,7 @@ import { MAX_EVENT_RECORD_BYTES } from "../src/utils/constants.js";
 import { appendEvent } from "../src/events/store.js";
 import { readEvents } from "../src/events/store-read.js";
 import { EventStoreFullError } from "../src/events/types.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realUtilsConstants = { ...(await import("../src/utils/constants.js")) };
 

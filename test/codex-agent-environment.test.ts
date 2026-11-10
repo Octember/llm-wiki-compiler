@@ -18,7 +18,7 @@ const tracker = path.resolve("test/fixtures/track-dotenv-read.mjs");
 /** Environment that records dotenv reads and reaches the Codex boundary. */
 function trackedEnv(logPath: string): NodeJS.ProcessEnv {
   return {
-    NODE_OPTIONS: `--import=${tracker}`,
+    BUN_OPTIONS: `--preload=${tracker}`,
     LLMWIKI_TEST_DOTENV_READ_LOG: logPath,
     LLMWIKI_EMBEDDING_PROVIDER: "ollama",
   };
@@ -32,8 +32,10 @@ describe("codex-agent environment-file isolation", () => {
   ])("does not read project .env for explicit $label selection", async ({ args, provider }) => {
     const cwd = await aimock.makeWorkspace("# Source\n\nDo not read project credentials.\n");
     const logPath = path.join(cwd, "dotenv-reads.log");
-    await writeFile(path.join(cwd, ".env"), "OPENAI_API_KEY=sk-project-secret\n", "utf8");
-    const result = await runCLI(args, cwd, {
+    // The sentinel lets the tracker see a `.env` the runtime loaded on its own.
+    const projectEnv = "OPENAI_API_KEY=sk-project-secret\nLLMWIKI_TEST_DOTENV_SENTINEL=1\n";
+    await writeFile(path.join(cwd, ".env"), projectEnv, "utf8");
+    const result = await runCLI([...args], cwd, {
       ...trackedEnv(logPath),
       LLMWIKI_PROVIDER: provider,
       PATH: path.join(cwd, "missing-bin"),

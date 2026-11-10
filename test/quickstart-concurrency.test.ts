@@ -13,14 +13,15 @@ import { tmpdir } from "os";
 import path from "path";
 
 const compileSpy = (() => vi.fn())();
+// Snapshot real modules before mock.module replaces them for this file.
+const realCompilerIndex = { ...(await import("../src/compiler/index.js")) };
+
 vi.mock("../src/compiler/index.js", async () => ({
   ...(realCompilerIndex as typeof import("../src/compiler/index.js")),
   compileAndReport: compileSpy,
 }));
 
 import quickstartCommand from "../src/commands/quickstart.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realCompilerIndex = { ...(await import("../src/compiler/index.js")) };
 
 describe("quickstart concurrency forwarding", () => {
   let cwd = "";

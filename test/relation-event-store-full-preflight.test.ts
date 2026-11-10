@@ -29,6 +29,7 @@ import { readRelations } from "../src/relations/store-read.js";
 import { readEvents } from "../src/events/store-read.js";
 import { EventStoreFullError } from "../src/events/types.js";
 import { EXPERIMENT_A as EXP_A, IDEA_B, experimentsIdeasProfile } from "./fixtures/profile-fixtures.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realUtilsConstants = { ...(await import("../src/utils/constants.js")) };
 

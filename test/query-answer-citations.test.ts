@@ -14,9 +14,12 @@ import { parseFrontmatter } from "../src/utils/markdown.js";
 import { useTempRoot } from "./fixtures/temp-root.js";
 import { CITED_ANSWER, EXPECTED_REPORT, stageCitationWorkspace, citationWorkspaceBytes } from "./fixtures/query-answer-citations.js";
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsEmbeddings = { ...(await import("../src/utils/embeddings.js")) };
+
 vi.mock("../src/utils/llm.js", () => ({ callClaude: vi.fn() }));
-vi.mock("../src/utils/embeddings.js", async (original) => ({
-  ...await original<typeof import("../src/utils/embeddings.js")>(),
+vi.mock("../src/utils/embeddings.js", async () => ({
+  ...(realUtilsEmbeddings as typeof import("../src/utils/embeddings.js")),
   updateEmbeddingsLockedCore: vi.fn().mockResolvedValue(undefined),
 }));
 const ctx = useTempRoot();

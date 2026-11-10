@@ -31,8 +31,11 @@ import { describe, expect, it, onTestFinished, vi } from "bun:test";
 
 const spies = (() => ({ mkdir: vi.fn(), writeFile: vi.fn() }))();
 
-vi.mock("fs/promises", async (load) => {
-  const disk = await load<typeof import("fs/promises")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("fs/promises", async () => {
+  const disk = (realFsPromises as typeof import("fs/promises"));
   spies.mkdir.mockImplementation(disk.mkdir as never);
   spies.writeFile.mockImplementation(disk.writeFile as never);
   return { ...disk, mkdir: spies.mkdir, writeFile: spies.writeFile };

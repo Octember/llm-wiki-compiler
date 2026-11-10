@@ -47,16 +47,19 @@ const recorder = (() => {
   return { sync, asynchronous };
 })();
 
-vi.mock("fs", async (original) => recorder.sync(await original<typeof import("fs")>()));
-vi.mock("node:fs", async (original) => recorder.sync(await original<typeof import("node:fs")>()));
-vi.mock("fs/promises", async (original) => recorder.asynchronous(await original<typeof import("fs/promises")>()));
-vi.mock("node:fs/promises", async (original) => recorder.asynchronous(await original<typeof import("node:fs/promises")>()));
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
+const realFs = { ...(await import("fs")) };
+
+vi.mock("fs", async () => recorder.sync((realFs as typeof import("fs"))));
+vi.mock("node:fs", async () => recorder.sync((realFs as typeof import("node:fs"))));
+vi.mock("fs/promises", async () => recorder.asynchronous((realFsPromises as typeof import("fs/promises"))));
+vi.mock("node:fs/promises", async () => recorder.asynchronous((realFsPromises as typeof import("node:fs/promises"))));
 
 import { schemaInitCommand } from "../../src/commands/schema.js";
 import { buildDefaultSchema } from "../../src/schema/index.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 const CALLS = ["existsSync schema.json null", 'mkdir .llmwiki {"recursive":true}', 'writeFile schema.json "utf-8"'];

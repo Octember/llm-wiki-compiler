@@ -32,6 +32,7 @@ import {
   REBUILD_SHUTDOWN_WAIT_MS,
 } from "../src/viewer/snapshot-manager.js";
 import type { ViewerSnapshot } from "../src/viewer/types.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realViewerSnapshot = { ...(await import("../src/viewer/snapshot.js")) };
 

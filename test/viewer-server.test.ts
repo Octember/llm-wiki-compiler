@@ -286,7 +286,7 @@ describe("llmwiki view — stateStatus in /api/pages", () => {
     const { status, body } = await fetchJson(handle, "/api/pages");
     expect(status).toBe(200);
     const stateStatus = (body as Record<string, unknown>).stateStatus;
-    expect(["ok", "missing", "corrupt"]).toContain(stateStatus);
+    expect(["ok", "missing", "corrupt"]).toContain(stateStatus as string);
   });
 
   it("/api/pages includes stateStatus: corrupt for a corrupt state.json", async () => {

@@ -93,13 +93,14 @@ async function observe(run: () => Promise<unknown>): Promise<Observed> {
   const lines: string[] = [];
   const status = vi.spyOn(output, "status").mockImplementation((icon, message) => { lines.push(`${icon} ${message}`); });
   const previous = process.exitCode;
-  process.exitCode = undefined;
+  // Bun ignores assigning `undefined`, so 0 is the only reset that takes.
+  process.exitCode = 0;
   try {
     const outcome = await run().then((value) => JSON.stringify(value), (error: Error) => error.name);
     return { outcome, lines, exitCode: Number(process.exitCode ?? 0) };
   } finally {
     status.mockRestore();
-    process.exitCode = previous;
+    process.exitCode = previous ?? 0;
   }
 }
 

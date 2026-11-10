@@ -7,6 +7,7 @@ import * as fs from "fs/promises";
 import path from "node:path";
 import { atomicWrite } from "../src/utils/atomic-write.js";
 import { useConfinementRoots } from "./fixtures/confinement-roots.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realFsPromises = { ...(await import("fs/promises")) };
 

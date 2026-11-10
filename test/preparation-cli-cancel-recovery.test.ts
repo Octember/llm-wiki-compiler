@@ -137,7 +137,7 @@ describe("the built binary really is what these tests ran", () => {
     // ANTI-VACUITY for the whole file: every case above asserts on a subprocess,
     // and a missing binary would fail them all with the same shape as a genuine
     // regression. This says which it was.
-    const { access } = await import("node:fs/promises");
-    await expect(access(CLI)).resolves.toBeUndefined();
+    const { stat } = await import("node:fs/promises");
+    expect((await stat(CLI)).isFile()).toBe(true);
   });
 });

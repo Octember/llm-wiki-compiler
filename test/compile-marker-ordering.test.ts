@@ -26,11 +26,12 @@ import { JournalUnsafeError } from "../src/trust/journal-recovery.js";
 import { AnthropicProvider } from "../src/providers/anthropic.js";
 import { makeCompileProjectRoot } from "./fixtures/compile-project.js";
 import { readPersistedState } from "./fixtures/state-json.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realCompilerResolver = { ...(await import("../src/compiler/resolver.js")) };
 
 /** Flag the mocked resolution seam to decide whether to throw. */
 const resolve = { shouldThrow: false };
+
+// Snapshot real modules before mock.module replaces them for this file.
+const realCompilerResolver = { ...(await import("../src/compiler/resolver.js")) };
 
 vi.mock("../src/compiler/resolver.js", async () => {
   const actual = realCompilerResolver as typeof import("../src/compiler/resolver.js");

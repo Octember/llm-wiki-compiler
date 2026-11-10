@@ -48,8 +48,6 @@ import { projectLifecyclePending } from "../src/preparations/lifecycle-snapshot/
 import type { PreparationLifecycleSnapshotV1 } from "../src/preparations/lifecycle-snapshot/types.js";
 import { PREPARATION_QUARANTINE_SEGMENT } from "../src/preparations/paths.js";
 import { pruneStagedBytesThenCrashed } from "./preparations/lifecycle-fixture.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realPreparationsRecovery = { ...(await import("../src/preparations/recovery.js")) };
 
 let root = "";
 beforeEach(async () => { root = await mkdtemp(path.join(os.tmpdir(), "prep-unattributed-")); });
@@ -116,6 +114,9 @@ describe("the projection EMITS an incompleteness that names no registry", () => 
  * probe refusing for THAT reason looks exactly like a working fix.
  */
 const observation = (() => ({ value: null as unknown }))();
+// Snapshot real modules before mock.module replaces them for this file.
+const realPreparationsRecovery = { ...(await import("../src/preparations/recovery.js")) };
+
 vi.mock("../src/preparations/recovery.js", async () => ({
   ...(realPreparationsRecovery as typeof import("../src/preparations/recovery.js")),
   resolvePreparationLifecyclePending: async () => observation.value,

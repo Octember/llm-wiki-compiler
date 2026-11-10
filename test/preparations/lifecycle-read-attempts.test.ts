@@ -28,6 +28,7 @@ const openerProbe = (() => ({ modes: [] as string[] }))();
 
 type NamespaceModule = typeof import("../../src/preparations/lifecycle-fs/namespace.js");
 
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realNamespace = { ...(await import("../../src/preparations/lifecycle-fs/namespace.js")) };
 

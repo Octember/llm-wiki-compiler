@@ -23,8 +23,13 @@ import { beforeEach, describe, expect, it, vi } from "bun:test";
 /** Every call of the confined-read primitive, as its raw argument list. */
 const primitive = (() => ({ calls: [] as unknown[][] }))();
 
-vi.mock("../../src/utils/confined-read.js", async (load) => {
-  const actual = await load<typeof import("../../src/utils/confined-read.js")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
+const realUtilsConfinedRead = { ...(await import("../../src/utils/confined-read.js")) };
+
+vi.mock("../../src/utils/confined-read.js", async () => {
+  const actual = (realUtilsConfinedRead as typeof import("../../src/utils/confined-read.js"));
   const readConfinedLeaf = (...args: unknown[]): unknown => {
     primitive.calls.push(args);
     return (actual.readConfinedLeaf as (...rest: unknown[]) => unknown)(...args);
@@ -34,8 +39,6 @@ vi.mock("../../src/utils/confined-read.js", async (load) => {
 
 import { readViewerSource } from "../../src/viewer/source-access.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 const ONE_MIB = 1024 * 1024;

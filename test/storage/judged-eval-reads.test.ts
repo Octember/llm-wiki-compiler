@@ -33,8 +33,12 @@ import path from "node:path";
 /** The calls the mocks saw, and at most one call they were told to fail. */
 const record = (() => ({ calls: [] as string[], planted: null as { prefix: string; error: Error } | null }))();
 
-vi.mock("fs", async (original) => {
-  const actual = await original<typeof import("fs")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFs = { ...(await import("fs")) };
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("fs", async () => {
+  const actual = (realFs as typeof import("fs"));
   const existsSync = (location: unknown): boolean => {
     record.calls.push(`existsSync ${String(location)}`);
     return actual.existsSync(location as string);
@@ -42,8 +46,8 @@ vi.mock("fs", async (original) => {
   return { ...actual, existsSync, default: { ...actual, existsSync } };
 });
 
-vi.mock("fs/promises", async (original) => {
-  const actual = await original<typeof import("fs/promises")>();
+vi.mock("fs/promises", async () => {
+  const actual = (realFsPromises as typeof import("fs/promises"));
   const forward = (name: "mkdir" | "appendFile" | "readFile" | "unlink" | "open" | "rename") =>
     function recorded(...args: unknown[]): unknown {
       const call = `${name} ${String(args[0])}`;

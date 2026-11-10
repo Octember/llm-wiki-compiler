@@ -28,6 +28,9 @@ import path from "node:path";
 /** When set, the next opened handle really closes and then reports failure. */
 const closeFault = (() => ({ armed: false }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   const open: typeof actual.open = async (...args) => {
@@ -42,8 +45,6 @@ vi.mock("node:fs/promises", async () => {
 
 import { createPrivateLeafExclusive, linkPrivateLeafNoReplace } from "../../src/storage/disk-private-leaves.js";
 import { acquireLock, acquireLockBlocking, releaseLock } from "../../src/utils/lock.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const RECORD = "{\"pid\":4242,\"startTime\":\"then\"}";
 const DEFAULT_CREATE_MODE = 0o666;

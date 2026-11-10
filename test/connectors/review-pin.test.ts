@@ -103,7 +103,7 @@ async function captureReviewShow(id: string): Promise<string> {
 
 describe("connector review approval pin", () => {
   afterEach(() => {
-    process.exitCode = undefined;
+    process.exitCode = 0;
   });
 
   it("review show prints a live hash of candidate.body, not stored draftContentHash", async () => {

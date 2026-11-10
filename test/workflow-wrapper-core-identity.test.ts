@@ -6,15 +6,20 @@
 import { expect, it, vi } from "bun:test";
 import { readdir } from "node:fs/promises";
 import { useConfinementRoots } from "./fixtures/confinement-roots.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realLlmwikiCoreLocalWorkflowHost = { ...(await import("@atomicstrata/llmwiki-core/local-workflow-host")) };
 
 const ctx = useConfinementRoots("wrapper-core-identity");
 
-vi.mock("@atomicstrata/llmwiki-core/local-workflow-host", async () => {
+// Snapshot real modules before mock.module replaces them for this file.
+const realLlmwikiCoreLocalWorkflowHost = { ...(await import("@atomicstrata/llmwiki-core/local-workflow-host")) };
+
+// A second copy of the contracts module, so its core-instance token is foreign. Loaded
+// here rather than in the factory: Bun runs mock factories during module loading, and a
+// dynamic import awaited inside one never settles.
+const duplicateModule: string = "../src/local-workflow-host/contracts.js?wrapper-second-core";
+const foreign = await import(duplicateModule);
+
+vi.mock("@atomicstrata/llmwiki-core/local-workflow-host", () => {
   const original = realLlmwikiCoreLocalWorkflowHost as typeof import("../src/local-workflow-host/index.js");
-  const duplicateModule: string = "../src/local-workflow-host/contracts.js?wrapper-second-core";
-  const foreign = await import(duplicateModule);
   return { ...original, createLocalWorkflowHost: () => ({
     ...original.createLocalWorkflowHost(), coreInstance: foreign.LOCAL_WORKFLOW_CORE_INSTANCE,
   }) };

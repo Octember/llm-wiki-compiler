@@ -7,8 +7,12 @@ import { readCappedNoFollow } from "../src/utils/confined-read.js";
 import { openGraphFileAppend } from "../src/utils/jsonl-store.js";
 
 // Exercise the unavailable-capability branch with real files; this is not a Windows runner.
-vi.mock("node:fs", async (original) => {
-  const fs = await original<typeof import("node:fs")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFs = { ...(await import("node:fs")) };
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("node:fs", async () => {
+  const fs = (realFs as typeof import("node:fs"));
   return { ...fs, constants: { ...fs.constants, O_NOFOLLOW: undefined, O_NONBLOCK: undefined, O_DIRECTORY: undefined } };
 });
 
@@ -16,8 +20,8 @@ const race = (() => ({
   beforeOpen: undefined as (() => Promise<void>) | undefined,
   afterOpen: undefined as (() => Promise<void>) | undefined,
 }))();
-vi.mock("fs/promises", async (original) => {
-  const fs = await original<typeof import("fs/promises")>();
+vi.mock("fs/promises", async () => {
+  const fs = (realFsPromises as typeof import("fs/promises"));
   return { ...fs, open: async (...args: Parameters<typeof fs.open>) => {
     const hook = race.beforeOpen;
     race.beforeOpen = undefined;

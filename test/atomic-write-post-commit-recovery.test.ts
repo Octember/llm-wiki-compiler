@@ -21,8 +21,11 @@ import { createLocalWorkflowHost } from "../src/local-workflow-host/index.js";
 import { createLocalWorkflowRuntime } from "../src/workflows/runtime.js";
 
 const fault = (() => ({ target: "" }))();
-vi.mock("fs/promises", async (original) => {
-  const fs = await original<typeof import("fs/promises")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("fs/promises", async () => {
+  const fs = (realFsPromises as typeof import("fs/promises"));
   return { ...fs, rename: async (...args: Parameters<typeof fs.rename>) => {
     await fs.rename(...args);
     if (String(args[1]) !== fault.target) return;

@@ -16,6 +16,7 @@ import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { scanEntityDir } from "../src/wiki/collect.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realFsPromises = { ...(await import("node:fs/promises")) };
 

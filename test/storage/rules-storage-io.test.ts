@@ -26,8 +26,11 @@ import { restoreEnv, stubEnv } from "../stubs.js";
 /** Every call of the atomic writer, as its raw argument list. */
 const writer = (() => ({ calls: [] as unknown[][] }))();
 
-vi.mock("../../src/utils/atomic-write.js", async (original) => {
-  const actual = await original<typeof import("../../src/utils/atomic-write.js")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsAtomicWrite = { ...(await import("../../src/utils/atomic-write.js")) };
+
+vi.mock("../../src/utils/atomic-write.js", async () => {
+  const actual = (realUtilsAtomicWrite as typeof import("../../src/utils/atomic-write.js"));
   const atomicWrite = (...args: unknown[]): Promise<void> => {
     writer.calls.push(args);
     return (actual.atomicWrite as (...rest: unknown[]) => Promise<void>)(...args);

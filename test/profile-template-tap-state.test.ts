@@ -154,7 +154,8 @@ describe("template tap state hardening", () => {
     source.publisherPins.publishers.publisher = { keyId: "publisher:key.v1", publicKey: KEY.publicKey };
     source.publisherPins.keyHistory["publisher:key.v1"] = { publisher: "publisher", publicKey: KEY.publicKey };
     await writeTapState(store, state);
-    expect((await readTapState(store)).taps.community.publisherPins.keyHistory).toHaveProperty("publisher:key.v1");
+    // An array path names the literal key; Bun would split a dotted string path.
+    expect((await readTapState(store)).taps.community.publisherPins.keyHistory).toHaveProperty(["publisher:key.v1"]);
   });
 
   it("rejects active publisher pins missing from retained key history", async () => {

@@ -38,11 +38,16 @@ const noting = (() => <T extends object>(actual: T, name: "existsSync" | "lstat"
   return { ...actual, [name]: noted, default: { ...actual, [name]: noted } };
 })();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 // Both spellings of each module: the two functions under test use the bare names before the move and storage uses `node:` after it.
-vi.mock("fs", async (load) => noting(await load<typeof import("fs")>(), "existsSync"));
-vi.mock("node:fs", async (load) => noting(await load<typeof import("node:fs")>(), "existsSync"));
-vi.mock("fs/promises", async (load) => noting(await load<typeof import("fs/promises")>(), "lstat"));
-vi.mock("node:fs/promises", async (load) => noting(await load<typeof import("node:fs/promises")>(), "lstat"));
+const realFs = { ...(await import("fs")) };
+
+vi.mock("fs", async () => noting((realFs as typeof import("fs")), "existsSync"));
+vi.mock("node:fs", async () => noting((realFs as typeof import("node:fs")), "existsSync"));
+vi.mock("fs/promises", async () => noting((realFsPromises as typeof import("fs/promises")), "lstat"));
+vi.mock("node:fs/promises", async () => noting((realFsPromises as typeof import("node:fs/promises")), "lstat"));
 
 vi.mock("chokidar", () => {
   const watcher = { on: (): unknown => watcher };
@@ -58,8 +63,6 @@ import { CONCEPTS_DIR, LLMWIKI_DIR, SOURCES_DIR } from "../../src/utils/constant
 import * as output from "../../src/utils/output.js";
 import { deleteWikiPagesLocked } from "../../src/wiki/delete-page.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 const WATCH_OPTIONS = { ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 200 } };

@@ -146,7 +146,7 @@ describe("journal health surfaces — threading stays read-only", () => {
     await buildViewerSnapshot(root);
     await exportJson(root);
     // The pending journal file is still present (no replay/prune side effect).
-    await expect(access(path.join(journalDir, "pending.json"))).resolves.toBeUndefined();
+    await expect(access(path.join(journalDir, "pending.json"))).resolves.toBeNil();
   });
 });
 

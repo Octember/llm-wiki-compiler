@@ -13,6 +13,7 @@ import { describe, it, expect, vi, afterEach, type Mock } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { managedTempRoots } from "./fixtures/managed-temp-roots.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realCompilerLinkRepairCode = { ...(await import("../src/compiler/link-repair-code.js")) };
 

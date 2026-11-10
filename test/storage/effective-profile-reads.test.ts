@@ -21,6 +21,9 @@ import { describe, expect, it, vi, beforeEach } from "bun:test";
 /** `calls` are "<operation> <leaf name>"; `fail` maps one such key to the error it should raise. */
 const io = (() => ({ calls: [] as string[], fail: new Map<string, Error>() }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsNoFollowOpen = { ...(await import("../../src/utils/no-follow-open.js")) };
+
 vi.mock("../../src/utils/no-follow-open.js", async () => {
   const actual = realUtilsNoFollowOpen as typeof import("../../src/utils/no-follow-open.js");
   const WATCHED = ["stat", "readFile", "read", "close"];
@@ -58,8 +61,6 @@ import { productStorePaths } from "../../src/products/paths.js";
 import { MAX_PROFILE_BYTES, PROFILE_FILE } from "../../src/utils/constants.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
 import { bindingFor, buildProfileOnlyProduct, commitBuilt } from "../products/binding-fixture.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realUtilsNoFollowOpen = { ...(await import("../../src/utils/no-follow-open.js")) };
 
 const LEAF = "profile.json";
 const VALID = JSON.stringify({ schemaVersion: 1, profileId: "legacy", displayName: "Legacy", entities: { notes: { directory: "wiki/notes" } } });

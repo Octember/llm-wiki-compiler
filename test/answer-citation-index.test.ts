@@ -15,18 +15,35 @@ import { listCandidates } from "../src/compiler/candidate-read.js";
 import { UnsafeCandidateDirError } from "../src/compiler/candidate-store-paths.js";
 import * as output from "../src/utils/output.js";
 import { acquireLock, releaseLock } from "../src/utils/lock.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realFsPromises = { ...(await import("fs/promises")) };
 
-vi.mock("fs/promises", async (original) => {
-  const actual = await original<typeof fs>();
+vi.mock("fs/promises", async () => {
+  const actual = (realFsPromises as typeof fs);
   return { ...actual, readFile: vi.fn(actual.readFile), realpath: vi.fn(actual.realpath),
     open: vi.fn(actual.open), readdir: vi.fn(actual.readdir) };
 });
 
 let root: string;
 beforeEach(async () => { root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "answer-index-"))); });
-afterEach(async () => { vi.restoreAllMocks(); await fs.rm(root, { recursive: true, force: true }); });
+afterEach(async () => {
+  vi.restoreAllMocks();
+  resetFsMocks();
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+/**
+ * Bun's restoreAllMocks does not undo implementations installed on vi.fn module
+ * mocks, so each test's fault injection is reset back to the real filesystem.
+ */
+function resetFsMocks(): void {
+  for (const name of ["readFile", "realpath", "open", "readdir"] as const) {
+    const mocked = fs[name] as unknown as Mock<(...args: unknown[]) => unknown>;
+    mocked.mockReset();
+    mocked.mockImplementation(realFsPromises[name] as (...args: unknown[]) => unknown);
+  }
+}
 
 /** Create a page or queue fixture under the temporary project. */
 async function put(relative: string, content: string) {
@@ -74,7 +91,10 @@ it("matches production ordering, identities and aliases while ignoring typed-onl
 
 it("admits default and imported query candidates, excluding typed, malformed and unsupported targets", async () => {
   await candidate("default");
-  await candidate("imported", { targetDirectory: "queries", reviewMode: "imported", slug: "query-answer" });
+  // A later generatedAt pins the order: same-instant candidates keep the backend's
+  // listing order, which is raw directory order under Bun (Node's libuv sorted it).
+  await candidate("imported", { targetDirectory: "queries", reviewMode: "imported", slug: "query-answer",
+    generatedAt: "2026-09-18T00:00:01Z" });
   await candidate("typed-only", { targetEntityType: "papers" });
   await candidate("bad-dir", { targetDirectory: "papers" });
   await candidate("unnormalized", { slug: "Raw Name" });
@@ -175,7 +195,7 @@ it("does not hide candidate directory realpath faults in either listing mode", a
   await candidate("alpha");
   const actual = realFsPromises as typeof fs;
   (fs.realpath as unknown as Mock<typeof fs.realpath>).mockImplementation(async (target, ...args) => {
-    if (target === path.join(root, ".llmwiki/candidates")) throw Object.assign(new Error("I/O fault"), { code: "EACCES" });
+    if (target === path.join(root, ".llmwiki/candidates")) throw Object.assign(new Error("I/O fault"), { code: "EIO" });
     return actual.realpath(target, ...args);
   });
   // The store binding fails closed for every caller: a directory fault is a

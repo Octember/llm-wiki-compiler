@@ -88,18 +88,18 @@ interface Side { displayRoot: string; approve(id: string): Promise<void>; tree()
 async function runScenario(side: Side, ids: { bad: string; good: string }): Promise<string[]> {
   const statuses: string[] = [];
   const status = captureStatusLines(statuses, (text) => text.split(side.displayRoot).join("<root>"));
-  vi.useFakeTimers({ toFake: ["Date"] });
+  // Only the clock is pinned; Bun's setSystemTime needs no fake timers.
   setSystemTime(NOW);
   const out: string[] = [];
   try {
     for (const [name, id] of [["refuse-invalid", ids.bad], ["approve", ids.good]] as const) {
-      process.exitCode = undefined;
+      process.exitCode = 0;
       const settled = await side.approve(id).then(() => "ok", (error: Error) => `${error.name}: ${error.message}`);
       out.push(JSON.stringify({ name, settled, exitCode: process.exitCode ?? 0, statuses: statuses.splice(0), tree: await side.tree() }));
     }
   } finally {
-    process.exitCode = undefined;
-    vi.useRealTimers();
+    process.exitCode = 0;
+    setSystemTime();
     status.mockRestore();
   }
   return out;
@@ -249,11 +249,11 @@ describe("approval's authority order and tail failure over recorded collaborator
   /** One approval: the calls made, the exit code, and the outcome. */
   const run = async (candidate: ReviewCandidate, overrides: (log: string[]) => Partial<ReviewApproveSteps> = () => ({})): Promise<unknown[]> => {
     const log: string[] = [];
-    process.exitCode = undefined;
+    process.exitCode = 0;
     vi.spyOn(output, "status").mockImplementation(() => {});
     const settled = await approveUnderLockWith(recorded(log, candidate, overrides(log)), MEM_ROOT, "c1", {}).then(() => "ok", (error: Error) => error.message);
     const exitCode = process.exitCode ?? 0;
-    process.exitCode = undefined;
+    process.exitCode = 0;
     return [log, exitCode, settled];
   };
 

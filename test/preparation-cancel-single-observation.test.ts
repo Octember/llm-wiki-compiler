@@ -26,11 +26,12 @@
  */
 
 import { describe, expect, it, vi } from "bun:test";
-// Snapshot real modules before mock.module replaces them for this file.
-const realPreparationsCapacity = { ...(await import("../src/preparations/capacity.js")) };
 
 /** Hoisted so the mock factory — which runs before the module body — can reach it. */
 const observed = (() => ({ scans: 0 }))();
+
+// Snapshot real modules before mock.module replaces them for this file.
+const realPreparationsCapacity = { ...(await import("../src/preparations/capacity.js")) };
 
 vi.mock("../src/preparations/capacity.js", async () => {
   const actual = realPreparationsCapacity as typeof import("../src/preparations/capacity.js");

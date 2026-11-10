@@ -17,6 +17,13 @@ const exec = promisify(execFile);
 /** Absolute path to the compiled CLI entry point. */
 export const CLI = path.resolve("dist/cli.js");
 
+/**
+ * Runtime flags the CLI's shebang passes to Bun. Spawning `bun dist/cli.js`
+ * bypasses the shebang, so suites pass these explicitly to run the CLI the way
+ * an installed binary runs — in particular WITHOUT Bun loading `.env` itself.
+ */
+export const CLI_RUNTIME_FLAGS = ["--no-env-file"];
+
 /** Result shape returned by {@link runCLI}. */
 export interface CLIResult {
   stdout: string;
@@ -105,7 +112,7 @@ export async function runCLI(
     // it via the normal CLIResult shape instead of as a raw throw.
     await access(cwd);
 
-    const { stdout, stderr } = await exec(process.execPath, [CLI, ...args], {
+    const { stdout, stderr } = await exec(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, ...args], {
       cwd,
       env: { ...process.env, ...envOverrides },
     });

@@ -37,6 +37,10 @@ const io = (() => ({
   },
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+const realUtilsAtomicWrite = { ...(await import("../../src/utils/atomic-write.js")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   const real = actual as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
@@ -87,9 +91,6 @@ import { productStorePaths } from "../../src/products/paths.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
 import { FIXTURE_PRINCIPAL, buildActivatableProduct } from "../products/binding-fixture.js";
 import { writeSourcePackage } from "../products/product-package-fixture.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
-const realUtilsAtomicWrite = { ...(await import("../../src/utils/atomic-write.js")) };
 
 const fs = realFsPromises as typeof import("node:fs/promises");
 const PRODUCT = buildActivatableProduct();

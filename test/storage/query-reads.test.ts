@@ -29,6 +29,9 @@ const tape = (() => ({
   shortReadOf: null as number | null, closeError: null as Error | null,
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
 vi.mock("fs/promises", async () => {
   const actual = realFsPromises as typeof import("fs/promises");
   const open = (async (target: unknown, ...rest: unknown[]) => {
@@ -62,8 +65,6 @@ import { buildLiveRegistryEntry, loadPageRecordsByPageId } from "../../src/utils
 import { generateAnswer } from "../../src/commands/query.js";
 import { stageQueryProposal } from "../../src/commands/query-proposal.js";
 import { sha256Text } from "../../src/connectors/hash.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("fs/promises")) };
 
 const CAP = 64 * 1024;
 const PAGE = (title: string): string => `---\ntitle: ${title}\nsummary: S.\n---\n\nBody of ${title}.\n`;
@@ -163,12 +164,13 @@ describe("the metadata-only page scan", () => {
     expect(seen).toEqual({ prefixBytes: [CAP], wholeFileRead: false, title: "Big Body", hasBlock: true, body: "" });
   });
 
-  it("lists pages in listing order, skips non-pages and escapes, and tells a missing directory from a redirected one", async () => {
+  it("lists pages in name order, skips non-pages and escapes, and tells a missing directory from a redirected one", async () => {
     for (const name of ["b.md", "a.md", "c.md"]) await put(`wiki/concepts/${name}`, PAGE(name));
     await put("wiki/concepts/notes.txt", "not a page");
     await fs.writeFile(path.join(run.base, "outside.md"), PAGE("LEAK"));
     await fs.symlink(path.join(run.base, "outside.md"), at("wiki/concepts/leak.md"));
-    const listed = (await fs.readdir(at("wiki/concepts"))).filter((name) => ["a.md", "b.md", "c.md"].includes(name));
+    // Name order: the disk adapter sorts, as Node's libuv did (Bun's readdir does not).
+    const listed = (await fs.readdir(at("wiki/concepts"))).filter((name) => ["a.md", "b.md", "c.md"].includes(name)).sort();
     const scan = await scanEntityDir(run.root, "wiki/concepts", { includeBody: false });
     expect({ status: scan.dirStatus, stems: scan.scans.map((entry) => entry.stem) }).toEqual({ status: "ok", stems: listed.map((name) => name.slice(0, -3)) });
     expect(await scanEntityDir(run.root, "wiki/absent")).toEqual({ scans: [], dirStatus: "missing" });

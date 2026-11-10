@@ -249,7 +249,7 @@ describe("provider archive preflight early exit", () => {
         fixture.archive, fixture.artifact as never, await temporaryRoot(),
         { maximumMaterializedEntriesForTest: 2 } as never,
       )).rejects.toThrow(/entry cap/);
-      const matching = slice.mock.instances.filter((value) => (
+      const matching = slice.mock.contexts.filter((value) => (
         Array.isArray(value) && value[0] === "a" && value.at(-1) === "provider"
       ));
       expect(matching).toHaveLength(2);

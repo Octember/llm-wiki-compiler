@@ -28,6 +28,10 @@ export async function makeTempRoot(prefix: string): Promise<string> {
   return root;
 }
 
+/** How many `useTempRoot` roots are entered, and the directory before the first. */
+let activeRoots = 0;
+let cwdBeforeRoots = "";
+
 /**
  * State object populated by `useTempRoot`. Exposed as a mutable reference
  * so test files can read `ctx.dir` without calling a function.
@@ -45,24 +49,30 @@ export interface TempRootCtx {
  * Call at the top level of a describe block (or test file). Access the
  * current temp path via the returned context object's `dir` property.
  *
+ * A file may call this more than once. Every instance restores the directory
+ * recorded before the FIRST one entered, rather than the one it saw itself,
+ * because Bun runs afterEach hooks in registration order: an instance restoring
+ * "its" previous directory would chdir into a sibling root already removed.
+ *
  * @param extraDirs - Additional sub-directories to create inside the root.
  * @returns Mutable context with the current `dir` set by each beforeEach.
  */
 export function useTempRoot(extraDirs: string[] = []): TempRootCtx {
   const ctx: TempRootCtx = { dir: "" };
-  let originalCwd = "";
 
   beforeEach(async () => {
     ctx.dir = await makeTempRoot("test");
     for (const dir of extraDirs) {
       await mkdir(path.join(ctx.dir, dir), { recursive: true });
     }
-    originalCwd = process.cwd();
+    if (activeRoots === 0) cwdBeforeRoots = process.cwd();
+    activeRoots += 1;
     process.chdir(ctx.dir);
   });
 
   afterEach(async () => {
-    process.chdir(originalCwd);
+    activeRoots -= 1;
+    process.chdir(cwdBeforeRoots);
     await rm(ctx.dir, { recursive: true, force: true });
     vi.restoreAllMocks();
   });

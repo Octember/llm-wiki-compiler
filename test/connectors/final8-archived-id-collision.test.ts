@@ -12,10 +12,11 @@ import { runConnector } from "../../src/connectors/run.js";
 import { useTempRoot } from "../fixtures/temp-root.js";
 import { plantConnectorCandidate } from "./final6-fixtures.js";
 import { activateFixtureConnector } from "./run-test-fixtures.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realCrypto = { ...(await import("crypto")) };
 
 const suffixes = ((): Buffer[] => [])();
+
+// Snapshot real modules before mock.module replaces them for this file.
+const realCrypto = { ...(await import("crypto")) };
 
 vi.mock("crypto", async () => {
   const actual = realCrypto as typeof import("crypto");

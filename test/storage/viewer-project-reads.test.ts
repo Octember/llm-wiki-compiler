@@ -33,8 +33,11 @@ type Watched = "realpath" | "readFile" | "lstat" | "open";
 /** Every watched call seen, and one planted failure per call and path. */
 const watch = (() => ({ seen: [] as string[], fail: new Map<string, Error>() }))();
 
-vi.mock("fs/promises", async (load) => {
-  const disk = await load<typeof import("fs/promises")>();
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
+vi.mock("fs/promises", async () => {
+  const disk = (realFsPromises as typeof import("fs/promises"));
   const forward = (call: Watched) => (target: unknown, ...rest: unknown[]): unknown => {
     watch.seen.push(`${call} ${String(target)}${rest.map((value) => ` | ${JSON.stringify(value)}`).join("")}`);
     const failure = watch.fail.get(`${call} ${String(target)}`);

@@ -61,7 +61,7 @@ describe("Final8 collision-exclusive candidate publication", () => {
 
     expect(created.id).toBe(SECOND);
     expect(await readFile(archived, "utf8")).toBe("archived-authority");
-    expect(await snapshotCandidateQueue(root.dir)).toHaveProperty(`${SECOND}.json`);
+    expect(await snapshotCandidateQueue(root.dir)).toHaveProperty([`${SECOND}.json`]);
   });
 
   it("treats an existing pending symlink as a collision", async () => {

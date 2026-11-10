@@ -26,6 +26,7 @@ import { formatArtifactRef } from "../src/artifacts/ref.js";
 import { RelationPreconditionUnmetError, RelationPreconditionUnverifiableError } from "../src/relations/enforce-precondition.js";
 import { ArtifactPreconditionUnmetError, ArtifactPreconditionUnverifiableError, enforceArtifactPreconditions } from "../src/artifacts/enforce-precondition.js";
 import { enforceGatedStateEntry, type GatedStateEntryInput } from "../src/trust/gated-state-entry.js";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realArtifactsEnforcePrecondition = { ...(await import("../src/artifacts/enforce-precondition.js")) };
 const realRelationsEnforcePrecondition = { ...(await import("../src/relations/enforce-precondition.js")) };

@@ -25,6 +25,9 @@ import path from "node:path";
 /** What the wrapped opener should sabotage on the handles it returns. */
 const fault = (() => ({ close: false, read: false }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realUtilsNoFollowOpen = { ...(await import("../../src/utils/no-follow-open.js")) };
+
 vi.mock("../../src/utils/no-follow-open.js", async () => {
   const actual = realUtilsNoFollowOpen as typeof import("../../src/utils/no-follow-open.js");
   const openFileNoFollow: typeof actual.openFileNoFollow = async (...args) => {
@@ -43,8 +46,6 @@ import {
 } from "../../src/storage/disk-guarded-leaves.js";
 import { atomicWrite } from "../../src/utils/atomic-write.js";
 import { readConfinedLeaf, readConfinedLeafBuffer } from "../../src/utils/confined-read.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realUtilsNoFollowOpen = { ...(await import("../../src/utils/no-follow-open.js")) };
 
 const NOT_UTF8 = Buffer.from([0x00, 0xff, 0xfe, 0xc3, 0x28, 0x0a]);
 

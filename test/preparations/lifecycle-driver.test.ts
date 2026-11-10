@@ -160,7 +160,8 @@ async function driveWithPlanEdit(
   }, { actor: LIFECYCLE_ACTOR, at: AT, authorization: "ungated" as const });
 }
 
-const SEALED = /read only|not extensible|frozen/u;
+/** The strict-mode TypeError a frozen object raises, as V8 or JavaScriptCore words it. */
+const SEALED = /read only|readonly|not extensible|frozen/u;
 
 describe("the custody driver's single capture", () => {
   it("refuses to attest a retirement set from a non-authoritative listing", async () => {

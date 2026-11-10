@@ -35,6 +35,10 @@ const seen = (() => ({
   justBefore: null as { label: string; run: () => Promise<void> } | null,
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFs = { ...(await import("fs")) };
+const realFsPromises = { ...(await import("fs/promises")) };
+
 vi.mock("fs", async () => {
   const real = realFs as typeof import("fs");
   const existsSync = (target: unknown): boolean => {
@@ -63,9 +67,6 @@ import { evaluateSourceUtilization } from "../../src/eval/source-utilization.js"
 import { resolveSourceFile } from "../../src/eval/source-path.js";
 import { runEval } from "../../src/eval/index.js";
 import type { EvalReport } from "../../src/eval/types.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFs = { ...(await import("fs")) };
-const realFsPromises = { ...(await import("fs/promises")) };
 
 const HISTORY = ".llmwiki/eval/history.jsonl";
 const THRESHOLDS = ".llmwiki/eval/thresholds.yaml";

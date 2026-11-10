@@ -27,6 +27,10 @@ import path from "node:path";
 /** Events the wrapped primitives record: each close of a leaf handle the confined opener returned. */
 const handleLog = (() => [] as string[])();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+const realUtilsConfinedRead = { ...(await import("../../src/utils/confined-read.js")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   return { ...actual, access: vi.fn(actual.access), opendir: vi.fn(actual.opendir), rename: vi.fn(actual.rename) };
@@ -54,11 +58,18 @@ import {
   type GuardedLeafExpectation, type GuardedLeafMoveRequest, type GuardedLeafRead, type SuffixedNameEnumeration,
 } from "../../src/storage/disk-guarded-leaves.js";
 import { captureCandidateDirectoryBinding, type CandidateDirectoryBinding } from "../../src/storage/disk-record-directory.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
-const realUtilsConfinedRead = { ...(await import("../../src/utils/confined-read.js")) };
 
 const QUEUE = ".llmwiki/candidates";
+
+/**
+ * The raw error the runtime's own `realpath` raises for `target`, as `{ code, syscall, path }`.
+ * The syscall is runtime-specific (Node reports `realpath`, Bun `lstat`), so the raw-rejection
+ * assertions compare against this rather than a hard-coded name.
+ */
+async function rawRealpathError(target: string): Promise<{ code?: string; syscall?: string; path?: string }> {
+  const err = (await realpath(target).then(() => { throw new Error(`${target} resolved`); }, (e: unknown) => e)) as NodeJS.ErrnoException;
+  return { code: err.code, syscall: err.syscall, path: err.path };
+}
 
 let base: string;
 let root: string;
@@ -159,8 +170,9 @@ describe("readGuardedLeaf", () => {
 
   it("rejects with the raw error, not a refusal value, when the root cannot be resolved", async () => {
     const missingRoot = path.join(base, "no-project");
-    await expect(readGuardedLeaf({ ...request("a.json"), root: missingRoot }))
-      .rejects.toMatchObject({ code: "ENOENT", syscall: "realpath", path: missingRoot });
+    const raw = await rawRealpathError(missingRoot);
+    expect(raw).toMatchObject({ code: "ENOENT", path: missingRoot });
+    await expect(readGuardedLeaf({ ...request("a.json"), root: missingRoot })).rejects.toMatchObject(raw);
   });
 });
 
@@ -170,15 +182,18 @@ describe("enumerateSuffixedNames", () => {
     (opendir as unknown as Mock<typeof opendir>).mockImplementationOnce(async (dir) => {
       log.push("open");
       const opened = await (realFsPromises as typeof import("node:fs/promises")).opendir(dir);
-      const entries = opened[Symbol.asyncIterator]();
-      const nextEntry = entries.next.bind(entries);
       const close = opened.close.bind(opened);
-      entries.next = async (...args) => {
-        const step = await nextEntry(...args);
-        if (step.done) log.push("stream-end");
-        return step;
+      // Iterate with read(): Bun's own Dir iterator calls the PUBLIC close() when the stream
+      // ends, which would log a runtime close in place of the one under test.
+      const entries = {
+        next: async () => {
+          const entry = await opened.read();
+          if (entry === null) log.push("stream-end");
+          return entry === null ? { done: true as const, value: undefined } : { done: false as const, value: entry };
+        },
+        [Symbol.asyncIterator]() { return this; },
       };
-      opened[Symbol.asyncIterator] = () => entries;
+      opened[Symbol.asyncIterator] = (() => entries) as unknown as typeof opened[typeof Symbol.asyncIterator];
       opened.close = (async () => { log.push("close"); return close(); }) as typeof opened.close;
       return opened;
     });
@@ -395,9 +410,11 @@ describe("createLeafNoReplace and replaceLeafAtomic", () => {
     const missingRoot = path.join(base, "no-project");
     const outside = path.join(base, "outside.json");
     const noHook = async (): Promise<void> => {};
-    await expect(replaceLeafAtomic(missingRoot, fresh(), "x")).rejects.toMatchObject({ code: "ENOENT", syscall: "realpath" });
+    const raw = await rawRealpathError(missingRoot);
+    expect(raw.code).toBe("ENOENT");
+    await expect(replaceLeafAtomic(missingRoot, fresh(), "x")).rejects.toMatchObject(raw);
     await expect(createLeafNoReplace({ root: missingRoot, leaf: fresh(), text: "x", afterParentCheck: noHook }))
-      .rejects.toMatchObject({ code: "ENOENT", syscall: "realpath" });
+      .rejects.toMatchObject(raw);
     await expect(replaceLeafAtomic(root, outside, "x")).rejects.toThrow();
     await expect(createLeafNoReplace({ root, leaf: outside, text: "x", afterParentCheck: noHook })).rejects.toThrow();
     await expect(stat(outside)).rejects.toMatchObject({ code: "ENOENT" });

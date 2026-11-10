@@ -5,7 +5,7 @@
  * Tests extraction, deterministic sampling, cache loading, and score aggregation.
  */
 
-import { vi, type Mock } from "bun:test";
+import { vi, type Mock, describe, it, expect } from "bun:test";
 import {
   extractCitationPairs,
   selectDeterministicSample,

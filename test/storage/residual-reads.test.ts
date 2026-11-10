@@ -29,6 +29,9 @@ type FaultedCall = "readdir" | "realpath" | "stat";
 /** The next `remaining` calls of `call` on exactly `target` reject with `error`. */
 const fault = (() => ({ call: "", target: "", error: null as Error | null, remaining: 0 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("fs/promises")) };
+
 vi.mock("fs/promises", async () => {
   const actual = realFsPromises as typeof import("fs/promises");
   const guarded = (call: FaultedCall) => (target: unknown, ...rest: unknown[]) => {
@@ -51,8 +54,6 @@ import { loadProfile } from "../../src/profile/load.js";
 import { allTargetsConfined, type JournalBatch } from "../../src/trust/journal.js";
 import { acquireLockBlocking, releaseLock } from "../../src/utils/lock.js";
 import { writeTestStateJson } from "../fixtures/state-json.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("fs/promises")) };
 
 /** SHA-256 of "a�b": the text Node decodes from the bytes 61 ff 62. Not the hash of those bytes. */
 const DECODED_INVALID_UTF8_HASH = "05087813392efc16fe8ff448920c6328e53af865df39419436659d9ffda90f7b";
@@ -194,7 +195,9 @@ describe("the citation index keeps its strict rule", () => {
 
   it("answers empty for a missing root and throws a genuine fault resolving it", async () => {
     expect(await collectAnswerCitationIndex(path.join(base, "missing"))).toEqual({ retained: [], pending: [] });
-    const denied = arm("realpath", root, "EACCES");
+    // EIO, not EACCES: portableRealpath treats EACCES as Bun's unreadable-leaf
+    // quirk and resolves it the way Node would, so it is no longer a fault here.
+    const denied = arm("realpath", root, "EIO");
     expect(await settled(collectAnswerCitationIndex(root))).toBe(denied);
   });
 

@@ -21,6 +21,7 @@
  */
 
 import { describe, expect, it, vi } from "bun:test";
+
 // Snapshot real modules before mock.module replaces them for this file.
 const realUtilsAdvisoryFile = { ...(await import("../src/utils/advisory-file.js")) };
 

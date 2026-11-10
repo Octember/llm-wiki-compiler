@@ -204,8 +204,9 @@ describe("OllamaProvider.toolCall", () => {
       [CONCEPT_EXTRACTION_TOOL],
       1024,
     );
-    const rejection = expect(promise).rejects.toThrow();
-    await vi.advanceTimersByTime(1001);
-    await rejection;
+    // Bun's `rejects` drains the promise before returning, so the fake clock
+    // must fire the abort first; awaiting `rejects` beforehand would hang.
+    vi.advanceTimersByTime(1001);
+    await expect(promise).rejects.toThrow();
   });
 });

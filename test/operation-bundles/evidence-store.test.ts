@@ -28,8 +28,8 @@ describe("run-evidence store", () => {
     const created = await writeRunEvidenceCreateOnly(root.dir, location, bytes);
     await expect(writeRunEvidenceCreateOnly(root.dir, location, bytes)).resolves.toEqual(created);
     expect(created).toMatchObject({ digest: digest(bytes), byteCount: bytes.byteLength, type: "observation", provenance: "controller" });
-    await expect(access(operationPaths(root.dir, "research").evidenceFile(runId, digest(bytes).slice("sha256:".length))))
-      .resolves.toBeUndefined();
+    // The blob exists: access rejects when it is missing (Bun resolves null, Node undefined).
+    await access(operationPaths(root.dir, "research").evidenceFile(runId, digest(bytes).slice("sha256:".length)));
   });
 
   it("returns a fixed over-limit reference without writing a blob", async () => {

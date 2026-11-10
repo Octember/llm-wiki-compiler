@@ -16,6 +16,9 @@ const listingProbe = (() => ({
   mutated: false,
 }))();
 
+// Snapshot real modules before mock.module replaces them for this file.
+const realFsPromises = { ...(await import("node:fs/promises")) };
+
 vi.mock("node:fs/promises", async () => {
   const actual = realFsPromises as typeof import("node:fs/promises");
   return {
@@ -39,8 +42,6 @@ vi.mock("node:fs/promises", async () => {
 import { scanPreparationLifecycle } from "../../src/preparations/lifecycle-snapshot/scan.js";
 import { lifecycleSnapshotFixture } from "./lifecycle-snapshot-fixture.js";
 import { lifecycleRegistryRoot } from "./lifecycle-storage-test-helpers.js";
-// Snapshot real modules before mock.module replaces them for this file.
-const realFsPromises = { ...(await import("node:fs/promises")) };
 
 describe("preparation lifecycle root enumeration", () => {
   const root = useTempRoot();
