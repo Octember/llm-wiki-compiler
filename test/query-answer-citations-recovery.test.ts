@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createWiki } from "../src/index.js";
+import { createWiki } from "../src/sdk/wiki.js";
 import { generateAnswer } from "../src/commands/query.js";
 import { reportAnswerCitations } from "../src/citations/answer-report.js";
 import { callClaude } from "../src/utils/llm.js";

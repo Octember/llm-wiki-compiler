@@ -16,7 +16,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
-import { runPreparation } from "../../src/index.js";
+import { runPreparation } from "../../src/preparations/runner.js";
 import { NoObligationError } from "../../src/preparations/materialization.js";
 import {
   createPackMaterializer, PackMaterializationError,

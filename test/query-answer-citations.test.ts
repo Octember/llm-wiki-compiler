@@ -5,7 +5,7 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createWiki } from "../src/index.js";
+import { createWiki } from "../src/sdk/wiki.js";
 import type { QueryResult } from "../src/index.js";
 import { generateAnswer } from "../src/commands/query.js";
 import { callClaude } from "../src/utils/llm.js";
