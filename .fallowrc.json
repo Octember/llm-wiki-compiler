@@ -64,7 +64,8 @@
       "enablers": ["@types/bun"],
       "entryPoints": ["test/**/*.ts"],
       "entryPointRole": "test",
-      "configPatterns": ["bunfig.toml"]
+      "configPatterns": ["bunfig.toml"],
+      "alwaysUsed": ["test/preload.ts"]
     }
   ],
   "overrides": [

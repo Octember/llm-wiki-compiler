@@ -64,7 +64,7 @@ describe("Final7 closed candidate effect snapshots", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("safe-id");
     expect(lines[0]).not.toContain("\n");
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode ?? 0).toBe(0); // unset or reset to 0: no failure reported
   });
 
   it("refuses an accessor result kind through the fixed command boundary", async () => {

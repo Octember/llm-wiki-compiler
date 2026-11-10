@@ -138,9 +138,7 @@ export async function collectAnswerCitationIndexFrom(sources: AnswerCitationSour
  */
 function diskPageDirectory(expectedDir: string): StrictPageDirectory {
   return {
-    // Code-unit order, as Node's libuv listed it and the viewer's collector still
-    // does; Bun's readdir returns raw directory order.
-    listNames: async () => (await listDirectoryNames(expectedDir)).sort(),
+    listNames: () => listDirectoryNames(expectedDir),
     resolveEntry: async (name) => {
       const real = await safeRealpath(path.join(expectedDir, name), STRICT_IO);
       return !real || !isInsideDir(real, expectedDir) ? null : real;

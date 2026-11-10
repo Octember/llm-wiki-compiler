@@ -15,8 +15,12 @@ import { signedIndex, signedPackage, TAP_KEY } from "./template-signing.js";
 
 const CLI = path.resolve("dist/cli.js");
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Maximum time any compiled publisher-verifier CLI assertion may wait. */
-export const CLI_TIMEOUT_MS = 5_000;
+/**
+ * Maximum time any compiled publisher-verifier CLI assertion may wait. A hang
+ * guard, not a speed check: one run takes ~1.5s idle, but the full suite runs
+ * parallel workers that each spawn CLIs, and 5s was breached under that load.
+ */
+export const CLI_TIMEOUT_MS = 15_000;
 
 export interface PublishDistribution {
   root: string;
