@@ -1,5 +1,9 @@
 /**
- * Vitest globalSetup: build dist/ once before any test file loads.
+ * Vitest globalSetup: make sure dist/ is built before any test file loads.
+ *
+ * The build is skipped when dist/ is already newer than everything it is built
+ * from (see `fixtures/build-freshness.ts`), which is the case right after
+ * `npm run build` and on every run that changes only tests.
  *
  * Several test files spawn `node dist/cli.js` to exercise the CLI surface.
  * Without a shared setup, each file's own beforeAll would call tsup, and
@@ -22,11 +26,14 @@
 
 import { execFile } from "child_process";
 import { resolveTsupCli } from "../scripts/tsup-command.js";
+import { isBuildFresh } from "./fixtures/build-freshness.js";
 import { promisify } from "util";
 import path from "path";
 
 const exec = promisify(execFile);
 
 export async function setup(): Promise<void> {
-  await exec(process.execPath, [resolveTsupCli()], { cwd: path.resolve(".") });
+  const root = path.resolve(".");
+  if (await isBuildFresh(root)) return;
+  await exec(process.execPath, [resolveTsupCli()], { cwd: root });
 }
