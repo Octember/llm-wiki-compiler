@@ -48,5 +48,7 @@ export default defineConfig({
     // tsup's clean+write cycle (multiple beforeAll(npx tsup) calls were
     // wiping dist/cli.js mid-test).
     globalSetup: "./test/global-setup.ts",
+    // Native byte comparison for large buffers; see the file header.
+    setupFiles: ["./test/setup-byte-equality.ts"],
   },
 });
