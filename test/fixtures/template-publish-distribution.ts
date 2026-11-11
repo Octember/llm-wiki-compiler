@@ -3,7 +3,6 @@
  * @description Builds production-signed static template distributions for the
  * frozen Slice A CLI oracle without introducing an alternate signing protocol.
  */
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -12,7 +11,7 @@ import { expect } from "bun:test";
 import { parseTemplateCoordinate } from "../../src/profile/templates/signing/protocol.js";
 import type { SignedPackageEnvelope, SignedTapIndex } from "../../src/profile/templates/signing/types.js";
 import { signedIndex, signedPackage, TAP_KEY } from "./template-signing.js";
-import { CLI, CLI_RUNTIME_FLAGS } from "./run-cli.js";
+import { CLI, CLI_RUNTIME_FLAGS, spawnAsync } from "./run-cli.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /**
@@ -76,14 +75,14 @@ export async function writeSignedDistributionIndex(
 }
 
 /** Invoke the compiled public CLI exactly as an operator would. */
-export function runPublishVerify(
+export async function runPublishVerify(
   fixture: PublishDistribution,
   extraArgs: readonly string[] = [],
   keyId = TAP_KEY.keyId,
   keyFile = fixture.keyFile,
   tap = "official",
-): VerifyResult {
-  const result = spawnSync(process.execPath, [
+): Promise<VerifyResult> {
+  const result = await spawnAsync(process.execPath, [
     ...CLI_RUNTIME_FLAGS, CLI, "template", "publish", "verify", fixture.directory,
     "--tap", tap, "--key-id", keyId, "--key-file", keyFile, ...extraArgs,
   ], { cwd: fixture.root, encoding: "utf8", env: offlineEnvironment(fixture.root), timeout: CLI_TIMEOUT_MS });

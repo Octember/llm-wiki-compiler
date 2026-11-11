@@ -161,3 +161,32 @@ export async function startBuildRunCLI(cwd: string): Promise<string> {
   expect(start.code).toBe(0);
   return (start.stdout.match(/build-[\w-]+/) ?? [""])[0];
 }
+
+/** What {@link spawnAsync} resolves with: the fields tests read from a `spawnSync` result. */
+export interface SpawnResult {
+  status: number | null;
+  signal: string | null;
+  stdout: string;
+  stderr: string;
+  error?: Error;
+}
+
+/**
+ * Run a command to completion WITHOUT blocking the event loop, resolving with
+ * the shape `spawnSync` returns. A synchronous spawn holds the test worker's
+ * loop for its whole duration, so the runner's per-test timeout cannot fire;
+ * in CI a stuck one hung whole shards for hours.
+ */
+export function spawnAsync(
+  command: string, args: readonly string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number; encoding?: "utf8" } = {},
+): Promise<SpawnResult> {
+  return new Promise((resolve) => {
+    execFile(command, [...args], { ...options, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+      const failure = error as (Error & { code?: unknown; signal?: string | null }) | null;
+      const status = failure === null ? 0 : typeof failure.code === "number" ? failure.code : null;
+      const spawnError = failure !== null && typeof failure.code !== "number" && !failure.signal ? failure : undefined;
+      resolve({ status, signal: failure?.signal ?? null, stdout, stderr, ...(spawnError ? { error: spawnError } : {}) });
+    });
+  });
+}
