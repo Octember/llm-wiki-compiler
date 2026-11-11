@@ -39,7 +39,7 @@ function runCounted(files: readonly string[], sites: boolean): { exitCode: numbe
   const directory = mkdtempSync(path.join(os.tmpdir(), "llmwiki-call-counts-"));
   try {
     const env = { ...process.env, LLMWIKI_CALL_COUNTS: directory, ...(sites ? { LLMWIKI_CALL_SITES: "1" } : {}) };
-    const run = spawnSync(process.execPath, ["scripts/run-tests.mjs", ...files], { stdio: "inherit", env });
+    const run = spawnSync(process.execPath, ["scripts/run-tests.mjs", "--preload=./test/call-counter.ts", ...files], { stdio: "inherit", env });
     const counts = readdirSync(directory).flatMap((name) => readFileSync(path.join(directory, name), "utf8")
       .split("\n").filter(Boolean).map((line) => JSON.parse(line) as FileCallCounts));
     return { exitCode: run.status ?? 1, counts: mergeByFile(counts) };
@@ -91,14 +91,14 @@ function printOps(counts: readonly FileCallCounts[]): void {
 
 /** A file's CPU seconds in its own process and in the CLIs it spawned. */
 function cpuSeconds(item: FileCallCounts): { self: number; child: number; total: number } {
-  const { self = 0, child = 0 } = item.cpu ?? {};
+  const { self = 0, child = 0 } = item.cpu;
   return { self: self / 1000, child: child / 1000, total: (self + child) / 1000 };
 }
 
 /** CPU seconds spent in test files' own processes and in the CLIs they spawned, and the costliest files. */
 function printCpu(counts: readonly FileCallCounts[]): void {
   const all = counts.map(cpuSeconds);
-  const self = all.reduce((sum, cpu) => sum + cpu.self, 0), child = all.reduce((sum, cpu) => sum + cpu.child, 0);
+  const self = all.reduce((seconds, cpu) => seconds + cpu.self, 0), child = all.reduce((seconds, cpu) => seconds + cpu.child, 0);
   console.log(`CPU: ${self.toFixed(1)} s in test processes, ${child.toFixed(1)} s in spawned CLIs (not counted: other programs such as ps)`);
   console.log("Most CPU:");
   for (const item of [...counts].sort((a, b) => cpuSeconds(b).total - cpuSeconds(a).total).slice(0, TOP_FILES)) {
@@ -127,6 +127,14 @@ function writeBaseline(totals: Record<string, FileTotals>, baseline: Baseline | 
   console.log(`Wrote ${BASELINE_FILE} (${n(Object.keys(files).length)} files).`);
 }
 
+/** Report each file against the baseline; fail when any file makes more calls. */
+function checkBaseline(totals: Record<string, FileTotals>, baseline: Baseline | null): number {
+  const { regressions, improved, unknown } = compareCallCounts(totals, baseline?.files ?? {});
+  regressions.forEach((line) => console.error(`more calls than the baseline: ${line}`));
+  console.log(`${n(improved)} files make fewer calls than the baseline (lower it with --update); ${n(unknown)} have none yet.`);
+  return Math.sign(regressions.length);
+}
+
 /** Check the baseline, and with `update` lower it when nothing rose; the exit code is the result. */
 function settleBaseline(totals: Record<string, FileTotals>, baseline: Baseline | null, update: boolean, partial: boolean): number {
   const regressed = checkBaseline(totals, baseline);
@@ -152,14 +160,6 @@ function main(): number {
   if (exitCode === 0) return settleBaseline(totals, baseline, values.update === true, positionals.length > 0);
   console.error("\nSome tests failed; their counts are not comparable and the baseline is unchanged.");
   return exitCode;
-}
-
-/** Report each file against the baseline; fail when any file makes more calls. */
-function checkBaseline(totals: Record<string, FileTotals>, baseline: Baseline | null): number {
-  const { regressions, improved, unknown } = compareCallCounts(totals, baseline?.files ?? {});
-  regressions.forEach((line) => console.error(`more calls than the baseline: ${line}`));
-  console.log(`${n(improved)} files make fewer calls than the baseline (lower it with --update); ${n(unknown)} have none yet.`);
-  return Math.sign(regressions.length);
 }
 
 process.exit(main());
