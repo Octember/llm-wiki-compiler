@@ -38,6 +38,7 @@ import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import { confirmOpenedLeaf, expectedRealMatching, type ConfinedLeafOpen } from "./confined-read.js";
 import { realpath } from "./fs-metadata.js";
+import { mayKnowLeaf } from "./inventory-leaf-cache.js";
 import { openRegularNoFollow } from "./no-follow-open.js";
 
 /** The most consecutive leaves one visit opens ahead, and so the most handles it holds at once. */
@@ -72,11 +73,12 @@ async function openAhead(leaf: string): Promise<{ handle: FileHandle; stat: Stat
   return openRegularNoFollow(leaf, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK).catch(() => null);
 }
 
-/** Open the run's files, then take the ONE directory proof that follows every one of those opens. */
+/** Open the run's files, then take the ONE directory proof that follows every one of those opens. A leaf the walk already proved (`inventory-leaf-cache.ts`) is left to its observation. */
 async function openRunOf(root: string, directory: string, run: readonly Dirent[]): Promise<Map<string, LeafOpenedAhead>> {
-  const files = run.filter((entry) => entry.isFile()), opened = new Map<string, LeafOpenedAhead>();
+  const resolved = path.resolve(directory), opened = new Map<string, LeafOpenedAhead>();
+  const files = run.filter((entry) => entry.isFile() && !mayKnowLeaf(path.join(resolved, entry.name)));
   if (files.length < MIN_LEAVES_OPENED_AHEAD) return opened;
-  const resolved = path.resolve(directory), handles: [string, { handle: FileHandle; stat: Stats }][] = [];
+  const handles: [string, { handle: FileHandle; stat: Stats }][] = [];
   for (const entry of files) {
     const leaf = path.join(resolved, entry.name), open = await openAhead(leaf);
     if (open !== null) handles.push([leaf, open]);

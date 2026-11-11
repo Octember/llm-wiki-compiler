@@ -6,6 +6,7 @@ import type { Dir, Dirent } from "node:fs";
 import { opendir } from "node:fs/promises";
 import path from "node:path";
 import { existingRealpath, expectedRealMatching, openConfinedLeaf, type ConfirmedLeafOpen } from "./confined-read.js";
+import { knownLeaf, rememberLeaf } from "./inventory-leaf-cache.js";
 import { runContinues, type LeafReadAhead } from "./inventory-leaf-read-ahead.js";
 import type { ScannedLeafBytes } from "./scanned-leaf-bytes.js";
 
@@ -206,25 +207,38 @@ async function readForHolder(opened: ConfirmedLeafOpen): Promise<Buffer | null> 
  * also read from that same handle ({@link readForHolder}) and its bytes held
  * with the identity, version and canonical paths the open proved. Reading
  * never changes the observation: a failed read only means nothing is held.
+ *
+ * With `walkStartedAt`, the caller is a walk that proved `parent` canonical
+ * before listing it: a leaf proved by an earlier walk and unchanged since is
+ * answered from that proof (`inventory-leaf-cache.ts`), and a leaf proved here
+ * is remembered.
  */
 export async function observeInventoryLeaf(
-  root: string, file: string, parent: string, retain?: InventoryLeafRetention, ahead?: LeafReadAhead,
+  root: string, file: string, parent: string, retain?: InventoryLeafRetention, ahead?: LeafReadAhead, walkStartedAt?: number,
 ): Promise<InventoryLeafObservation> {
+  const wantsBody = (size: number) => retain !== undefined && size <= retain.maxBytes && retain.into.hasRoomFor(size);
+  const cached = walkStartedAt === undefined ? undefined : await knownLeaf(root, file, parent);
+  if (cached !== undefined && (cached.body !== undefined || !wantsBody(cached.size))) {
+    if (cached.body !== undefined && wantsBody(cached.size)) retain?.into.hold({ ...cached, body: cached.body });
+    return { kind: "confirmed", size: cached.size, dev: cached.dev, ino: cached.ino };
+  }
   const opened = (await ahead?.claim(file, parent)) ?? await openConfinedLeaf(root, file, parent);
   if (opened.kind !== "confirmed") return opened;
   const observation = { kind: "confirmed" as const, size: opened.size, dev: opened.dev, ino: opened.ino };
-  if (retain === undefined || opened.size > retain.maxBytes || !retain.into.hasRoomFor(opened.size)) {
+  const proof = {
+    root: path.resolve(root), leaf: file, ownedDirectory: path.resolve(parent), expectedReal: opened.expectedReal,
+    canonicalLeaf: opened.canonicalLeaf, dev: opened.dev, ino: opened.ino, nlink: opened.nlink,
+    size: opened.size, mtimeMs: opened.mtimeMs, ctimeMs: opened.ctimeMs,
+  };
+  if (!wantsBody(opened.size)) {
     await opened.handle.close().catch(() => {});
+    if (walkStartedAt !== undefined) rememberLeaf(proof, walkStartedAt);
     return observation;
   }
   const body = await readForHolder(opened);
-  if (body !== null) {
-    retain.into.hold({
-      root: path.resolve(root), leaf: file, ownedDirectory: path.resolve(parent), expectedReal: opened.expectedReal,
-      canonicalLeaf: opened.canonicalLeaf, dev: opened.dev, ino: opened.ino, nlink: opened.nlink,
-      size: opened.size, mtimeMs: opened.mtimeMs, ctimeMs: opened.ctimeMs, body,
-    });
-  }
+  if (body === null) return observation;
+  retain?.into.hold({ ...proof, body });
+  if (walkStartedAt !== undefined) rememberLeaf({ ...proof, body }, walkStartedAt);
   return observation;
 }
 

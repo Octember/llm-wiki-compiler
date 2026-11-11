@@ -242,6 +242,8 @@ export const LIFECYCLE_MODULE_OWNERSHIP: readonly LifecycleModuleOwnershipV1[] =
   { path: "src/utils/inventory-arithmetic.ts", role: "shared-primitive", rawFilesystemAccess: false },
   // The local-disk walk reads both orphan scans hand their scan body; path joins only, the I/O stays in inventory-scan.
   { path: "src/utils/inventory-disk-walk.ts", role: "shared-primitive", rawFilesystemAccess: false },
+  // Remembers a walk's leaf proofs per process; one no-follow lstat re-checks each.
+  { path: "src/utils/inventory-leaf-cache.ts", role: "shared-primitive", rawFilesystemAccess: true },
   // Opens a run of walk leaves ahead and proves their directory once after the last open.
   { path: "src/utils/inventory-leaf-read-ahead.ts", role: "shared-primitive", rawFilesystemAccess: true },
   // The no-follow I/O moved here; store classification remains in orphan-scan.
@@ -424,6 +426,7 @@ export const EXPECTED_MODULE_ROLES = [
   "src/utils/hmac-equal.ts :: shared-primitive",
   "src/utils/inventory-arithmetic.ts :: shared-primitive",
   "src/utils/inventory-disk-walk.ts :: shared-primitive",
+  "src/utils/inventory-leaf-cache.ts :: shared-primitive",
   "src/utils/inventory-leaf-read-ahead.ts :: shared-primitive",
   "src/utils/inventory-scan.ts :: shared-primitive",
   "src/utils/kernel-start-time.ts :: shared-primitive",

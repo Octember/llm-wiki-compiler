@@ -15,6 +15,10 @@
  * file entries and proves their directory once, and each observation claims
  * its leaf's handle. Building it does no I/O.
  *
+ * ONE START TIME PER WALK, taken when the reads are built and so before any
+ * open: a leaf proved in this walk is remembered for later walks only when it
+ * changed well before then (`inventory-leaf-cache.ts`).
+ *
  * WHY A SEPARATE MODULE. The two primitives are called through the exports of
  * `inventory-scan.ts`, never from inside it, so a module spy on
  * `visitInventoryDirectory` or `observeInventoryLeaf` still sees every root-form
@@ -42,12 +46,12 @@ interface DiskInventoryWalkReads {
  */
 export function diskInventoryWalkReads(root: string, storeDirectory: string, scanned?: ScannedLeafBytes): DiskInventoryWalkReads {
   const resolvedRoot = path.resolve(root), storeRoot = path.resolve(path.join(root, storeDirectory));
-  const ahead = leafReadAhead();
+  const ahead = leafReadAhead(), startedAt = Date.now();
   return {
     visitDirectory: (directory, visitor) =>
       visitInventoryDirectory(resolvedRoot, path.join(storeRoot, directory), visitor, ahead),
     observeLeaf: (file, parent, retainUpToBytes) =>
       observeInventoryLeaf(resolvedRoot, path.join(storeRoot, file), path.join(storeRoot, parent),
-        scanned === undefined || retainUpToBytes === undefined ? undefined : { into: scanned, maxBytes: retainUpToBytes }, ahead),
+        scanned === undefined || retainUpToBytes === undefined ? undefined : { into: scanned, maxBytes: retainUpToBytes }, ahead, startedAt),
   };
 }
