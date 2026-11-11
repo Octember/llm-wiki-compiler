@@ -14,7 +14,7 @@
  */
 
 import { createHash } from "node:crypto";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import type { EntityId } from "../profile/types.js";
 import type { RelationContentInput } from "./types.js";
 
@@ -61,7 +61,7 @@ export function relationContentHash(input: RelationContentInput): string {
     attributes: input.attributes,
     evidence: input.evidence,
   };
-  const canonical = canonicalize(content);
+  const canonical = canonicalJson(content);
   if (canonical === undefined) {
     throw new Error("relation canonicalization produced no output");
   }

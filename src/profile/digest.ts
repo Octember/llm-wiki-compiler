@@ -8,16 +8,16 @@
  * the digest is computed over the RFC 8785 JSON Canonicalization Scheme (JCS)
  * form of the pack, not its raw serialization.
  *
- * Canonicalization is intentionally NOT hand-rolled. JCS has subtle rules
- * (lexicographic UTF-16 key ordering, ECMAScript Number serialization, string
- * escaping) where a bespoke implementation would silently diverge and corrupt
- * identity. We therefore depend on `canonicalize`, a small, well-known, vetted
- * RFC 8785 implementation — the one permitted new runtime dependency for this
- * capability — and layer only a SHA-256 over its output.
+ * JCS has subtle rules (lexicographic UTF-16 key ordering, ECMAScript Number
+ * serialization, string escaping) where a divergent implementation would
+ * silently corrupt identity. The digest therefore uses the repository's single
+ * canonicalizer, `canonicalJson`, which is held byte-for-byte to the vetted
+ * `canonicalize` package by a differential test, and layers only a SHA-256
+ * over its output.
  */
 
 import { createHash } from "node:crypto";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "./templates/signing/canonical-json.js";
 import type { ProfilePack } from "./types.js";
 
 /**
@@ -31,7 +31,7 @@ import type { ProfilePack } from "./types.js";
  * @returns Lowercase hex-encoded SHA-256 of the canonical JSON form.
  */
 export function profileDigest(p: ProfilePack): string {
-  const canonical = canonicalize(p);
+  const canonical = canonicalJson(p);
   if (canonical === undefined) {
     throw new Error("profile canonicalization produced no output");
   }

@@ -14,7 +14,7 @@
 
 import { captureCandidateCustody } from "../compiler/candidate-custody.js";
 import { inventoryHasRetainedState } from "../utils/inventory-arithmetic.js";
-import { canonicalBytes } from "../profile/templates/signing/canonical.js";
+import { canonicalBytes, canonicalBytesDigest } from "../profile/templates/signing/canonical.js";
 import {
   assertStageCapacity, scanOperationInventory,
   StageCapacityError, type OperationInventory,
@@ -30,7 +30,7 @@ import {
   createOperationKeyForEmptyEpochLocked, type OperationKeyRead,
 } from "./key-epoch.js";
 import { validateBundleGraphSet } from "./manifest-graph.js";
-import { operationManifestDigest, parseOperationManifest } from "./manifest-parse.js";
+import { parseOperationManifest } from "./manifest-parse.js";
 import { writeOperationManifestCreateOnly } from "./manifest-store.js";
 import { operationPassReads } from "./pass-reads.js";
 import { assertWorkspaceId } from "./paths.js";
@@ -269,7 +269,7 @@ function prepareStage(request: StageOperationBundleRequest): PreparedStage {
   const manifestBytes = canonicalBytes(manifest);
   const prepared: PreparedStage = {
     manifest, manifestBytes,
-    manifestDigest: operationManifestDigest(manifest) as OperationDigest,
+    manifestDigest: canonicalBytesDigest(manifestBytes) as OperationDigest,
     payloads, run, projectedRunBudget, dryRun: request.dryRun === true,
     faults: { ...request.faultsForTest },
   };

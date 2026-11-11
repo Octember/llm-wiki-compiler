@@ -18,7 +18,7 @@
  */
 
 import { createHash } from "node:crypto";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import type { EventContent } from "./types.js";
 
 /**
@@ -33,7 +33,7 @@ import type { EventContent } from "./types.js";
  * @returns Lowercase hex SHA-256 of the canonical JSON form.
  */
 export function eventPrevHash(content: EventContent): string {
-  const canonical = canonicalize({
+  const canonical = canonicalJson({
     id: content.id,
     type: content.type,
     origin: content.origin,

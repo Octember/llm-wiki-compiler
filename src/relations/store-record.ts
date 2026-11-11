@@ -24,7 +24,7 @@
 
 import { createHash } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import { resolveConfinedGraphDir, openGraphFileAppend } from "../utils/jsonl-store.js";
 import type { OperationBinding } from "../utils/operation-binding.js";
 import type { RelationRef, RelationRecord, RelationStoreHeader } from "./types.js";
@@ -43,7 +43,7 @@ function relationSymlinkError(reason: string): Error {
  */
 export function recordChecksum(ref: RelationRef, binding?: OperationBinding): string {
   const body = binding === undefined ? ref : { ...ref, operationBinding: binding };
-  const canonical = canonicalize(body);
+  const canonical = canonicalJson(body);
   if (canonical === undefined) {
     throw new Error("relation record canonicalization produced no output");
   }

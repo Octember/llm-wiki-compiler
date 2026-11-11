@@ -12,7 +12,7 @@
  * details stay here, and the append is the bound append's own body.
  */
 
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import type { OperationBinding } from "../utils/operation-binding.js";
 import { operationBindingEquals } from "../utils/operation-binding.js";
 import {
@@ -41,7 +41,7 @@ function eventMatches(event: EventRecord, content: OperationEventContent, bindin
   return event.type === content.type
     && event.operationBinding !== undefined
     && operationBindingEquals(event.operationBinding, binding)
-    && canonicalize(event.payload) === canonicalize(content.payload);
+    && canonicalJson(event.payload) === canonicalJson(content.payload);
 }
 
 /**

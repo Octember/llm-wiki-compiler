@@ -158,7 +158,8 @@ function prepareManifest(manifest: OperationBundleManifest): {
   }
   const parsed = parseCanonicalManifest(candidate);
   assertManifestBinding(parsed, manifest.workspaceId, manifest.bundleId);
-  return { manifest: parsed, bytes: canonicalBytes(parsed) };
+  // The parse proved `candidate` is exactly the parsed manifest's canonical bytes.
+  return { manifest: parsed, bytes: candidate };
 }
 
 /** What the create-only manifest writer asks of the store. No member takes a project root. */

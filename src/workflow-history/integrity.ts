@@ -7,7 +7,7 @@
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import path from "node:path";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import { readCappedNoFollow } from "../utils/confined-read.js";
 import { resolveExistingConfinedPrivateDir } from "../utils/private-dir.js";
 import { readOncePerLockHold } from "../utils/lock-held-reads.js";
@@ -102,7 +102,7 @@ export function runIntegrity(key: Buffer, run: WorkflowRun): string {
  */
 export function canonicalRunContent(run: WorkflowRun): string {
   const { integrity: _omit, ...content } = run;
-  const canonical = canonicalize(content);
+  const canonical = canonicalJson(content);
   if (canonical === undefined) {
     throw new Error("workflow run canonicalization produced no output");
   }

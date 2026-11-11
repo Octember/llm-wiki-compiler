@@ -5,12 +5,12 @@
  * stable across key reordering and equivalent numeric spellings (`1.0` vs `1`),
  * and the underlying RFC 8785 (JCS) canonicalization is exercised with the
  * official Appendix B.1 number-serialization vector as a regression guard on
- * the vetted dependency wrapper.
+ * the repository canonicalizer.
  */
 
 import { describe, it, expect } from "bun:test";
-import canonicalize from "canonicalize";
 import { profileDigest } from "../src/profile/digest.js";
+import { canonicalJson } from "../src/profile/templates/signing/canonical-json.js";
 import type { ProfilePack } from "../src/profile/types.js";
 
 /** A minimal valid profile, fields declared in deliberately non-sorted order. */
@@ -46,6 +46,6 @@ describe("profileDigest", () => {
 
   it("canonicalizes the official RFC 8785 Appendix B.1 number vector", () => {
     const numbers = [333333333.33333329, 1e30, 4.5, 2e-3, 1e-27];
-    expect(canonicalize({ numbers })).toBe('{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}');
+    expect(canonicalJson({ numbers })).toBe('{"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27]}');
   });
 });

@@ -7,16 +7,14 @@
  * unrelated section leaves a given workflow's digest stable, while any change to
  * the workflow's own stages flips it.
  *
- * As with the profile digest, canonicalization is intentionally NOT hand-rolled:
- * RFC 8785 (JCS) has subtle rules (lexicographic UTF-16 key ordering, ECMAScript
- * Number serialization, string escaping) where a bespoke implementation would
- * silently diverge and corrupt identity. We therefore depend on `canonicalize`,
- * the same vetted RFC 8785 implementation used by the profile digest, and layer
- * only a SHA-256 over its output.
+ * As with the profile digest, the digest uses the repository's single RFC 8785
+ * (JCS) canonicalizer, `canonicalJson` (held byte-for-byte to the vetted
+ * `canonicalize` package by a differential test), and layers only a SHA-256
+ * over its output.
  */
 
 import { createHash } from "node:crypto";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "./templates/signing/canonical-json.js";
 import type { WorkflowDef } from "./types.js";
 
 /**
@@ -31,7 +29,7 @@ import type { WorkflowDef } from "./types.js";
  * @returns Lowercase hex-encoded SHA-256 of the canonical JSON form.
  */
 export function workflowDefDigest(def: WorkflowDef): string {
-  const canonical = canonicalize(def);
+  const canonical = canonicalJson(def);
   if (canonical === undefined) {
     throw new Error("workflow canonicalization produced no output");
   }

@@ -181,7 +181,8 @@ function prepareManifest(manifest: PreparationManifestV1): { manifest: Preparati
   }
   const parsed = asWriteFault(() => parseCanonicalManifest(candidate));
   assertManifestBinding(parsed, manifest.workspaceId, manifest.preparationId);
-  return { manifest: parsed, bytes: canonicalBytes(parsed) };
+  // The parse proved `candidate` is exactly the parsed manifest's canonical bytes.
+  return { manifest: parsed, bytes: candidate };
 }
 
 /** What one create-only manifest write asks for. No member takes a project root. */

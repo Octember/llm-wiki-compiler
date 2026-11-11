@@ -4,11 +4,15 @@
  * every template signature and digest claim.
  */
 import { createHash } from "node:crypto";
-import canonicalize from "canonicalize";
+import { canonicalJson, type KnownCanonicalText } from "./canonical-json.js";
 
-/** Return canonical UTF-8 bytes or reject values RFC 8785 cannot represent. */
-export function canonicalBytes(value: unknown): Buffer {
-  const text = canonicalize(value);
+/**
+ * Return canonical UTF-8 bytes or reject values RFC 8785 cannot represent.
+ * `known` passes along canonical texts of subtrees the caller has just
+ * computed (see {@link canonicalJson}); it never changes the bytes.
+ */
+export function canonicalBytes(value: unknown, known?: KnownCanonicalText): Buffer {
+  const text = canonicalJson(value, known);
   if (text === undefined) throw new Error("value cannot be canonically represented");
   return Buffer.from(text, "utf8");
 }

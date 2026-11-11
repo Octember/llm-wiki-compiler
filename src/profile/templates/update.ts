@@ -14,7 +14,7 @@
  * builtin registry, loads the active profile and runs the plan body, in the
  * incumbent order and with the incumbent messages, over {@link BuiltinPlanSteps}.
  */
-import canonicalize from "canonicalize";
+import { canonicalJson } from "./signing/canonical-json.js";
 import { CANDIDATES_DIR } from "../../utils/constants.js";
 import { diffProfiles, type PageDisposition, type ProfileDiffReport } from "../diff.js";
 import { profileDigest } from "../digest.js";
@@ -226,7 +226,7 @@ async function workflowReasons(reads: TemplateUpdateReads): Promise<TemplateUpda
 
 async function artifactReasons(reads: TemplateUpdateReads, active: ProfilePack, candidate: ProfilePack): Promise<TemplateUpdateReason[]> {
   const audit = (await reads.auditArtifactStore(candidate)).map((message) => ({ kind: "artifact" as const, message }));
-  if (canonicalize(active.artifacts ?? {}) === canonicalize(candidate.artifacts ?? {})) return audit;
+  if (canonicalJson(active.artifacts ?? {}) === canonicalJson(candidate.artifacts ?? {})) return audit;
   const state = await reads.firstFileUnder("artifacts");
   if (state === "unavailable") return [...audit, { kind: "store", message: "artifact store is unreadable or unsafe" }];
   if (state === "present") return [...audit, { kind: "artifact", message: "artifact contracts changed while stored artifacts exist" }];

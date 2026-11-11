@@ -32,7 +32,7 @@
  * takes the caller's mint and writes.
  */
 
-import { canonicalBytes } from "../profile/templates/signing/canonical.js";
+import { canonicalBytes, canonicalBytesDigest } from "../profile/templates/signing/canonical.js";
 import { inventoryHasRetainedState } from "../utils/inventory-arithmetic.js";
 import {
   assertStageCapacity, scanPreparationInventoryBorrowingFrom,
@@ -50,7 +50,7 @@ import {
   type MaterializeInitialInputsOutcome, type PlannedInitialInputSetV1, type PreparationInitialInputV1,
 } from "./initial-inputs.js";
 import { validatePreparationSupersessionSet } from "./manifest-graph.js";
-import { parsePreparationManifest, preparationManifestDigest, type PreparationManifestV1 } from "./manifest-parse.js";
+import { parsePreparationManifest, type PreparationManifestV1 } from "./manifest-parse.js";
 import { preparationPlanDigest } from "./plan-parse.js";
 import {
   readPreparationManifest, readPreparationManifestFrom, writePreparationManifestCreateOnly,
@@ -267,8 +267,9 @@ function prepareStage(
   request: StagePreparationRequest, planned: PlannedStage, keyEpochId: Sha256Digest, reuse?: ReusedIdentities,
 ): PreparedStage {
   const manifest = materializeManifest(request, planned.inputs.evidence, keyEpochId, planned.at, reuse);
+  const manifestBytes = canonicalBytes(manifest);
   return {
-    manifest, manifestBytes: canonicalBytes(manifest), manifestDigest: preparationManifestDigest(manifest),
+    manifest, manifestBytes, manifestDigest: canonicalBytesDigest(manifestBytes) as Sha256Digest,
     inputs: planned.inputs, projectedRunBudget: planned.projectedRunBudget, budgetInput: planned.budgetInput,
     preparedInputsCount: planned.inputs.preparedInputsCount,
     actor: { id: request.actor.id, surface: request.actor.surface }, dryRun: request.dryRun === true,

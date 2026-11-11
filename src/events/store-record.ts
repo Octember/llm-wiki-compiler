@@ -15,7 +15,7 @@
 
 import { createHash } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
-import canonicalize from "canonicalize";
+import { canonicalJson } from "../profile/templates/signing/canonical-json.js";
 import {
   resolveConfinedGraphDir,
   openGraphFileRead,
@@ -34,7 +34,7 @@ function eventSymlinkError(reason: string): Error {
 
 /** Compute the per-record checksum over an event's content (excludes `checksum`). */
 export function eventChecksum(input: EventChecksumInput): string {
-  const canonical = canonicalize(input);
+  const canonical = canonicalJson(input);
   if (canonical === undefined) {
     throw new Error("event record canonicalization produced no output");
   }

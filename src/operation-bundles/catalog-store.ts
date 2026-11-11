@@ -16,6 +16,7 @@
 import { TextDecoder } from "node:util";
 import { isSafeFilenameComponent } from "../profile/identity.js";
 import { canonicalBytes, canonicalBytesDigest } from "../profile/templates/signing/canonical.js";
+import type { KnownCanonicalText } from "../profile/templates/signing/canonical-json.js";
 import { parseBoundedUniqueJson } from "../profile/templates/signing/json.js";
 import { atomicWrite, type AtomicWriteOptions } from "../utils/atomic-write.js";
 import { readConfinedLeafBuffer, type CappedLeafReadBuffer } from "../utils/confined-read.js";
@@ -63,6 +64,15 @@ export type CatalogStoreRead =
 
 export type CatalogAppendResult = "created" | "same";
 
+/**
+ * A complete read that keeps the verified file bytes. Every line was proven to
+ * be its record's canonical bytes, so `body` IS the serialization of `records`
+ * and the append body compares and extends it instead of re-serializing.
+ */
+type CatalogBodyRead =
+  | Exclude<CatalogStoreRead, { status: "ok" }>
+  | { status: "ok"; records: readonly CatalogRecord[]; body: Buffer };
+
 /** Exact pre-publication catalog state no longer matches the locked plan. */
 export class CatalogConcurrentChangeError extends Error {
   constructor() {
@@ -75,23 +85,34 @@ export class CatalogConcurrentChangeError extends Error {
 export type CatalogWriteOptions = Pick<AtomicWriteOptions,
   "afterParentCheckForTest" | "beforeDirectorySyncForTest">;
 
+/** A rebuilt payload, its digest, and its canonical text for the record's bytes. */
+interface RebuiltPayload {
+  payload: OperationDataValue;
+  payloadDigest: OperationDigest;
+  known: KnownCanonicalText;
+}
+
 /**
  * Rebuild arbitrary bounded JSON data through the canonical parser, with the
  * digest of its canonical bytes.
  *
  * The digest is taken over the bytes the payload was just parsed FROM rather
- * than by canonicalizing the parsed payload a second time. Those are the same
- * bytes: RFC 8785 output is plain JSON whose numbers print in their shortest
- * round-trip form, whose strings re-escape identically, and whose keys are
- * unique and already sorted, so canonicalizing what `JSON.parse` returns for it
- * reproduces it exactly.
+ * than by canonicalizing the parsed payload a second time, and the same text is
+ * handed on as the payload's known canonical text, so the record that embeds it
+ * does not serialize it again. Those are the same bytes: RFC 8785 output is
+ * plain JSON whose numbers print in their shortest round-trip form, whose
+ * strings re-escape identically, and whose keys are unique and already sorted,
+ * so canonicalizing what `JSON.parse` returns for it reproduces it exactly.
  */
-function rebuildPayload(value: unknown): { payload: OperationDataValue; payloadDigest: OperationDigest } {
+function rebuildPayload(value: unknown): RebuiltPayload {
   const bytes = canonicalBytes(value);
   if (bytes.byteLength > MAX_CATALOG_RECORD_BYTES) throw new Error("catalog payload exceeds its record cap");
+  const text = bytes.toString("utf8");
+  const payload = parseBoundedUniqueJson(text, MAX_CATALOG_RECORD_BYTES) as OperationDataValue;
   return {
-    payload: parseBoundedUniqueJson(bytes.toString("utf8"), MAX_CATALOG_RECORD_BYTES) as OperationDataValue,
+    payload,
     payloadDigest: canonicalBytesDigest(bytes) as OperationDigest,
+    known: new Map(typeof payload === "object" && payload !== null ? [[payload, text]] : []),
   };
 }
 
@@ -102,8 +123,8 @@ function logicalRecordId(value: unknown): string {
   return parsed;
 }
 
-/** Parse one exact-shape record and recompute every derived claim. */
-function parseCatalogRecord(value: unknown): CatalogRecord {
+/** Parse one exact-shape record and recompute every derived claim; `known` is its payload's text. */
+function parseCatalogRecord(value: unknown): { record: CatalogRecord; known: KnownCanonicalText } {
   const item = record(value, "catalog record");
   exact(item, [
     "schemaVersion", "physicalRecordId", "logicalRecordId", "mutationId",
@@ -111,33 +132,37 @@ function parseCatalogRecord(value: unknown): CatalogRecord {
   ], ["supersedesRecordId"]);
   if (item.schemaVersion !== 1) throw new Error("catalog schemaVersion is unsupported");
   const mutationId = assertMutationId(item.mutationId);
-  const { payload, payloadDigest: recomputed } = rebuildPayload(item.payload);
+  const { payload, payloadDigest: recomputed, known } = rebuildPayload(item.payload);
   const payloadDigest = digest(item.payloadDigest, "catalog payloadDigest");
   if (payloadDigest !== recomputed) throw new Error("catalog payload digest mismatch");
   const id = assertCatalogRecordId(item.physicalRecordId);
   if (id !== catalogRecordId(mutationId)) throw new Error("catalog physicalRecordId is not deterministic");
   const prior = item.supersedesRecordId === undefined
     ? undefined : assertCatalogRecordId(item.supersedesRecordId);
-  return {
+  const rebuilt: CatalogRecord = {
     schemaVersion: 1, physicalRecordId: id, logicalRecordId: logicalRecordId(item.logicalRecordId),
     mutationId, payloadDigest, payload,
     ...(prior === undefined ? {} : { supersedesRecordId: prior }),
     createdAt: timestamp(item.createdAt),
   };
+  return { record: rebuilt, known };
 }
 
-/** Canonicalize, cap, and reparse a record before it can reach a write. */
-function normalizeCatalogRecord(value: CatalogRecord): { record: CatalogRecord; bytes: Buffer } {
-  const bytes = canonicalBytes(value);
+/**
+ * Canonicalize, cap, and reparse a record before it can reach a write. `known`
+ * is the canonical text of a payload the caller has just rebuilt.
+ */
+function normalizeCatalogRecord(value: CatalogRecord, known?: KnownCanonicalText): { record: CatalogRecord; bytes: Buffer } {
+  const bytes = canonicalBytes(value, known);
   if (bytes.byteLength > MAX_CATALOG_RECORD_BYTES) throw new Error("catalog record exceeds its record cap");
   const parsed = parseCatalogRecord(parseBoundedUniqueJson(bytes.toString("utf8"), MAX_CATALOG_RECORD_BYTES));
-  return { record: parsed, bytes: canonicalBytes(parsed) };
+  return { record: parsed.record, bytes: canonicalBytes(parsed.record, parsed.known) };
 }
 
 /** Construct one closed record while deriving its digest and physical identity. */
 export function createCatalogRecord(input: CatalogRecordInput): CatalogRecord {
   assertMutationId(input.mutationId);
-  const { payload, payloadDigest } = rebuildPayload(input.payload);
+  const { payload, payloadDigest, known } = rebuildPayload(input.payload);
   return normalizeCatalogRecord({
     schemaVersion: 1,
     physicalRecordId: catalogRecordId(input.mutationId),
@@ -147,7 +172,7 @@ export function createCatalogRecord(input: CatalogRecordInput): CatalogRecord {
     payload,
     ...(input.supersedesRecordId === undefined ? {} : { supersedesRecordId: input.supersedesRecordId }),
     createdAt: input.createdAt,
-  }).record;
+  }, known).record;
 }
 
 /** Parse canonical one-record-per-line bytes without accepting a torn tail. */
@@ -184,13 +209,13 @@ function parseCatalogLine(line: Buffer): CatalogRecord {
   if (line.byteLength > MAX_CATALOG_RECORD_BYTES) {
     throw new Error("catalog record exceeds its record cap");
   }
-  const parsed = parseCatalogRecord(parseBoundedUniqueJson(
+  const { record, known } = parseCatalogRecord(parseBoundedUniqueJson(
     UTF8_DECODER.decode(line), MAX_CATALOG_RECORD_BYTES,
   ));
-  if (!canonicalBytes(parsed).equals(line)) {
+  if (!canonicalBytes(record, known).equals(line)) {
     throw new Error("catalog record is not canonical JSON");
   }
-  return parsed;
+  return record;
 }
 
 /** Reject duplicate physical and mutation identities. */
@@ -264,11 +289,12 @@ function diskCatalogLeaves(root: string): CatalogLeaves {
 
 /** Read, confine, parse, and validate the complete catalog without side effects. */
 export async function readCatalogStore(root: string, workspaceId: string): Promise<CatalogStoreRead> {
-  return readCatalogStoreFrom(diskCatalogLeaves(root), workspaceId);
+  const read = await readCatalogStoreFrom(diskCatalogLeaves(root), workspaceId);
+  return read.status === "ok" ? { status: "ok", records: read.records } : read;
 }
 
 /** {@link readCatalogStore} over the catalog leaves: the one read body. */
-async function readCatalogStoreFrom(leaves: CatalogLeaves, workspaceId: string): Promise<CatalogStoreRead> {
+async function readCatalogStoreFrom(leaves: CatalogLeaves, workspaceId: string): Promise<CatalogBodyRead> {
   let read: CappedLeafReadBuffer;
   try {
     read = await leaves.readCatalogLeaf(workspaceId, MAX_CATALOG_FILE_BYTES);
@@ -278,7 +304,7 @@ async function readCatalogStoreFrom(leaves: CatalogLeaves, workspaceId: string):
   if (read.kind === "absent") return { status: "absent" };
   if (read.kind === "unavailable") return { status: "unavailable", detail: "catalog leaf is unavailable" };
   try {
-    return { status: "ok", records: parseCatalogBytes(read.body) };
+    return { status: "ok", records: parseCatalogBytes(read.body), body: read.body };
   } catch (error) {
     return { status: "invalid", detail: error instanceof Error ? error.message : "catalog is invalid" };
   }
@@ -293,9 +319,8 @@ export function findCatalogRecordByMutation(
   return records.find((item) => item.mutationId === mutationId);
 }
 
-/** Serialize complete canonical history with an exact line terminator. */
-function serializeCatalog(records: readonly CatalogRecord[]): Buffer {
-  const body = Buffer.concat(records.flatMap((item) => [canonicalBytes(item), Buffer.from("\n")]));
+/** Hold complete canonical history to the file cap. */
+function cappedCatalog(body: Buffer): Buffer {
   if (body.byteLength > MAX_CATALOG_FILE_BYTES) throw new Error("catalog file exceeds its file cap");
   return body;
 }
@@ -324,7 +349,7 @@ async function assertCatalogUnchanged(
   const current = await readCatalogStoreFrom(leaves, workspaceId);
   if (expectedBody === undefined && current.status === "absent") return;
   if (expectedBody !== undefined && current.status === "ok"
-    && serializeCatalog(current.records).equals(expectedBody)) return;
+    && cappedCatalog(current.body).equals(expectedBody)) return;
   throw new CatalogConcurrentChangeError();
 }
 
@@ -350,7 +375,7 @@ export async function appendCatalogRecordWith(
     throw new Error(`catalog is ${read.status}: ${read.detail}`);
   }
   const records = read.status === "ok" ? [...read.records] : [];
-  const expectedBody = read.status === "ok" ? serializeCatalog(records) : undefined;
+  const expectedBody = read.status === "ok" ? cappedCatalog(read.body) : undefined;
   const existing = findCatalogRecordByMutation(records, prepared.record.mutationId);
   if (existing !== undefined) {
     if (!canonicalBytes(existing).equals(prepared.bytes)) throw new Error("catalog mutation replay conflict");
@@ -360,6 +385,7 @@ export async function appendCatalogRecordWith(
   if (records.length >= MAX_CATALOG_RECORDS_PER_WORKSPACE) throw new Error("catalog record count exceeds its cap");
   const next = [...records, prepared.record];
   validateCatalogGraph(next);
-  await writeCatalog(leaves, workspaceId, serializeCatalog(next), expectedBody, options);
+  const body = cappedCatalog(Buffer.concat([expectedBody ?? Buffer.alloc(0), prepared.bytes, Buffer.from("\n")]));
+  await writeCatalog(leaves, workspaceId, body, expectedBody, options);
   return "created";
 }
