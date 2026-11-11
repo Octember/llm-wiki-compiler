@@ -30,6 +30,8 @@ jobs:
   # rebuild cleans `dist` under the CLI tests sharing a shard with it.
   test:
     runs-on: ubuntu-latest
+    # A shard takes under a minute; a hung test would otherwise hold it for six hours.
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
