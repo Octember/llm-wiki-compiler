@@ -43,6 +43,7 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     env:
       TEST_SHARDS: 18
+      LLMWIKI_TEST_TRACE: /tmp/llmwiki-test-trace
       LLMWIKI_SKIP_DTS: "1"
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +65,7 @@ jobs:
       - run: bunx tsup
       # On a hang, snapshot the live processes at 200s, then fail at 240s.
       - run: >-
+          mkdir -p "$LLMWIKI_TEST_TRACE" &&
           (sleep 200 && bash .github/ci/hang-snapshot.sh) &
           timeout 240 bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
           --timings=test-timings.json

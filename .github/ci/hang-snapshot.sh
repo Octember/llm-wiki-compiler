@@ -10,3 +10,7 @@ for pid in $(pgrep -x bun); do
   done | sort -k3 | uniq -c -f2 | head -20
   sudo ls -l /proc/$pid/fd 2>/dev/null | awk '{print $NF}' | sort | uniq -c | sort -rn | head -12
 done
+# The last test each worker started (test/preload.ts writes these traces).
+for trace in "${LLMWIKI_TEST_TRACE:-/nonexistent}"/*.log; do
+  [ -f "$trace" ] && echo "== trace $(basename "$trace"): $(wc -l < "$trace") starts" && tail -3 "$trace"
+done
