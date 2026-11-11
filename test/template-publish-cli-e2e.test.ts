@@ -11,18 +11,19 @@
  * suite runs beside long subprocess e2e suites that sit near the 30s timeout — so the
  * coverage is kept and the process count is not.
  */
+import { spawnSync } from "node:child_process";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "bun:test";
 import { PUBLISHER_TEMPLATE, publisherTempRoots } from "./fixtures/publisher-workspace.js";
-import { CLI_RUNTIME_FLAGS, spawnAsync } from "./fixtures/run-cli.js";
+import { CLI_RUNTIME_FLAGS } from "./fixtures/run-cli.js";
 
 const CLI = path.resolve("dist/cli.js");
 const roots = publisherTempRoots();
 afterEach(roots.cleanup);
 
-async function run(args: string[]) {
-  return await spawnAsync(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, ...args], { encoding: "utf8" });
+function run(args: string[]) {
+  return spawnSync(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, ...args], { encoding: "utf8" });
 }
 
 describe("publisher CLI end to end", () => {
@@ -33,21 +34,21 @@ describe("publisher CLI end to end", () => {
     const packageFile = path.join(root, "package.json");
     await writeFile(packageFile, JSON.stringify(PUBLISHER_TEMPLATE), "utf8");
 
-    const init = (await run(["template", "publish", "init", workspace, "--tap", "community", "--publisher", "acme"]));
+    const init = run(["template", "publish", "init", workspace, "--tap", "community", "--publisher", "acme"]);
     expect(init.status).toBe(0);
 
-    const add = (await run([
+    const add = run([
       "template", "publish", "add", packageFile,
       "--workspace", workspace, "--package-version", "1.0.0",
-    ]));
+    ]);
     expect(add.status).toBe(0);
     expect(add.stdout).toContain("Recorded signed package");
     expect(add.stdout).toContain("community/acme/incident-response@1.0.0");
 
-    const build = (await run([
+    const build = run([
       "template", "publish", "build",
       "--workspace", workspace, "--expires-in", "30d", "--out", out,
-    ]));
+    ]);
     expect(build.status).toBe(0);
     // The regression that mattered: an eaten --version silently produced ZERO packages and
     // still built a "valid" empty distribution.
@@ -58,28 +59,28 @@ describe("publisher CLI end to end", () => {
     const tapKeyId = keys.find((f) => f.startsWith("tap-") && f.endsWith(".pub"))!
       .replace(/^tap-/, "").replace(/\.pub$/, "");
 
-    const verify = (await run([
+    const verify = run([
       "template", "publish", "verify", out,
       "--tap", "community", "--key-id", tapKeyId,
       "--key-file", path.join(keysDir, `tap-${tapKeyId}.pub`),
-    ]));
+    ]);
     expect(verify.status).toBe(0);
     expect(verify.stdout).toContain("Verified template publisher distribution");
     expect(verify.stdout).toContain("Packages: 1");
 
     // A no-change rebuild is refused; --refresh renews the same content under a fresh
     // lifetime without the blunt --force override (a boolean flag Commander could mis-parse).
-    const stale = (await run([
+    const stale = run([
       "template", "publish", "build",
       "--workspace", workspace, "--expires-in", "30d", "--out", out,
-    ]));
+    ]);
     expect(stale.status).not.toBe(0);
     expect(`${stale.stdout}${stale.stderr}`).toMatch(/pass --refresh to renew an expiring index/i);
 
-    const refresh = (await run([
+    const refresh = run([
       "template", "publish", "build",
       "--workspace", workspace, "--expires-in", "30d", "--out", out, "--refresh",
-    ]));
+    ]);
     expect(refresh.status).toBe(0);
     expect(refresh.stdout).toContain("Sequence: 2");
 
@@ -99,11 +100,11 @@ describe("publisher CLI end to end", () => {
     }
 
     // And the output may never live inside the workspace, which would publish those keys.
-    const inside = (await run([
+    const inside = run([
       "template", "publish", "build",
       "--workspace", workspace, "--expires-in", "30d",
       "--out", path.join(workspace, "dist"),
-    ]));
+    ]);
     expect(inside.status).not.toBe(0);
     expect(`${inside.stdout}${inside.stderr}`).toMatch(/outside the publisher workspace/i);
   });

@@ -14,7 +14,6 @@ import Ajv from "ajv";
 import yaml from "js-yaml";
 import { describe, expect, it, afterEach } from "bun:test";
 import { connectMcpClient, useMcpRoot, type McpClientHandle } from "./fixtures/mcp-test-env.js";
-import { spawnAsync } from "./fixtures/run-cli.js";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
 const SKILL_DIR = path.join(REPO_ROOT, "skills", "llmwiki");
@@ -44,8 +43,8 @@ function readPackageManifest(): PackageManifest {
 }
 
 /** Exercise the generator as a consumer would, through its command output. */
-async function generateRegistryManifest(): Promise<RegistryManifest> {
-  const { stdout } = await spawnAsync(process.execPath, [path.join(REPO_ROOT, "scripts/mcp-manifest.mjs")]);
+function generateRegistryManifest(): RegistryManifest {
+  const stdout = execFileSync(process.execPath, [path.join(REPO_ROOT, "scripts/mcp-manifest.mjs")], { encoding: "utf8" });
   return JSON.parse(stdout) as RegistryManifest;
 }
 
@@ -65,20 +64,20 @@ function readSkill(): { frontmatter: SkillFrontmatter; body: string } {
 }
 
 describe("MCP Registry manifest", () => {
-  it("validates against the pinned registry server schema", async () => {
+  it("validates against the pinned registry server schema", () => {
     // Formats are checked by hand below so the test needs no extra format plugin.
     const ajv = new Ajv({ strict: false, allErrors: true, validateFormats: false });
     const validate = ajv.compile(JSON.parse(readFileSync(REGISTRY_SCHEMA, "utf8")));
-    const manifest = (await generateRegistryManifest());
+    const manifest = generateRegistryManifest();
     expect(validate(manifest), JSON.stringify(validate.errors)).toBe(true);
     expect(manifest.description.length).toBeLessThanOrEqual(MAX_REGISTRY_DESCRIPTION_CHARS);
     expect(new URL(manifest.websiteUrl).protocol).toBe("https:");
     expect(new URL(manifest.repository.url).hostname).toBe("github.com");
   });
 
-  it("binds the entry to the exact npm package, version, and mcpName", async () => {
+  it("binds the entry to the exact npm package, version, and mcpName", () => {
     const pkg = readPackageManifest();
-    const manifest = (await generateRegistryManifest());
+    const manifest = generateRegistryManifest();
     expect(manifest.name).toBe(pkg.mcpName);
     expect(manifest.version).toBe(pkg.version);
     expect(manifest.packages).toHaveLength(1);
@@ -87,8 +86,8 @@ describe("MCP Registry manifest", () => {
     });
   });
 
-  it("launches the server with an explicit project root", async () => {
-    const [serve, root, ...rest] = (await generateRegistryManifest()).packages[0].packageArguments;
+  it("launches the server with an explicit project root", () => {
+    const [serve, root, ...rest] = generateRegistryManifest().packages[0].packageArguments;
     expect(rest).toEqual([]);
     expect(serve).toEqual({ type: "positional", value: "serve" });
     expect(root).toMatchObject({ type: "named", name: "--root", isRequired: true, format: "filepath" });

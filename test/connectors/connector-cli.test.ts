@@ -2,18 +2,19 @@
  * @file test/connectors/connector-cli.test.ts
  * @description Real CLI coverage for connector discovery and refusal paths.
  */
+import { spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "bun:test";
 import { buildNewsroomProject } from "../fixtures/newsroom-profile.js";
-import { CLI_RUNTIME_FLAGS, spawnAsync } from "../fixtures/run-cli.js";
+import { CLI_RUNTIME_FLAGS } from "../fixtures/run-cli.js";
 
 const CLI = path.resolve("dist/cli.js");
 
 /** Run the built CLI against a temp project with optional environment overrides. */
-async function run(cwd: string, args: string[], env: Record<string, string> = {}) {
-  return await spawnAsync(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, ...args], {
+function run(cwd: string, args: string[], env: Record<string, string> = {}) {
+  return spawnSync(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, ...args], {
     cwd,
     env: { ...process.env, ...env },
     encoding: "utf8",
@@ -34,7 +35,7 @@ async function withNewsroomProject(fn: (root: string) => Promise<void>): Promise
 describe("connector CLI", () => {
   it("lists only user-facing connectors", async () => {
     await withNewsroomProject(async (root) => {
-      const res = (await run(root, ["connector", "list"], { LLMWIKI_CONNECTORS: "fixture" }));
+      const res = run(root, ["connector", "list"], { LLMWIKI_CONNECTORS: "fixture" });
       expect(res.status).toBe(0);
       expect(res.stdout).toContain("crossref");
       expect(res.stdout).toContain("inactive, unbound");
@@ -44,7 +45,7 @@ describe("connector CLI", () => {
 
   it("runs through the substrate refusal path without fetching when inactive", async () => {
     await withNewsroomProject(async (root) => {
-      const res = (await run(root, ["connector", "run", "fixture", "--input", "id=story-1"], { LLMWIKI_CONNECTORS: "" }));
+      const res = run(root, ["connector", "run", "fixture", "--input", "id=story-1"], { LLMWIKI_CONNECTORS: "" });
       expect(res.status).toBe(1);
       expect(res.stdout + res.stderr).toContain("connector is not activated");
     });
