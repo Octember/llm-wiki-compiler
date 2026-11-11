@@ -24,15 +24,19 @@ jobs:
   #
   # The suite is split across TEST_SHARDS jobs by `bun test --shard`, each on
   # its own runner. One job ran it in about six minutes; split this way the
-  # slowest shard sets the wall time instead.
+  # slowest shard sets the wall time instead. Shards build without type
+  # declarations (seconds instead of most of a minute); the one test that
+  # reads them runs in `package`, which builds them.
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     env:
-      TEST_SHARDS: 12
+      TEST_SHARDS: 18
+      LLMWIKI_SKIP_DTS: "1"
+      DECLARATION_TESTS: test/local-workflow-package-boundary.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -51,7 +55,9 @@ jobs:
           --dev /dev --proc /proc -- "$(command -v bun)" --version
       # CLI tests run the built binary; the viewer type-check runs in `package`.
       - run: bunx tsup
-      - run: bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
+      - run: >-
+          bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
+          --path-ignore-patterns=${{ env.DECLARATION_TESTS }}
 
   package:
     runs-on: ubuntu-latest
@@ -64,10 +70,11 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run release:check-docs
-      - run: bun run build
       # Default tests exclude this fresh-install check. Exercise the shipped
       # facade, its exact workspace dependencies, and consumer declarations.
+      # It runs the full build itself, which the next test then reads.
       - run: bun run test:pack
+      - run: bun test ./test/local-workflow-package-boundary.test.ts
 
   codebase-health:
     runs-on: ubuntu-latest

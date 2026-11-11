@@ -13,7 +13,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
-  dts: true,
+  dts: process.env.LLMWIKI_SKIP_DTS === "1" ? false : true,
   tsconfig: "tsconfig.build.json",
   external: ["@atomicstrata/llmwiki-core", "llmwiki-dev-backend"],
 });
