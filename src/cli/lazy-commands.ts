@@ -3,8 +3,8 @@
  * @description Declare a command group from a table and load each command's
  * module only when that command runs.
  *
- * `src/cli.ts` and every command group with subcommands list their commands
- * here as `[usage, description, load]`. Each command is declared with its name,
+ * `src/cli.ts` and the `workflow`, `review`, `template` and `product` groups
+ * list their commands as `[usage, description, load]`. Each command is declared with its name,
  * arguments and description only, so help for the group needs no command
  * module. Commander's `preSubcommand` hook loads the module just before the
  * command parses its arguments, and that module adds the command's options,
