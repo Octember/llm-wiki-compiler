@@ -69,9 +69,8 @@ function declareHelpCommand(group: Command, configure: (command: Command) => Pro
     .allowExcessArguments()
     .allowUnknownOption()
     .action(async (name?: string) => {
-      // `help --help` asks for the group's own help, as Commander's command did.
-      if (name === "--help" || name === "-h") return group.help();
-      const command = name === undefined ? group : group.commands.find((candidate) => candidate.name() === name);
+      // No name, or an option such as `help --help`, asks for the group's own help.
+      const command = name === undefined || name.startsWith("-") ? group : group.commands.find((candidate) => candidate.name() === name);
       if (command === undefined) return group.help({ error: true });
       await configure(command);
       command.help();
