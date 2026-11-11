@@ -25,8 +25,9 @@ jobs:
   # The suite is split across TEST_SHARDS jobs by `bun test --shard`, each on
   # its own runner. One job ran it in about six minutes; split this way the
   # slowest shard sets the wall time instead. Shards build without type
-  # declarations (seconds instead of most of a minute); the one test that
-  # reads them runs in `package`, which builds them.
+  # declarations (seconds instead of most of a minute). Tests that pack or
+  # rebuild the packages, or read their declarations, run in `package`: a
+  # rebuild cleans `dist` under the CLI tests sharing a shard with it.
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -36,7 +37,6 @@ jobs:
     env:
       TEST_SHARDS: 18
       LLMWIKI_SKIP_DTS: "1"
-      DECLARATION_TESTS: test/local-workflow-package-boundary.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -57,7 +57,9 @@ jobs:
       - run: bunx tsup
       - run: >-
           bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
-          --path-ignore-patterns=${{ env.DECLARATION_TESTS }}
+          --path-ignore-patterns=test/sdk/packaging.test.ts
+          --path-ignore-patterns=test/products/private-packages-pack.test.ts
+          --path-ignore-patterns=test/local-workflow-package-boundary.test.ts
 
   package:
     runs-on: ubuntu-latest
@@ -74,7 +76,9 @@ jobs:
       # facade, its exact workspace dependencies, and consumer declarations.
       # It runs the full build itself, which the next test then reads.
       - run: bun run test:pack
-      - run: bun test ./test/local-workflow-package-boundary.test.ts
+      - run: >-
+          bun test ./test/products/private-packages-pack.test.ts
+          ./test/local-workflow-package-boundary.test.ts
 
   codebase-health:
     runs-on: ubuntu-latest
