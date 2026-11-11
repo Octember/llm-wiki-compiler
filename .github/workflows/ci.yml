@@ -28,6 +28,11 @@ jobs:
   # declarations (seconds instead of most of a minute). Tests that pack or
   # rebuild the packages, or read their declarations, run in `package`: a
   # rebuild cleans `dist` under the CLI tests sharing a shard with it.
+  #
+  # `--timings` splits the files by their recorded durations instead of by
+  # count, so no shard draws a run of slow files. A file missing from
+  # test-timings.json still runs; it just gets no weight. Refresh the file with
+  # `bun run build && bun scripts/run-tests.mjs --timings=test-timings.json --update-timings`.
   test:
     runs-on: ubuntu-latest
     # A shard takes under a minute; a hung test would otherwise hold it for six hours.
@@ -61,6 +66,7 @@ jobs:
       - run: >-
           (sleep 200 && bash .github/ci/hang-snapshot.sh) &
           timeout 240 bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
+          --timings=test-timings.json
           --path-ignore-patterns=test/sdk/packaging.test.ts
           --path-ignore-patterns=test/products/private-packages-pack.test.ts
           --path-ignore-patterns=test/local-workflow-package-boundary.test.ts
