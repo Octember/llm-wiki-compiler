@@ -77,7 +77,7 @@ spawns. To see where one file's calls come from, run
 
 After `bun install`, husky wires up hooks that run automatically:
 
-- **pre-commit** — `fallow` (codebase health) and `bunx tsc --noEmit` (type check)
+- **pre-commit** — `fallow` (codebase health) and `bun check` (type check)
 
 The full test suite runs in CI on every pull request rather than in a hook.
 
@@ -86,7 +86,7 @@ If a hook fails, fix the underlying issue rather than bypassing with `--no-verif
 You can also run the full suite manually:
 
 ```bash
-bunx tsc --noEmit   # Type-check
+bun check           # Type-check
 bun run typecheck:tests # Type-check tests against the per-file baseline
 bun run build       # Build
 bun run test            # Tests
@@ -143,7 +143,8 @@ an explicit baseline migration and review; routine updates do not accept them.
 `--init` is only for initial baseline creation, not for clearing failures.
 
 `test-typecheck` is required by main's branch protection, alongside
-`codebase-health` and `build-and-test (24)`. Branches must be up to date before
+`codebase-health` and `build-and-test`, which passes only when every test shard
+and package leg in CI passed. Branches must be up to date before
 merging. Workflow changes must preserve the required check name or update
 branch protection in the same rollout.
 

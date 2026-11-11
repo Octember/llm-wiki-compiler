@@ -184,7 +184,7 @@ async function canonicalLeafOf(canonicalLeaf: string, opened: { dev: number; ino
  * them, since `lexicalPath` must lie lexically inside it — resolved to
  * itself in that same lookup, and `realpath(root)` would have rebuilt exactly
  * `lexicalPath`. Only a root given in another form (`/var` for `/private/var`)
- * is resolved, and then compared exactly as before.
+ * is resolved, and then compared.
  */
 export async function expectedRealMatching(root: string, lexicalPath: string, observedReal: string | null): Promise<string | null> {
   if (observedReal === null || !isInsideDir(lexicalPath, path.resolve(root))) return null;
@@ -436,18 +436,20 @@ export async function readConfinedPageOutcome(
 
 /**
  * Reuse the page read's handle-bound confinement proof with a caller-selected
- * reader (e.g. metadata only). The callback borrows the handle; this helper
- * closes it in finally. Strict I/O is opt-in so existing read defaults remain.
+ * reader (e.g. metadata only). The callback borrows the handle, and receives
+ * the handle's `fstat` taken at open, before any byte is read; this helper
+ * closes the handle in finally. Strict I/O is opt-in so existing read
+ * defaults remain.
  */
 export async function readConfinedPageWith<T>(
   capturedRealpath: string,
   expectedCanonicalDir: string,
-  read: (handle: FileHandle) => Promise<T>,
+  read: (handle: FileHandle, opened: Stats) => Promise<T>,
   opts: ReadConfinedPageOptions = {},
 ): Promise<{ kind: "ok"; value: T } | Exclude<ConfinedPageRead, { kind: "ok" }>> {
   // No realpath before the open: O_NOFOLLOW refuses a symlinked leaf, and the
   // post-open check below re-resolves the path and binds it to the opened inode,
-  // which is the proof that counts. A pre-open lookup only repeated it.
+  // which is the proof that counts.
   if (!isInsideDir(capturedRealpath, expectedCanonicalDir)) return { kind: "absent" };
   let handle: FileHandle, opened: Stats;
   try {
@@ -458,7 +460,7 @@ export async function readConfinedPageWith<T>(
   try {
     if (opts.afterOpenForTest) await opts.afterOpenForTest();
     if (!(await stillBoundToHandle(capturedRealpath, expectedCanonicalDir, opened, opts))) return { kind: "absent" };
-    return { kind: "ok", value: await read(handle) };
+    return { kind: "ok", value: await read(handle, opened) };
   } catch (err) {
     return classifyConfinedError(err as NodeJS.ErrnoException);
   } finally {

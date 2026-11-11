@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run the test suite in CI, narrowed to the affected test files on pull requests.
+# Run CI's test files, narrowed to the affected ones on pull requests. The job
+# builds dist/ first; this runs the test runner only.
 #
 # With a base commit, this runs `bun test --changed=<base>`: only the test files
 # whose imports reach a changed file. Bun decides that from the import graph
@@ -21,7 +22,7 @@ set -euo pipefail
 base="${1:-}"
 shift || true
 if [[ -z "$base" ]]; then
-  exec bun run test "$@"
+  exec bun scripts/run-tests.mjs "$@"
 fi
 
 changed="$(git diff --name-only "$base" HEAD)"
@@ -33,8 +34,8 @@ fi
 if [[ -n "${graph_blind//[[:space:]]/}" ]]; then
   echo "ci-test: full suite; the import graph cannot see:"
   echo "$graph_blind" | sed '/^$/d; s/^/  /'
-  exec bun run test "$@"
+  exec bun scripts/run-tests.mjs "$@"
 fi
 
 echo "ci-test: affected tests only (--changed=$base)"
-exec bun run test --changed="$base" "$@"
+exec bun scripts/run-tests.mjs --changed="$base" "$@"
