@@ -18,4 +18,3 @@ localdocs/
 # my-wiki/wiki/ and my-wiki/sources/ would otherwise be tracked.
 *-wiki/
 docs/superpowers/
-test-profile.json

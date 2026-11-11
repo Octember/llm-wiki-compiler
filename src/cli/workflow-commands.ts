@@ -9,75 +9,25 @@
  */
 
 import type { Command } from "commander";
-import { onUse } from "./on-use.js";
-import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/compiler-cli";
-
-// The workflow handlers bring the whole local workflow engine with them. Each
-// one is loaded when its command runs, so other commands start without it.
-const workflowListCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowListCommand;
-});
-const workflowShowCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowShowCommand;
-});
-const workflowEventsCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowEventsCommand;
-});
-const workflowStartCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowStartCommand;
-});
-const workflowStatusCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowStatusCommand;
-});
-const workflowAdvanceCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowAdvanceCommand;
-});
-const workflowGateApproveCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowGateApproveCommand;
-});
-const workflowCancelCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowCancelCommand;
-});
-const workflowFailCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowFailCommand;
-});
-const workflowResumeCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowResumeCommand;
-});
-const workflowAdaptCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowAdaptCommand;
-});
-const workflowProjectCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowProjectCommand;
-});
-const workflowSubmitCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowSubmitCommand;
-});
-const workflowActionListCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowActionListCommand;
-});
-const workflowActionShowCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowActionShowCommand;
-});
-const workflowActionRunCommand = onUse(async () => {
-  const handlers = await import("../commands/workflow.js");
-  return handlers.workflowActionRunCommand;
-});
+import {
+  workflowListCommand,
+  workflowShowCommand,
+  workflowEventsCommand,
+  workflowStartCommand,
+  workflowStatusCommand,
+  workflowAdvanceCommand,
+  workflowGateApproveCommand,
+  workflowCancelCommand,
+  workflowFailCommand,
+  workflowResumeCommand,
+  workflowAdaptCommand,
+  workflowProjectCommand,
+  workflowSubmitCommand,
+  workflowActionListCommand,
+  workflowActionShowCommand,
+  workflowActionRunCommand,
+} from "../commands/workflow.js";
+import { runExitCodeCommand } from "@atomicstrata/llmwiki-core/modules/cli/shared";
 
 /** Register the read-only discovery/inspection commands: `list`, `show`, `events`, `status`, `advance`, `project`. */
 function registerWorkflowInspectionCommands(workflowCmd: Command): void {
@@ -248,12 +198,8 @@ function registerWorkflowGateCommands(workflowCmd: Command): void {
     });
 }
 
-/** Register the `workflow` command group and its `action`/`gate` sub-groups on `program`. */
-export function registerWorkflowCommands(program: Command): void {
-  const workflowCmd = program
-    .command("workflow")
-    .description("Run and inspect declarative profile workflows (experimental)");
-
+/** Register the `workflow` command group and its `action`/`gate` sub-groups. */
+export function registerWorkflowCommands(workflowCmd: Command): void {
   registerWorkflowInspectionCommands(workflowCmd);
   registerWorkflowRunCommands(workflowCmd);
   registerWorkflowActionCommands(workflowCmd);

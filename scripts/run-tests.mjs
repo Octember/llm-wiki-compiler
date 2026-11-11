@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Run the test suite with its temporary files on a RAM disk when one is cheap
  * to create.
@@ -10,16 +10,20 @@
  * waiting on flushes of files that are deleted seconds later.
  *
  * On macOS this script mounts a temporary RAM disk, points TMPDIR at it for the
- * vitest process, and detaches it afterwards. Everywhere else, and whenever the
- * RAM disk cannot be created, the suite runs exactly as `vitest run` would.
+ * test process, and detaches it afterwards. Everywhere else, and whenever the
+ * RAM disk cannot be created, the suite runs exactly as `bun test` would.
  * Set `LLMWIKI_TEST_RAMDISK=0` to skip the RAM disk on macOS.
  *
- * Extra arguments are passed to vitest: `npm test -- test/foo.test.ts`.
+ * A fresh temp directory also keeps CLI subprocesses fast: Bun reads its
+ * working directory's parent at startup, and the shared system temp directory
+ * can hold hundreds of thousands of entries.
+ *
+ * Extra arguments are passed to `bun test`: `bun run test test/foo.test.ts`.
  */
 
 import { execFileSync, spawn } from "node:child_process";
 import { chmodSync } from "node:fs";
-import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 
 /** Size of the RAM disk. Memory is only consumed as files are written. */
@@ -65,17 +69,15 @@ function detachRamDisk(device) {
   }
 }
 
-/** Absolute path of the installed vitest entry script. */
-function resolveVitest() {
-  const require = createRequire(import.meta.url);
-  const manifestPath = require.resolve("vitest/package.json");
-  return path.join(path.dirname(manifestPath), require(manifestPath).bin.vitest);
-}
+/** Tests spawn CLI subprocesses, so a worker per core oversubscribes the machine. */
+const WORKERS = Math.max(1, os.availableParallelism() >> 1);
+const TEST_TIMEOUT_MS = 30000;
 
-/** Run `vitest run` with the given temp directory and resolve with its exit code. */
-function runVitest(tmpdir) {
+/** Run `bun test` with the given temp directory and resolve with its exit code. */
+function runTests(tmpdir) {
   const env = tmpdir ? { ...process.env, TMPDIR: tmpdir } : process.env;
-  const child = spawn(process.execPath, [resolveVitest(), "run", ...process.argv.slice(2)], { stdio: "inherit", env });
+  const args = ["test", `--parallel=${WORKERS}`, "--timeout", String(TEST_TIMEOUT_MS), ...process.argv.slice(2)];
+  const child = spawn(process.execPath, args, { stdio: "inherit", env });
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   return new Promise((resolve) => child.on("exit", (code) => resolve(code ?? 1)));
 }
@@ -84,7 +86,7 @@ const ramDisk = shouldUseRamDisk() ? mountRamDisk() : null;
 if (ramDisk) console.log(`run-tests: temp files on RAM disk ${ramDisk.mountPoint}`);
 let exitCode = 1;
 try {
-  exitCode = await runVitest(ramDisk?.mountPoint);
+  exitCode = await runTests(ramDisk?.mountPoint);
 } finally {
   if (ramDisk) detachRamDisk(ramDisk.device);
 }

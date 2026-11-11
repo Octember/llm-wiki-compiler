@@ -15,7 +15,7 @@
  * obligation, so every refusal below is attributable to the property it perturbs.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import { runPreparation } from "../../src/preparations/runner.js";
 import { NoObligationError } from "../../src/preparations/materialization.js";
 import {

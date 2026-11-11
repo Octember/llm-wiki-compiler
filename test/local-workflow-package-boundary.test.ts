@@ -3,10 +3,9 @@
  * The externalized build proves the engine can use the declared contracts seam;
  * installed tarball and consumer checks remain a separate integration gate.
  */
-import { expect, it } from "vitest";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { expect, it } from "bun:test";
+import { readFileSync, readdirSync } from "node:fs";
 import { builtinModules } from "node:module";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import ts from "typescript";
 import { build } from "esbuild";
@@ -35,39 +34,18 @@ function dependencyName(specifier: string): string[] {
   return [specifier.split("/").slice(0, specifier.startsWith("@") ? 2 : 1).join("/")];
 }
 
-/** Every npm package the given built files name, by import or on-demand load. */
-function usedPackages(files: string[]): string[] {
-  return [...new Set(files.flatMap(literalModuleImports).flatMap(dependencyName))].sort();
-}
-
-/** The packages a manifest promises to install. */
-function declaredPackages(directory: string): string[] {
-  const manifest = JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8"));
-  return Object.keys({ ...manifest.dependencies, ...manifest.peerDependencies }).sort();
-}
-
 it("declares exactly the dependencies and peers used by built core JavaScript and declarations", () => {
   // Fallow assigns shared src/ imports to the root workspace, not this package.
   // Audit the delivered output instead, including types needed by SDK consumers.
   const directory = path.join(SRC_DIR, "../packages/llmwiki-core");
-  const built = readdirSync(path.join(directory, "dist"))
+  // Per-module entries are built into subdirectories, so walk the whole output.
+  const imports = readdirSync(path.join(directory, "dist"), { recursive: true, encoding: "utf8" })
     .filter(file => file.endsWith(".js") || file.endsWith(".d.ts"))
-    .map(file => path.join(directory, "dist", file));
-  expect(usedPackages(built)).toEqual(declaredPackages(directory));
-});
-
-it("holds a package loaded on demand to the same declared-dependency rule", () => {
-  const directory = mkdtempSync(path.join(tmpdir(), "llmwiki-lazy-audit-"));
-  try {
-    const built = path.join(directory, "chunk.js");
-    // The three spellings a build can leave: the helper, a renamed helper, a renamed require.
-    writeFileSync(built, 'requireOnUse("undeclared-a"); requireOnUse2("@scope/undeclared-b/sub"); require3("undeclared-c");');
-    expect(usedPackages([built])).toEqual(["@scope/undeclared-b", "undeclared-a", "undeclared-c"]);
-    const declared = declaredPackages(path.join(SRC_DIR, "../packages/llmwiki-core"));
-    expect(usedPackages([built]).filter(name => declared.includes(name))).toEqual([]);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+    .flatMap(file => literalModuleImports(path.join(directory, "dist", file)))
+    .flatMap(dependencyName);
+  const manifest = JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8"));
+  const declared = { ...manifest.dependencies, ...manifest.peerDependencies };
+  expect([...new Set(imports)].sort()).toEqual(Object.keys(declared).sort());
 });
 
 it("allows engine dependencies only within the engine, Node, or declared core contracts", () => {

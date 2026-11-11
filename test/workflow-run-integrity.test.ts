@@ -13,7 +13,7 @@
  *    forge-a-completed-run exploit is now BLOCKED.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "bun:test";
 import { mkdir, writeFile, stat, access } from "node:fs/promises";
 import path from "node:path";
 import { writeRun } from "../src/local-workflow-host/run-store.js";
