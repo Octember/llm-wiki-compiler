@@ -17,6 +17,12 @@ const exec = promisify(execFile);
 /** Absolute path to the compiled CLI entry point. */
 export const CLI = path.resolve("dist/cli.js");
 
+// Tests reach src/ through dist/cli.js in a subprocess, which `bun test
+// --changed` cannot see. This never-called import is the module-graph edge
+// that makes a src/ change select every test using this helper; Bun's scan
+// records it without loading the CLI.
+void (() => import("../../src/cli.js"));
+
 /**
  * Runtime flags the CLI's shebang passes to Bun. Spawning `bun dist/cli.js`
  * bypasses the shebang, so suites pass these explicitly to run the CLI the way

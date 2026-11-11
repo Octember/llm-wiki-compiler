@@ -42,7 +42,10 @@ jobs:
           bwrap --cap-drop ALL --unshare-net --ro-bind / /
           --dev /dev --proc /proc -- "$(command -v bun)" --version
       - run: bun run release:check-docs
-      - run: bun run test
+      # Pull requests run only the affected test files; pushes to main run all.
+      - run: bash scripts/ci-test.sh "$BASE_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
       # Default tests exclude this fresh-install check. Exercise the shipped
       # facade, its exact workspace dependencies, and consumer declarations.
       - run: bun run test:pack

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Run the test suite in CI, narrowed to the affected test files on pull requests.
+#
+# With a base commit, this runs `bun test --changed=<base>`: only the test files
+# whose imports reach a changed file. Bun decides that from the import graph
+# alone, so a change it cannot see there would select nothing. Those changes run
+# the full suite instead: anything that is not a TypeScript file under src/ or
+# test/ (config, the lockfile, packages/, fixtures, viewer assets), and
+# test/preload.ts, which bunfig loads rather than any test importing it.
+#
+# Tests that run dist/cli.js see src/ through the never-called import in
+# test/fixtures/run-cli.ts. Without a base commit (a push to main) the full
+# suite runs, which is also the backstop for anything the narrowing misses.
+#
+# Usage: scripts/ci-test.sh [base-commit]
+set -euo pipefail
+
+base="${1:-}"
+if [[ -z "$base" ]]; then
+  exec bun run test
+fi
+
+changed="$(git diff --name-only "$base" HEAD)"
+graph_blind="$(grep -vxE '(src|test)/.+\.ts' <<<"$changed" || true)"
+if grep -qx 'test/preload.ts' <<<"$changed"; then
+  graph_blind+=$'\ntest/preload.ts'
+fi
+
+if [[ -n "${graph_blind//[[:space:]]/}" ]]; then
+  echo "ci-test: full suite; the import graph cannot see:"
+  echo "$graph_blind" | sed '/^$/d; s/^/  /'
+  exec bun run test
+fi
+
+echo "ci-test: affected tests only (--changed=$base)"
+exec bun run test --changed="$base"
