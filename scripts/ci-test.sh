@@ -8,16 +8,20 @@
 # test/ (config, the lockfile, packages/, fixtures, viewer assets), and
 # test/preload.ts, which bunfig loads rather than any test importing it.
 #
-# Tests that run dist/cli.js see src/ through the never-called import in
-# test/fixtures/run-cli.ts. Without a base commit (a push to main) the full
+# Tests that run dist/ see src/ through the never-called imports in
+# test/fixtures/built-dist.ts. Without a base commit (a push to main) the full
 # suite runs, which is also the backstop for anything the narrowing misses.
 #
-# Usage: scripts/ci-test.sh [base-commit]
+# Further arguments go to the runner, e.g. `--shard=2/18`: Bun shards the files
+# `--changed` kept, so every shard runs its part of the narrowed set.
+#
+# Usage: scripts/ci-test.sh [base-commit] [bun test args...]
 set -euo pipefail
 
 base="${1:-}"
+shift || true
 if [[ -z "$base" ]]; then
-  exec bun run test
+  exec bun run test "$@"
 fi
 
 changed="$(git diff --name-only "$base" HEAD)"
@@ -29,8 +33,8 @@ fi
 if [[ -n "${graph_blind//[[:space:]]/}" ]]; then
   echo "ci-test: full suite; the import graph cannot see:"
   echo "$graph_blind" | sed '/^$/d; s/^/  /'
-  exec bun run test
+  exec bun run test "$@"
 fi
 
 echo "ci-test: affected tests only (--changed=$base)"
-exec bun run test --changed="$base"
+exec bun run test --changed="$base" "$@"
