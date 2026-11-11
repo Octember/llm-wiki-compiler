@@ -3,6 +3,7 @@
  * limits and policy remain with each scanner; this module grants no authority.
  */
 import { lstat, realpath, opendir } from "node:fs/promises";
+import type { Dir, Dirent } from "node:fs";
 import { openConfinedLeaf, resolveExpectedReal } from "./confined-read.js";
 
 /** Reject unbounded or fractional scan requests before any traversal. */
@@ -44,7 +45,27 @@ async function openConfinedDirectory(state: { root: string }, dir: string) {
   const confined = await directoryIsConfined(state, dir);
   if (confined === "absent") return "absent" as const;
   if (!confined) return "unavailable" as const;
-  return opendir(dir).catch(() => "unlistable" as const);
+  const handle = await opendir(dir).catch(() => null);
+  if (handle === null) return "unlistable" as const;
+  // Bun on Linux defers the listing syscall to the first read, so an unreadable
+  // directory opens cleanly and fails there. Read once here so that failure is
+  // still a refusal decided before any entry is seen.
+  const first = await handle.read().then((entry) => ({ entry }), () => null);
+  if (first === null) {
+    await handle.close().catch(() => {});
+    return "unlistable" as const;
+  }
+  return primedEntries(handle, first.entry);
+}
+
+/** The handle's entries, starting with one already read from it. */
+function primedEntries(handle: Dir, first: Dirent | null) {
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (let entry = first; entry !== null; entry = await handle.read()) yield entry;
+    },
+    close: () => handle.close(),
+  };
 }
 
 /**

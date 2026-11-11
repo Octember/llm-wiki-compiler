@@ -21,7 +21,39 @@ jobs:
   # So win32 behaviour is held by the `sep` test seam in `src/utils/path-confine.ts`,
   # NOT by CI. Restoring this leg means fixing those 64 failures first — worth
   # doing as its own change, and not free.
-  build-and-test:
+  #
+  # The suite is split across TEST_SHARDS jobs by `bun test --shard`, each on
+  # its own runner. One job ran it in about six minutes; split this way the
+  # slowest shard sets the wall time instead.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    env:
+      TEST_SHARDS: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Install Linux isolation test dependency
+        run: sudo apt-get install -y --no-install-recommends bubblewrap || (sudo apt-get update && sudo apt-get install -y bubblewrap)
+      - name: Permit Bubblewrap namespaces on the disposable runner
+        run: sudo apparmor_parser --replace .github/ci/bwrap.apparmor
+      # An installed binary can still be barred by runner namespace policy.
+      # Surface its stderr before the suite, using the backend's controls.
+      - name: Verify Linux isolation launch
+        run: >-
+          bwrap --cap-drop ALL --unshare-net --ro-bind / /
+          --dev /dev --proc /proc -- "$(command -v bun)" --version
+      # CLI tests run the built binary; the viewer type-check runs in `package`.
+      - run: bunx tsup
+      - run: bun scripts/run-tests.mjs --shard=${{ matrix.shard }}/${{ env.TEST_SHARDS }}
+
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,18 +63,8 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - name: Install Linux isolation test dependency
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap
-      - name: Permit Bubblewrap namespaces on the disposable runner
-        run: sudo apparmor_parser --replace .github/ci/bwrap.apparmor
-      # An installed binary can still be barred by runner namespace policy.
-      # Surface its stderr before the full suite, using the backend's controls.
-      - name: Verify Linux isolation launch
-        run: >-
-          bwrap --cap-drop ALL --unshare-net --ro-bind / /
-          --dev /dev --proc /proc -- "$(command -v bun)" --version
       - run: bun run release:check-docs
-      - run: bun run test
+      - run: bun run build
       # Default tests exclude this fresh-install check. Exercise the shipped
       # facade, its exact workspace dependencies, and consumer declarations.
       - run: bun run test:pack
