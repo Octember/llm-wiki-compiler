@@ -18,16 +18,19 @@
  * read.
  *
  * TO ADD A READ: add the question to {@link PreparationPassReads} and one
- * `once` or `oncePer` line below. A step takes the questions it asks as its
+ * `once` or `oncePer` line below (`utils/pass-memo.ts`). A step takes the questions it asks as its
  * collaborator type, as every `…With(steps)` body in this store already does,
  * so a step never learns whether an answer was shared.
  */
 
-import { readPreparationKey, type PreparationKeyEpochRead, type PreparationKeyRead } from "./key-epoch.js";
+import type { PreparationKeyEpochRead, PreparationKeyRead } from "./key-epoch.js";
 import { readPreparationManifest, type PreparationManifestRead } from "./manifest-store.js";
 import type { PreparationId } from "./ids.js";
-import { diskPreparationRunLeafReads, readPreparationRunFrom, type PreparationRunRead } from "./run-store.js";
+import { preparationRunHoldReads, type PreparationRunRead } from "./run-store.js";
 import type { PreparationRunBinding } from "./run-types.js";
+import { epochOnly, oncePer } from "../utils/pass-memo.js";
+import { scannedLeafBytes, type ScannedLeafBytes } from "../utils/scanned-leaf-bytes.js";
+import { perBorrowLifecycleReads, type PreparationLifecycleReads } from "./lifecycle-snapshot/read.js";
 
 /** The questions a pass asks of one preparation store. */
 export interface PreparationPassReads {
@@ -39,42 +42,35 @@ export interface PreparationPassReads {
   readManifest(workspaceId: string, preparationId: PreparationId): Promise<PreparationManifestRead>;
   /** One run by its binding, authenticated under the pass's one key read. */
   readRun(binding: PreparationRunBinding): Promise<PreparationRunRead>;
+  /**
+   * The leaf bytes this pass's inventory walk read, which the manifest and run
+   * reads above consume once each has proved the leaf still that version. Hand
+   * it to the walk (`scanActivePreparationStore`); it holds nothing else.
+   */
+  scannedLeaves: ScannedLeafBytes;
+  /** The pass's lifecycle reads: a fresh capture per borrow unless the pass was given a shared one. */
+  readonly lifecycle: PreparationLifecycleReads;
 }
 
-/** Ask `read` at most once; every caller shares the one answer. */
-function once<R>(read: () => Promise<R>): () => Promise<R> {
-  let answer: Promise<R> | undefined;
-  return () => (answer ??= read());
-}
-
-/** Ask `read` at most once per distinct `key`; callers with the same key share the answer. */
-function oncePer<A extends unknown[], R>(key: (...args: A) => string, read: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
-  const answers = new Map<string, Promise<R>>();
-  return (...args) => {
-    const id = key(...args);
-    let answer = answers.get(id);
-    if (answer === undefined) answers.set(id, answer = read(...args));
-    return answer;
-  };
-}
-
-/** The local-disk reads for one pass over the store under `root`. */
-export function preparationPassReads(root: string): PreparationPassReads {
-  const readKey = once(() => readPreparationKey(root));
-  const runLeaves = { readRunLeaf: diskPreparationRunLeafReads(root).readRunLeaf, readKey };
+/**
+ * The local-disk reads for one pass over the store under `root`. `lifecycle`
+ * is a pass-scoped lifecycle read (`preparationLifecycleReadPass`) when the
+ * pass's caller shares one capture across its legs and closes it before writing.
+ */
+export function preparationPassReads(
+  root: string, lifecycle: PreparationLifecycleReads = perBorrowLifecycleReads(root),
+): PreparationPassReads {
+  const scannedLeaves = scannedLeafBytes();
+  const { readKey, readRun } = preparationRunHoldReads(root, scannedLeaves);
   return {
+    lifecycle,
     readKey,
-    readKeyEpoch: async () => {
-      const key = await readKey();
-      return key.status === "ok" ? { status: "ok", keyEpochId: key.keyEpochId } : key;
-    },
+    readKeyEpoch: epochOnly(readKey),
     readManifest: oncePer(
       (workspaceId, preparationId) => `${workspaceId}\0${preparationId}`,
-      (workspaceId, preparationId) => readPreparationManifest(root, workspaceId, preparationId),
+      (workspaceId, preparationId) => readPreparationManifest(root, workspaceId, preparationId, scannedLeaves),
     ),
-    readRun: oncePer(
-      (binding) => [binding.workspaceId, binding.preparationId, binding.runId, binding.manifestDigest, binding.keyEpochId].join("\0"),
-      (binding) => readPreparationRunFrom(runLeaves, binding),
-    ),
+    readRun,
+    scannedLeaves,
   };
 }

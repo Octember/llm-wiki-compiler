@@ -32,7 +32,64 @@ Press `Ctrl+C` to stop the server.
 llmwiki view-v2 --open
 ```
 
-The v2 client shows the page list with a title filter, each page with its citation chips, search, and each source with numbered lines. Selecting a citation chip opens the source at the cited lines. It does not yet have the dashboard, graph, health, review, or workflow screens; use `llmwiki view` for those.
+The v2 client has the dashboard, the navigation sidebar with counts, the whole-wiki verdict pill, a command palette, the concepts, queries, sources and profile-type lists with title and freshness filters, the graph explorer at `#/graph`, each page with its citation chips, and each source with numbered lines. Selecting a citation chip opens the source at the cited lines. The graph explorer behaves as in `llmwiki view`, with a tooltip with each node's title, kind and connection count, a click to open the page, size by degree, zoom and pan, node drag, and **Fit** to re-frame the settled layout, and adds the features under [The graph](#the-graph).
+
+The client stays current while its tab is visible: it reloads the page list and health every 30 seconds, and again when you return to the tab, so a compile, a lint run or a new review candidate appears without a reload. It re-renders only when something it shows has changed.
+
+### Dashboard
+
+The dashboard shows the four headline counts and, when you have visited before in this browser, the pages that changed since your last visit. A visit ends after half an hour without activity, so reloading the page or reading for an hour does not reset it, and what counts as changed is everything since you were last active before this visit. Below that are the recently compiled pages, a topic map of the most used tags sized by how many pages carry them, an activity calendar of pages updated per day over the last 16 weeks, the compile receipt, and the next CLI actions. Select a tag, here or on any page, to open `#/_tag/<tag>`, which lists the pages carrying it.
+
+### Cited by
+
+Each source at `#/_source/<file>` lists the pages that cite it, with the line ranges each page cites. Select a range to highlight those lines in the source. The list comes from `GET /api/source/<file>/cited-by`, which answers from the viewer's in-memory snapshot and returns page titles and line numbers but no source text, so it works on any bind address. The source text itself still needs a loopback bind.
+
+It adds one screen the original client lacks: `#/recent` lists every page newest first, grouped by when it was compiled (today, yesterday, earlier this week, last week, earlier this month, then by month), and marks pages the last compile created with a "new" badge. The dashboard's "View all" opens it.
+
+It also has the maintenance screens: `#/health` with the lint caption, the CONTENTS strip, the lint panel with its rule table, freshness, traceability, and a profile project's record problems; `#/reviews` with the held candidates, their provenance and the reasons they are held; and `#/source-changes`, the read-only source review cockpit, which says so when source comparison is not enabled. Health and reviews are re-read on every visit, so a new lint run or candidate shows up on reload.
+
+On a profile project it also has the lifecycle status at `#/pipeline` (each type's declared lifecycle, its pages by state, and the validation problems), the workflow runs at `#/workflows` with the runs parked on an approval or a submission, and each run's journey at `#/_journey/<workflow>/<run>` with its stages, their facts, output and artifact links, and the final PDF.
+
+Every screen of `llmwiki view` is now in the v2 client.
+
+### Reading a page
+
+Point at a wikilink, or move keyboard focus to it, and a card shows the linked page's type, title and summary. A page without a summary shows its opening paragraph instead. Point at a citation chip and the card shows the cited lines of the source, numbered, up to eight lines; a longer span says how many more lines it covers. Press <kbd>Esc</kbd> to close a card. Cards appear after a short pause, so passing over a link opens nothing, and touch input never opens one: a tap follows the link. The links in a page's rail open cards too.
+
+A citation card needs the source's text, so it works where the source view does: when the viewer is bound to loopback and the source is a Markdown file. Otherwise the card says the source is not available. The client fetches each source and page at most once per visit.
+
+### The graph
+
+The graph explorer at `#/graph` colours pages by cluster by default: pages that link to each other more than to the rest share a colour. A wiki of a few hundred pages has many small clusters, so a colour can repeat for clusters far apart. Pages with no links are grey. Choose **Colour: kind** to colour by concept, entity, stale and dangling instead.
+
+Point at a page to dim everything except it and the pages it links to or from, and to label them. Zoom in and every page is labelled. Type a title into **Find a page** to centre that page and keep its neighbourhood highlighted; the box suggests titles as you type. Clear the box to release it.
+
+Each page's rail has a **Neighbourhood** graph: the page, the pages it links to and from, and their best-connected neighbours, up to 24 pages. The page itself is ringed and labelled. Select any node to open its page.
+
+### Search and keyboard
+
+Press <kbd>⌘K</kbd> on macOS, <kbd>Ctrl+K</kbd> on Windows and Linux, or <kbd>/</kbd> to open the command palette. You can also select **Search or jump to** in the header. With nothing typed, it lists the pages you opened recently in this browser, then every screen in the sidebar. As you type, it lists:
+
+- **Pages**: page titles and summaries that contain every word you typed. A title match ranks above a summary match. Initials also work, such as `fsep` for "Founder Separation".
+- **Go to**: screens whose name matches.
+- **In page text**: further pages whose body text matches, from the same full-text search as `#/_search`.
+- A last row that opens the full results for your query at `#/_search`.
+
+Use the arrow keys to move and <kbd>Enter</kbd> to open. <kbd>Esc</kbd> closes the palette. Recent pages are kept in this browser's local storage for the viewer's address only. They are never sent anywhere.
+
+Other shortcuts work anywhere outside a text field:
+
+| Keys | Action |
+| --- | --- |
+| <kbd>j</kbd> and <kbd>k</kbd> | Move to the next or previous row of a list. <kbd>Enter</kbd> opens it. |
+| <kbd>g</kbd> then <kbd>d</kbd>, <kbd>c</kbd>, <kbd>q</kbd>, <kbd>r</kbd>, <kbd>s</kbd>, <kbd>g</kbd>, <kbd>h</kbd> or <kbd>v</kbd> | Go to the dashboard, concepts, queries, recent, sources, graph, health or reviews. |
+| <kbd>?</kbd> | Show the shortcut list. |
+
+A page with two or more sections has an **On this page** outline above its rail. It highlights the section you are reading. Selecting an entry scrolls to that section without changing the address, because the address holds the page's route.
+
+On a narrow screen, the rail moves into a sheet: tap **Page details** at the bottom right to open the outline, neighbourhood, metadata, citations and connections. Following a link or jumping to a section closes the sheet.
+
+The v2 client is styled with Tailwind's default palette and scale, with no stylesheet of its own. Screens are built from a small set of shared components, such as cards, stats, row lists and badges, and the typography plugin styles the wiki content. Text is set in Inter, which ships with the client, so the viewer loads no fonts from other sites. The client follows the system's light or dark setting; there is no theme control. Moving between screens cross-fades briefly where the browser supports view transitions; with reduced motion set in your system, it switches at once.
 
 ### Source images
 

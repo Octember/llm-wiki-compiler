@@ -48,6 +48,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { readKernelStartSeconds } from "./kernel-start-time.js";
 
 /**
  * The inclusive upper bound Node accepts before `process.kill` rejects the
@@ -94,7 +95,7 @@ let cachedSelfStartTime: string | null | undefined;
 
 /**
  * This process's start-time identity. A running process's start time never
- * changes, so one `ps` answers every caller in the process.
+ * changes, so one read answers every caller in the process.
  */
 export function selfStartTime(): string | null {
   if (cachedSelfStartTime === undefined) {
@@ -130,21 +131,25 @@ let cachedSelfLegacyStartTime: { env: string; value: string | null } | undefined
 function selfLegacyStartTime(): string | null {
   const env = AMBIENT_RENDERING_ENV.map((name) => process.env[name] ?? "").join("\0");
   if (cachedSelfLegacyStartTime?.env !== env) {
-    cachedSelfLegacyStartTime = { env, value: spawnLegacyProcessStartTime(process.pid) };
+    cachedSelfLegacyStartTime = { env, value: psLstart(process.pid) };
   }
   return cachedSelfLegacyStartTime.value;
 }
 
 /** Read the exact ambient ps rendering used by public lock readers and writers. */
 function readLegacyProcessStartTime(pid: number): string | null {
-  return pid === process.pid ? selfLegacyStartTime() : spawnLegacyProcessStartTime(pid);
+  return pid === process.pid ? selfLegacyStartTime() : psLstart(pid);
 }
 
-/** Ask `ps` for one process's ambient start-time rendering. */
-function spawnLegacyProcessStartTime(pid: number): string | null {
+/**
+ * Ask `ps` for one process's `lstart` rendering, under `env` when given (else
+ * the ambient environment), or null when the pid is gone or `ps` fails.
+ */
+function psLstart(pid: number, env?: NodeJS.ProcessEnv): string | null {
   try {
     const out = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
       stdio: ["ignore", "pipe", "ignore"],
+      ...(env === undefined ? {} : { env }),
     }).toString().trim();
     return out.length > 0 ? out : null;
   } catch {
@@ -262,6 +267,12 @@ const PINNED_TIME_ENV = { TZ: "UTC", LC_ALL: "C" } as const;
  * Read a live PID's process START INSTANT as a timezone- and locale-invariant
  * identity, `unix:<epochSeconds>`.
  *
+ * THE KERNEL RECORD IS READ DIRECTLY WHERE THAT IS PROVABLY THE SAME NUMBER `ps`
+ * WOULD GIVE (see `kernel-start-time.ts`): one in-process `sysctl` instead of a
+ * fork per lock acquisition. Elsewhere, and whenever that read is in any doubt,
+ * this falls through to `ps` below unchanged — so a writer and a reader on one
+ * host always hold the identity in the same form whichever route each took.
+ *
  * WHY THE PREVIOUS FORMAT WAS A DEFECT AND NOT A STYLE CHOICE. It stored what
  * `ps -o lstart=` printed, which libc renders in the AMBIENT timezone — so one
  * live process yields different identities to different readers:
@@ -296,17 +307,10 @@ const PINNED_TIME_ENV = { TZ: "UTC", LC_ALL: "C" } as const;
  * unavailable/unparseable — so liveness degrades rather than failing.
  */
 export function readProcessStartTime(pid: number): string | null {
-  try {
-    const out = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
-      stdio: ["ignore", "pipe", "ignore"],
-      env: { ...process.env, ...PINNED_TIME_ENV },
-    })
-      .toString()
-      .trim();
-    return out.length > 0 ? identityFromUtcRendering(out) : null;
-  } catch {
-    return null;
-  }
+  const kernelSeconds = readKernelStartSeconds(pid);
+  if (kernelSeconds !== undefined) return `${IDENTITY_PREFIX}${kernelSeconds}`;
+  const rendered = psLstart(pid, { ...process.env, ...PINNED_TIME_ENV });
+  return rendered === null ? null : identityFromUtcRendering(rendered);
 }
 
 /** Turn a UTC-pinned `lstart` rendering into the versioned epoch identity. */

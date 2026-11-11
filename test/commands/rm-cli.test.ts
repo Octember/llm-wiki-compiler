@@ -64,9 +64,9 @@ async function oneSourceProject(): Promise<string> {
   return root;
 }
 
-/** Run `llmwiki rm` with `args` in `root` and return its combined output, colour stripped. */
-async function rmOutput(root: string, ...args: string[]): Promise<string> {
-  const { stdout, stderr } = await exec(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, "rm", ...args], { cwd: root });
+/** Run `rm bad.md --dry-run` in `root` and return its combined, colour-stripped output. */
+async function dryRunOutput(root: string): Promise<string> {
+  const { stdout, stderr } = await exec(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, "rm", "bad.md", "--dry-run"], { cwd: root });
   return stripAnsi(stdout + stderr);
 }
 
@@ -107,15 +107,11 @@ describe("llmwiki rm CLI", () => {
   });
 
   it("does not warn about a profile on a default project", async () => {
-    const root = await twoSourceRmProject();
-
-    expect(await rmOutput(root, "bad.md", "--dry-run")).not.toContain("This project uses the");
+    expect(await dryRunOutput(await twoSourceRmProject())).not.toContain("This project uses the");
   });
 
   it("warns that typed entity pages are untracked and untouched on a profile project's --dry-run", async () => {
-    const root = await twoSourceRmProjectWithProfile();
-
-    const lines = await rmOutput(root, "bad.md", "--dry-run");
+    const lines = await dryRunOutput(await twoSourceRmProjectWithProfile());
 
     expect(lines).toContain("This project uses the `sample` profile.");
     expect(lines).toContain("Typed entity pages are not tracked to the source they came from");
@@ -125,7 +121,9 @@ describe("llmwiki rm CLI", () => {
   it("warns on the applied path too, not only --dry-run", async () => {
     const root = await twoSourceRmProjectWithProfile();
 
-    expect(await rmOutput(root, "bad.md")).toContain("This project uses the `sample` profile.");
+    const { stdout, stderr } = await exec(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, "rm", "bad.md"], { cwd: root });
+
+    expect(stripAnsi(stdout + stderr)).toContain("This project uses the `sample` profile.");
   });
 
   it("prints the deletion report before regeneration's own progress output", async () => {
@@ -144,9 +142,8 @@ describe("llmwiki rm CLI", () => {
   });
 
   it("warns that kept pages may still cite the removed source", async () => {
-    const root = await twoSourceRmProject(); // shared.md survives, still citing bad.md
-
-    const lines = await rmOutput(root, "bad.md", "--dry-run");
+    // shared.md survives, still citing bad.md
+    const lines = await dryRunOutput(await twoSourceRmProject());
 
     expect(lines).toContain("Kept page(s) may still cite this source.");
     expect(lines).toContain("Run `llmwiki lint`");
@@ -155,7 +152,9 @@ describe("llmwiki rm CLI", () => {
   it("does not warn about citations when nothing is kept", async () => {
     const root = await oneSourceProject(); // every page is deleted with the source
 
-    expect(await rmOutput(root, "bad.md", "--dry-run")).not.toContain("may still cite this source");
+    const { stdout, stderr } = await exec(process.execPath, [...CLI_RUNTIME_FLAGS, CLI, "rm", "bad.md", "--dry-run"], { cwd: root });
+
+    expect(stripAnsi(stdout + stderr)).not.toContain("may still cite this source");
   });
 
   it("finishes an interrupted removal without claiming to delete the already-gone source file", async () => {

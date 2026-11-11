@@ -67,7 +67,6 @@ import {
 } from "./orphan-scan.js";
 import {
   assertPreparationLifecycleRead,
-  withPreparationLifecycleRead,
   type PreparationLifecycleReadV1,
 } from "./lifecycle-snapshot/read.js";
 import type {
@@ -76,6 +75,7 @@ import type {
 import type { PreparationRunRead } from "./run-store.js";
 import type { PreparationRunBinding, PreparationRunState } from "./run-types.js";
 import { preparationPassReads, type PreparationPassReads } from "./pass-reads.js";
+import { once } from "../utils/pass-memo.js";
 
 const TERMINAL_STATES = new Set<PreparationRunState>([
   "handed-off", "succeeded", "succeeded-with-warnings", "failed", "cancelled",
@@ -213,7 +213,8 @@ export interface PreparationInventoryLifecycleReads extends PreparationInventory
 function diskPreparationInventoryReads(root: string, pass: PreparationPassReads): PreparationInventoryReads {
   return {
     assertLifecycleRead: (read) => assertPreparationLifecycleRead(root, read),
-    scanActiveStore: (options) => scanActivePreparationStore(root, options),
+    // The walk leaves the manifest and run bytes it reads with the pass, whose readers below consume them.
+    scanActiveStore: (options) => scanActivePreparationStore(root, options, pass.scannedLeaves),
     readManifest: pass.readManifest,
     readKeyEpoch: pass.readKeyEpoch,
     readRun: pass.readRun,
@@ -222,14 +223,15 @@ function diskPreparationInventoryReads(root: string, pass: PreparationPassReads)
 
 /**
  * The local-disk reads that can also borrow, for one project root. Private, and
- * built per call. The borrow is the imported lifecycle capture for this root,
- * called when it is asked and never earlier, so the read it lends is the one the
- * proof beside it accepts. ROOT-BOUND LOCAL-DISK AUTHORITY: named, not neutral.
+ * built per call. The borrow is the pass's lifecycle capture for this root —
+ * a fresh one per borrow unless the pass shares one — taken when it is asked and
+ * never earlier, so the read it lends is the one the proof beside it accepts.
+ * ROOT-BOUND LOCAL-DISK AUTHORITY: named, not neutral.
  */
 function diskPreparationInventoryLifecycleReads(root: string, pass: PreparationPassReads): PreparationInventoryLifecycleReads {
   return {
     ...diskPreparationInventoryReads(root, pass),
-    borrowLifecycleRead: (maxRegistryEntries, use) => withPreparationLifecycleRead(root, use, { maxRegistryEntries }),
+    borrowLifecycleRead: (maxRegistryEntries, use) => pass.lifecycle.borrow(use, { maxRegistryEntries }),
   };
 }
 
@@ -409,8 +411,7 @@ async function preparationStates(
   }
   // The key epoch is one fact about the store, so one scan reads it once and
   // every run is authenticated against that same reading.
-  let keyRead: Promise<KeyEpochRead> | undefined;
-  const keyEpoch = () => (keyRead ??= reads.readKeyEpoch());
+  const keyEpoch = once(() => reads.readKeyEpoch());
   const limit = pLimit(SCAN_READ_CONCURRENCY);
   const outcomes = await Promise.all(manifestList.map((manifest) =>
     limit(() => preparationState(reads, manifest, scan.leaves, keyEpoch))));

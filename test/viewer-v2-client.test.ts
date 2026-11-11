@@ -3,7 +3,7 @@
  * server renders.
  */
 import { describe, expect, it } from "bun:test";
-import { citationHref, pageHref, pageIdHref, parseRoute, searchHref, sourceHref } from "../viewer-v2/src/route.js";
+import { journeyHref, lineRange, pageHref, pageIdHref, parseRoute, searchHref, sourceHref, typeListHref } from "../viewer-v2/src/route.js";
 
 describe("v2 viewer routes", () => {
   it("round-trips a page whose slug needs encoding", () => {
@@ -31,14 +31,27 @@ describe("v2 viewer routes", () => {
     expect(parseRoute("#/_source/notes.md?start=x")).toEqual({ view: "source", id: "notes.md" });
   });
 
-  it("links a citation chip to its source lines, and nowhere without a file", () => {
-    expect(citationHref("notes.md", "12", "15")).toBe("#/_source/notes.md?start=12&end=15");
-    expect(citationHref("notes.md", "12")).toBe("#/_source/notes.md?start=12&end=12");
-    expect(citationHref("notes.md")).toBe("#/_source/notes.md");
-    expect(citationHref(undefined, "12")).toBeNull();
+  it("reads a cited line range the same way for chips and source links", () => {
+    expect(lineRange("12", "15")).toEqual({ lineStart: 12, lineEnd: 15 });
+    expect(lineRange("12", undefined)).toEqual({ lineStart: 12, lineEnd: 12 });
+    expect(lineRange("9", "3")).toEqual({});
+    expect(lineRange(undefined, "3")).toEqual({});
   });
 
-  it.each(["", "#", "#/", "#/concepts", "#/a/b/c", "#/concepts/%E0%A4%A"])("treats %j as home", (hash) => {
+  it("names the original client's screens by the same hashes", () => {
+    expect(parseRoute("#/concepts")).toEqual({ view: "list", kind: "concepts" });
+    expect(parseRoute("#/source-changes")).toEqual({ view: "sourceChanges" });
+    expect(parseRoute("#/recent")).toEqual({ view: "recent" });
+    expect(parseRoute(typeListHref("papers"))).toEqual({ view: "typeList", type: "papers" });
+    expect(parseRoute("#/papers")).toEqual({ view: "home" });
+  });
+
+  it("round-trips a run's journey, with both ids encoded", () => {
+    expect(parseRoute(journeyHref("review flow", "run/1"))).toEqual({ view: "journey", workflowId: "review flow", runId: "run/1" });
+    expect(journeyHref("review flow", "run/1")).toBe("#/_journey/review%20flow/run%2F1");
+  });
+
+  it.each(["", "#", "#/", "#/nonsense", "#/a/b/c", "#/_journey/wf", "#/_journey/wf/run/extra", "#/concepts/%E0%A4%A"])("treats %j as home", (hash) => {
     expect(parseRoute(hash)).toEqual({ view: "home" });
   });
 });

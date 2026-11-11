@@ -6,16 +6,17 @@
 
 import path from "path";
 import { getEmbeddingProvider } from "./embedding-provider.js";
-import { parseFrontmatter } from "./markdown.js";
 import { CONCEPTS_DIR, QUERIES_DIR } from "./constants.js";
 import { type EmbeddingEntry } from "./embeddings-store.js";
 import { embedTextBatch, enrichEmbedError, makeCountingProvider } from "./embeddings-batch.js";
 import { safeRealpath, isInsideDir } from "./path-confine.js";
 import { listDirectoryNames } from "../storage/disk-guarded-leaves.js";
 import { readConfinedExactFile } from "../storage/disk-local-reads.js";
+import { frontmatterOfRead, sharedPageRead } from "../storage/shared-page-reads.js";
 import { locationIsRegularFile } from "../storage/disk-locations.js";
 import type { ConfinedReadResult } from "../storage/legacy-local-reads.js";
 import type { PageRecord } from "../pages/read.js";
+import { prefetchInOrder } from "./prefetch-in-order.js";
 
 /** A reserved-namespace page record tagged with the directory it came from. */
 export interface NamespacedPageRecord {
@@ -58,12 +59,19 @@ export interface EmbeddingPageReads {
    * root natively.
    */
   isRegularFile(relPath: string): Promise<boolean>;
+  /**
+   * MECHANISM. The entry names of `relDir`, POSIX project-relative like
+   * {@link isRegularFile}, links followed and NOT confined: it answers only
+   * which names are missing, never what any entry holds. Rejects raw.
+   */
+  listRelativeNames(relDir: string): Promise<string[]>;
 }
 
 /**
  * LOCAL DISK. The incumbent mechanisms for `root`: `safeRealpath`, the
  * resolved-and-contained directory check, `listDirectoryNames`,
- * `readConfinedExactFile` and `locationIsRegularFile`, with their exact
+ * `readConfinedExactFile`, `locationIsRegularFile` and `listDirectoryNames`
+ * again for a project-relative directory, with their exact
  * arguments. Building it does no I/O. In no package index.
  */
 export function diskEmbeddingPageReads(root: string): EmbeddingPageReads {
@@ -74,8 +82,9 @@ export function diskEmbeddingPageReads(root: string): EmbeddingPageReads {
       return resolved && isInsideDir(resolved, project) ? resolved : null;
     },
     listNames: (directory) => listDirectoryNames(directory),
-    readConfinedEntry: (directory, name) => readConfinedExactFile(directory, path.join(directory, name)),
+    readConfinedEntry: (directory, name) => sharedPageRead(directory, name, () => readConfinedExactFile(directory, path.join(directory, name))),
     isRegularFile: (relPath) => locationIsRegularFile(path.join(root, relPath)),
+    listRelativeNames: (relDir) => listDirectoryNames(path.join(root, relDir)),
   };
 }
 
@@ -113,8 +122,9 @@ export async function collectNamespacedPageRecordsFrom(reads: EmbeddingPageReads
     } catch {
       continue;
     }
-    for (const file of files.filter((f) => f.endsWith(".md"))) {
-      const record = await readConfinedPageRecord(reads, directory, file);
+    const pageFiles = files.filter((f) => f.endsWith(".md"));
+    for (const pending of prefetchInOrder(pageFiles, (file) => readConfinedPageRecord(reads, directory, file))) {
+      const record = await pending;
       if (record) records.push({ namespace, record });
     }
   }
@@ -134,7 +144,7 @@ export async function collectPageRecords(root: string): Promise<PageRecord[]> {
 async function readConfinedPageRecord(reads: EmbeddingPageReads, expectedDir: string, file: string): Promise<PageRecord | null> {
   const read = await reads.readConfinedEntry(expectedDir, file);
   if (!("content" in read)) return null;
-  const { meta, body } = parseFrontmatter(read.content);
+  const { meta, body } = frontmatterOfRead(read);
   if (meta.orphaned || typeof meta.title !== "string") return null;
   return {
     slug: file.replace(/\.md$/, ""),

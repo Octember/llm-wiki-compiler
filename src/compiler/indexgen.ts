@@ -16,9 +16,9 @@
 
 import path from "path";
 import pLimit from "p-limit";
-import { parseFrontmatter } from "../utils/markdown.js";
+import { frontmatterOfRead } from "../storage/shared-page-reads.js";
 import { listDirectoryNames, replaceLeafAtomicWithin } from "../storage/disk-guarded-leaves.js";
-import { readWikiPageInDir, warnDroppedWikiRead } from "./confined-wiki-read.js";
+import { wikiPageReaderInDir, warnDroppedWikiRead } from "./confined-wiki-read.js";
 import type { ConfinedReadResult } from "./confined-wiki-read.js";
 import { toPosixPath } from "../utils/path-confine.js";
 import { CONCEPTS_DIR, QUERIES_DIR, INDEX_FILE } from "../utils/constants.js";
@@ -142,7 +142,7 @@ export interface WikiPageScanReads {
 export function diskWikiPageScanReads(dirPath: string): WikiPageScanReads {
   return {
     listNames: () => listDirectoryNames(dirPath),
-    readPage: (slug) => readWikiPageInDir(dirPath, slug),
+    readPage: wikiPageReaderInDir(dirPath),
   };
 }
 
@@ -191,7 +191,7 @@ export async function scanWikiPagesFrom(reads: WikiPageScanReads): Promise<Scann
       warnDroppedWikiRead(`${slug}.md`, result.dropped); // dropped (symlink escape / fail-closed)
       continue;
     }
-    const { meta } = parseFrontmatter(result.content);
+    const { meta } = frontmatterOfRead(result);
     scanned.push({ slug, meta });
   }
   return scanned;

@@ -1,0 +1,52 @@
+/*
+ * Tailwind entry and the client's only stylesheet: it loads Tailwind, scanning
+ * only this client, the typography plugin, whose defaults style the wiki
+ * content, and Inter. The font is bundled from @fontsource-variable rather than
+ * a font CDN because the viewer's content security policy allows same-origin
+ * fonts only; the browser downloads just the unicode ranges a page uses.
+ * Inter's cv11 (single-storey a) and ss01 (open digits) read better at small
+ * UI sizes.
+ */
+@import "tailwindcss" source(none);
+@import "@fontsource-variable/inter";
+@source "./";
+@source "../index.html";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans--font-feature-settings: "cv11", "ss01";
+}
+
+/*
+ * Base polish the utilities cannot express per element. A keyboard focus ring
+ * for anything that has not styled its own; the selection in the accent; and
+ * a reserved scrollbar gutter so moving between a short and a long screen
+ * does not shift the layout sideways.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-indigo-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-indigo-500) 25%, transparent);
+  }
+  html {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Route changes cross-fade quickly; a reader who asks for less motion gets none. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}

@@ -236,14 +236,18 @@ export const LIFECYCLE_MODULE_OWNERSHIP: readonly LifecycleModuleOwnershipV1[] =
   { path: "src/utils/confined-read.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/constants.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/evidence-path.ts", role: "shared-primitive", rawFilesystemAccess: false },
+  { path: "src/utils/fs-metadata.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/fs-presence.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/hmac-equal.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/inventory-arithmetic.ts", role: "shared-primitive", rawFilesystemAccess: false },
   // The local-disk walk reads both orphan scans hand their scan body; path joins only, the I/O stays in inventory-scan.
   { path: "src/utils/inventory-disk-walk.ts", role: "shared-primitive", rawFilesystemAccess: false },
+  // Opens a run of walk leaves ahead and proves their directory once after the last open.
+  { path: "src/utils/inventory-leaf-read-ahead.ts", role: "shared-primitive", rawFilesystemAccess: true },
   // The no-follow I/O moved here; store classification remains in orphan-scan.
   { path: "src/utils/inventory-scan.ts", role: "shared-primitive", rawFilesystemAccess: true },
   // Key-leaf mode, ownership and link-count health shared by both key epochs.
+  { path: "src/utils/kernel-start-time.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/key-leaf-health.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/keyed-fifo.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/lock-owner.ts", role: "shared-primitive", rawFilesystemAccess: true },
@@ -251,6 +255,7 @@ export const LIFECYCLE_MODULE_OWNERSHIP: readonly LifecycleModuleOwnershipV1[] =
   { path: "src/utils/lock.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/no-follow-open.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/output.ts", role: "shared-primitive", rawFilesystemAccess: false },
+  { path: "src/utils/pass-memo.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/path-confine.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/planned-bytes.ts", role: "shared-primitive", rawFilesystemAccess: true },
   { path: "src/utils/portable-realpath.ts", role: "shared-primitive", rawFilesystemAccess: true },
@@ -259,7 +264,10 @@ export const LIFECYCLE_MODULE_OWNERSHIP: readonly LifecycleModuleOwnershipV1[] =
   { path: "src/utils/run-history-projection.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/run-store-io.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/runtime-capture.ts", role: "shared-primitive", rawFilesystemAccess: false },
+  // Holds the leaf bytes one pass's inventory walk read, for that pass's readers; no I/O of its own.
+  { path: "src/utils/scanned-leaf-bytes.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/stream-digest.ts", role: "shared-primitive", rawFilesystemAccess: true },
+  { path: "src/utils/verified-bytes-memo.ts", role: "shared-primitive", rawFilesystemAccess: false },
   { path: "src/utils/well-formed-unicode.ts", role: "shared-primitive", rawFilesystemAccess: false },
 ];
 
@@ -411,11 +419,14 @@ export const EXPECTED_MODULE_ROLES = [
   "src/utils/confined-read.ts :: shared-primitive",
   "src/utils/constants.ts :: shared-primitive",
   "src/utils/evidence-path.ts :: shared-primitive",
+  "src/utils/fs-metadata.ts :: shared-primitive",
   "src/utils/fs-presence.ts :: shared-primitive",
   "src/utils/hmac-equal.ts :: shared-primitive",
   "src/utils/inventory-arithmetic.ts :: shared-primitive",
   "src/utils/inventory-disk-walk.ts :: shared-primitive",
+  "src/utils/inventory-leaf-read-ahead.ts :: shared-primitive",
   "src/utils/inventory-scan.ts :: shared-primitive",
+  "src/utils/kernel-start-time.ts :: shared-primitive",
   "src/utils/key-leaf-health.ts :: shared-primitive",
   "src/utils/keyed-fifo.ts :: shared-primitive",
   "src/utils/lock-owner.ts :: shared-primitive",
@@ -423,6 +434,7 @@ export const EXPECTED_MODULE_ROLES = [
   "src/utils/lock.ts :: shared-primitive",
   "src/utils/no-follow-open.ts :: shared-primitive",
   "src/utils/output.ts :: shared-primitive",
+  "src/utils/pass-memo.ts :: shared-primitive",
   "src/utils/path-confine.ts :: shared-primitive",
   "src/utils/planned-bytes.ts :: shared-primitive",
   "src/utils/portable-realpath.ts :: shared-primitive",
@@ -431,6 +443,8 @@ export const EXPECTED_MODULE_ROLES = [
   "src/utils/run-history-projection.ts :: shared-primitive",
   "src/utils/run-store-io.ts :: shared-primitive",
   "src/utils/runtime-capture.ts :: shared-primitive",
+  "src/utils/scanned-leaf-bytes.ts :: shared-primitive",
   "src/utils/stream-digest.ts :: shared-primitive",
+  "src/utils/verified-bytes-memo.ts :: shared-primitive",
   "src/utils/well-formed-unicode.ts :: shared-primitive",
 ] as const;
