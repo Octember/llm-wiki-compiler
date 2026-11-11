@@ -100,6 +100,15 @@ jobs:
       # dependencies, and consumer declarations.
       - run: ${{ matrix.check }}
 
+  # The one check branch protection requires. It passes only when every shard
+  # and package leg passed, so the matrix can change without touching protection.
+  build-and-test:
+    needs: [test, package]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[[ "${{ needs.test.result }}" == success && "${{ needs.package.result }}" == success ]]'
+
   codebase-health:
     runs-on: ubuntu-latest
     steps:
