@@ -61,8 +61,16 @@ jobs:
           --path-ignore-patterns=test/products/private-packages-pack.test.ts
           --path-ignore-patterns=test/local-workflow-package-boundary.test.ts
 
+  # Three legs, each building what it reads, so the slowest sets the time.
   package:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - bun run release:check-docs && bun run test:pack
+          - bun run build && bun test ./test/products/private-packages-pack.test.ts
+          - bun run build && bun test ./test/local-workflow-package-boundary.test.ts
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,14 +79,9 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - run: bun run release:check-docs
-      # Default tests exclude this fresh-install check. Exercise the shipped
-      # facade, its exact workspace dependencies, and consumer declarations.
-      # It runs the full build itself, which the next test then reads.
-      - run: bun run test:pack
-      - run: >-
-          bun test ./test/products/private-packages-pack.test.ts
-          ./test/local-workflow-package-boundary.test.ts
+      # Default tests exclude these: the shipped facade, its exact workspace
+      # dependencies, and consumer declarations.
+      - run: ${{ matrix.check }}
 
   codebase-health:
     runs-on: ubuntu-latest
