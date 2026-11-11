@@ -420,13 +420,14 @@ async function linkViaTemp(
   let published = false;
   try {
     await commitBoundTemp(temp, binding, (committedPath) => linkTempNoReplace(committedPath, filePath));
-    let hookError: unknown, destinationError: unknown;
-    try { await afterCommit?.(); } catch (error) { hookError = error; }
+    // The link is the commit point: a later hook fault cannot undo it.
+    await afterCommit?.().catch(() => {});
+    let destinationError: unknown;
     try { await assertPublishedDestination(filePath, temp.handle, binding); } catch (error) { destinationError = error; }
     await removeCommittedTempAfterPublish(temp.tmpPath, binding, temp.stat, destinationError === undefined);
     if (destinationError !== undefined) throw destinationError;
     published = true;
-    return { handle: temp.handle, stat: temp.stat, hookError };
+    return { handle: temp.handle, stat: temp.stat };
   } finally {
     if (!published) await temp.handle.close().catch(() => {});
   }
@@ -434,8 +435,8 @@ async function linkViaTemp(
 
 /** Prepared temp identity retained across publication while its handle stays open. */
 interface BoundTemp { tmpPath: string; handle: FileHandle; stat: Stats }
-/** Published destination handle plus any test-hook fault retained after cleanup. */
-interface LinkedTemp { handle: FileHandle; stat: Stats; hookError?: unknown }
+/** Published destination handle, held open to pin the inode. */
+interface LinkedTemp { handle: FileHandle; stat: Stats }
 
 /** A random, per-write temp path beside `filePath`. */
 function randomTempPath(filePath: string): string {
