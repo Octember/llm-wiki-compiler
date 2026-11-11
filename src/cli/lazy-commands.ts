@@ -67,7 +67,10 @@ function declareHelpCommand(group: Command, configure: (command: Command) => Pro
     .description("display help for command")
     .helpOption(false)
     .allowExcessArguments()
+    .allowUnknownOption()
     .action(async (name?: string) => {
+      // `help --help` asks for the group's own help, as Commander's command did.
+      if (name === "--help" || name === "-h") return group.help();
       const command = name === undefined ? group : group.commands.find((candidate) => candidate.name() === name);
       if (command === undefined) return group.help({ error: true });
       await configure(command);

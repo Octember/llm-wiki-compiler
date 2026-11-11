@@ -53,7 +53,7 @@ const WORKFLOW_COMMANDS: LazyCommand[] = [
     () => import("./workflow-run-commands.js").then((m) => m.configureWorkflowFail)],
   ["resume <run-id>", "Resume a failed workflow run (or report its position)",
     () => import("./workflow-run-commands.js").then((m) => m.configureWorkflowResume)],
-  ["action", "Discover declared workflow actions (read-only)",
+  ["action", "Discover and run declared workflow actions",
     async () => (action) => declareLazyCommands(action, WORKFLOW_ACTION_COMMANDS)],
   ["gate", "Workflow gate operations",
     async () => (gate) => declareLazyCommands(gate, WORKFLOW_GATE_COMMANDS)],
