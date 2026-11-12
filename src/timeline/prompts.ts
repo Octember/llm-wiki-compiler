@@ -15,14 +15,13 @@
 import type { DayBucket, DaySource } from "./buckets.js";
 import { CITED_BULLETS, SUMMARY_PREFIX, sourcesExcerpt, type PageRequest } from "../compiler/source-excerpt.js";
 
-const DAILY_SYSTEM = `Summarize what happened on this day, from the records below, for a personal memory, in the third person.
+const DAILY_SYSTEM = `Summarize this day, third person, from the records below.
 First line: "${SUMMARY_PREFIX} " and one sentence.
 ${CITED_BULLETS}`;
 
-const WEEKLY_SYSTEM = `Summarize this week, from its daily pages below, for a personal memory, in the third person.
+const WEEKLY_SYSTEM = `Summarize this week, third person, from its days below.
 First line: "${SUMMARY_PREFIX} " and one sentence.
-Then short "## " sections by theme, not by day. End each bullet with the citations it draws on, copied exactly from the daily pages.
-No title.`;
+Short "## " theme sections; each bullet ends with its days' citations, copied exactly. No title.`;
 
 /** A day request, and the day's sources narrowed to the lines the request actually shows. */
 export interface DailyRequest {

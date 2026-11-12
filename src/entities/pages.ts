@@ -97,9 +97,9 @@ export function recordSignature(title: string, fields: Record<string, unknown>, 
 
 /** The request for a record page. */
 export function recordPageRequest(type: string, title: string, excerpt: string, ownerNames: string[]): PageRequest {
-  const owner = ownerNames[0] ? ` The owner of this memory is ${ownerNames[0]}.` : "";
-  const system = `Write a page about ${title}, a ${type} in a personal memory, from the records below, in the third person.${owner}
-First line: "${SUMMARY_PREFIX} " and one sentence about who ${title} is.
+  const reader = ownerNames[0] ? ` for ${ownerNames[0]}` : "";
+  const system = `Write about ${title} (a ${type})${reader}, third person, from these records.
+First line: "${SUMMARY_PREFIX} " and one sentence on who ${title} is.
 ${CITED_BULLETS}`;
   return { system, messages: [{ role: "user", content: `Records that mention ${title}:\n\n${excerpt}\n\nWrite the page about ${title}.` }] };
 }

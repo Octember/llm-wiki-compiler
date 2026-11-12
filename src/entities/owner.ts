@@ -147,10 +147,9 @@ function ownerSignature(name: string, weeks: WeekInput[]): string {
 
 /** The request for the owner page. */
 function ownerRequest(name: string, weeks: WeekInput[]): PageRequest {
-  const system = `Write the page about ${name}, the owner of this personal memory, from the weekly pages below (newest first), in the third person: who ${name} is now, their life and work, what is going on, their preferences and how they communicate. Prefer what is newest; say when something is from earlier.
+  const system = `Write about ${name}, the owner, third person, from these weeks (newest first): who they are now; life, work, preferences, communication style. Favor the newest; mark what is older.
 First line: "${SUMMARY_PREFIX} " and one sentence.
-Then short "## " sections of bullets. End each bullet with the citations it draws on, copied exactly from the weekly pages.
-Only what the pages say. No title.`;
+Short "## " sections; each bullet ends with its weeks' citations, copied exactly. Only what the weeks say. No title.`;
   const pages = weeks.map(({ week, body }) => `--- WEEK: ${week} ---\n\n${body}`).join("\n\n");
   return { system, messages: [{ role: "user", content: `Weekly pages:\n\n${pages}\n\nWrite the page about ${name}.` }] };
 }
