@@ -20,18 +20,20 @@ import { buildPipelineEnvelope } from "./pipeline.js";
 import { assertSafeSlug, PathSafetyError } from "./path-safety.js";
 import { tryRenderBody, writeJson, writeJsonError, writeRenderFailed } from "./respond.js";
 import { UNRESOLVED_CITATION_CODE } from "./types.js";
-import type { ViewerPage, ViewerPageDirectory, ViewerSnapshot } from "./types.js";
+import type { ViewerPage, ViewerPageDirectory, ViewerPageId, ViewerSnapshot } from "./types.js";
 import type { PageDirectory } from "../export/types.js";
 
 /** Profile id reported when the project runs the built-in default profile. */
 const DEFAULT_PROFILE_ID = "default";
 
 /**
- * The two directories every project can address, whatever profile it runs.
- * Typed as `PageDirectory` so widening that shared union without revisiting this
- * allowlist is a compile error rather than a silently unreachable directory.
+ * The directories every project can address, whatever profile it runs: the
+ * default pages and the generated timeline. Keyed by `PageDirectory`, so widening
+ * that shared union without adding the new member here is a compile error rather
+ * than a silently unreachable directory.
  */
-const DEFAULT_DIRECTORIES: readonly PageDirectory[] = ["concepts", "queries"];
+const ADDRESSABLE: Record<PageDirectory, true> = { concepts: true, queries: true, timeline: true };
+const DEFAULT_DIRECTORIES: readonly PageDirectory[] = Object.keys(ADDRESSABLE) as PageDirectory[];
 
 /** `/api/pages` — the full bootstrap envelope: project/profile identity, stateStatus, counts, graph summary, recent pages, and the page list. */
 export function handleApiPages(res: ServerResponse, snapshot: ViewerSnapshot): void {
@@ -257,6 +259,16 @@ function isSafeSlug(value: string): boolean {
   }
 }
 
+/**
+ * The ids of every other page whose wikilinks name `pageId`, in snapshot order.
+ * Read from each page's own `outgoingLinks` rather than from the graph, so a
+ * timeline day (kept out of the graph) and a typed page (whose graph node is
+ * built separately) count as backlinks like any concept.
+ */
+function backlinksTo(pageId: ViewerPageId, pages: readonly ViewerPage[]): ViewerPageId[] {
+  return pages.filter((other) => other.id !== pageId && other.outgoingLinks.includes(pageId)).map((other) => other.id);
+}
+
 /** Build the JSON payload for `/api/page/:dir/:slug`. */
 function pagePayload(
   page: ViewerPage,
@@ -271,6 +283,7 @@ function pagePayload(
     html: renderedHtml,
     citations: page.citations,
     outgoingLinks: page.outgoingLinks,
+    backlinks: backlinksTo(page.id, snapshot.pages),
     frontmatter: page.frontmatter,
     warnings: page.warnings,
     freshness: page.freshness,

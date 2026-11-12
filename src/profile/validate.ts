@@ -54,7 +54,7 @@ import { assertArtifactRequirementsDeclared, collectArtifactOrderingWarnings } f
 import { validateEntityDirectory, isInsidePosixDir } from "./paths.js";
 import { assertStructurallyValid } from "./schema-validator.js";
 import { ProfileValidationError } from "./errors.js";
-import { SOURCES_DIR, LLMWIKI_DIR, EXPORT_DIR, CONCEPTS_DIR, QUERIES_DIR, WORKFLOW_PROJECTION_DIR } from "../utils/constants.js";
+import { SOURCES_DIR, LLMWIKI_DIR, EXPORT_DIR, CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR, WORKFLOW_PROJECTION_DIR } from "../utils/constants.js";
 import { isValidArtifactFileName, MAX_ARTIFACT_BYTES } from "../artifacts/name.js";
 import { getConnectorDef } from "../connectors/registry.js";
 import { assertMembersDef } from "./validate-artifact-members.js";
@@ -74,14 +74,15 @@ export { ProfileValidationError } from "./errors.js";
 const RESERVED_PROFILE_IDS = new Set(["default"]);
 
 /**
- * Entity directories reserved for the built-in DEFAULT profile. A disk profile
- * may not declare an entity at either, otherwise one physical file would carry
- * two identities — a legacy `pages: concepts/<slug>` AND a
- * `profile.entityPages: <type>/<slug>`. `DEFAULT_PROFILE` legitimately uses
- * these, so this gate lives in `validateProfile` (disk) only, NOT
- * `validateProfileShape`.
+ * Entity directories reserved for the built-in DEFAULT profile and for the
+ * compiler's generated timeline. A disk profile may not declare an entity at
+ * any of them, otherwise one physical file would carry two identities — a
+ * legacy `pages: concepts/<slug>` AND a `profile.entityPages: <type>/<slug>`,
+ * or a typed record that the next compile's timeline step overwrites or
+ * deletes. `DEFAULT_PROFILE` legitimately uses the first two, so this gate
+ * lives in `validateProfile` (disk) only, NOT `validateProfileShape`.
  */
-const RESERVED_DEFAULT_DIRS = new Set([CONCEPTS_DIR, QUERIES_DIR]);
+const RESERVED_DEFAULT_DIRS = new Set([CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR]);
 
 /** Repo-relative roots an entity directory may not overlap. */
 const RESERVED_ROOTS = [
@@ -180,6 +181,27 @@ function validateArtifactTypesScope(entityType: string, def: EntityTypeDef, decl
     assertArtifactTypesScoped(`entity '${entityType}'`, name, field, declaredArtifactTypes);
   }
 }
+
+/** Keys every extracted record answers, so an extracted type cannot declare them as fields. */
+const EXTRACTED_RECORD_KEYS = ["name", "writtenAs", "lines"];
+
+/**
+ * An extraction opt-in must name only declared fields, and its type must live
+ * at `wiki/<type>`: compile writes extracted records through the planner's typed
+ * target, which always places a page at `wiki/<entityType>/`, so any other
+ * directory would write pages the type's own scans never read.
+ */
+function validateExtract(entityType: string, def: EntityTypeDef, canonicalDirectory: string): void {
+  if (!def.extract) return;
+  for (const name of Object.keys(def.extract.fields ?? {})) {
+    assert(def.fields?.[name] !== undefined, `entity '${entityType}' extract.fields entry '${name}' is not a declared field`);
+  }
+  assert(canonicalDirectory === `wiki/${entityType}`, `entity '${entityType}' with extract must use directory 'wiki/${entityType}'`);
+  for (const reserved of EXTRACTED_RECORD_KEYS) {
+    assert(def.fields?.[reserved] === undefined, `entity '${entityType}' with extract cannot declare field '${reserved}': extraction answers it for every record`);
+  }
+}
+
 
 /** Every requiredFields entry must reference a declared field. */
 function validateRequiredFields(entityType: string, def: EntityTypeDef): void {
@@ -404,6 +426,7 @@ function validateEntity(entityType: string, def: EntityTypeDef, declaredArtifact
   validateTitleField(entityType, def);
   validateFieldFormats(entityType, def);
   validateContentTiers(entityType, def);
+  validateExtract(entityType, def, canonicalDirectory);
   const warnings = def.lifecycle ? validateLifecycle(entityType, def.lifecycle, def.fields) : [];
   return { canonicalDirectory, warnings };
 }
@@ -713,7 +736,7 @@ function rejectReservedDefaultDirs(profile: ProfilePack): void {
 
 /**
  * The basename set of directories reserved for the default profile, used to
- * guard entity TYPE NAMES. An entity type named `concepts` or `queries` would
+ * guard entity TYPE NAMES. An entity type named `concepts`, `queries` or `timeline` would
  * mint `EntityId "concepts/<slug>"` which collides with the legacy
  * `PageId "concepts/<slug>"` — corrupting the viewer graph and ranking map.
  * Derived from `RESERVED_DEFAULT_DIRS` so no strings are hard-coded here.
