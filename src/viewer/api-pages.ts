@@ -15,7 +15,7 @@
  */
 
 import type { ServerResponse } from "http";
-import { pageTimestamp, viewerPageKind } from "./page-fields.js";
+import { pageCreatedAt, pageTimestamp, viewerPageKind } from "./page-fields.js";
 import { buildPipelineEnvelope } from "./pipeline.js";
 import { assertSafeSlug, PathSafetyError } from "./path-safety.js";
 import { tryRenderBody, writeJson, writeJsonError, writeRenderFailed } from "./respond.js";
@@ -123,9 +123,7 @@ function pageListRow(page: ViewerPage): Record<string, unknown> {
     summary: typeof page.frontmatter.summary === "string" ? page.frontmatter.summary : "",
     tags: stringTags(page.frontmatter.tags),
     updatedAt: pageTimestamp(page.frontmatter),
-    // The raw field, never the updatedAt fallback: a client compares the two
-    // to tell a page created by the last compile from one it merely updated.
-    createdAt: typeof page.frontmatter.createdAt === "string" ? page.frontmatter.createdAt : "",
+    createdAt: pageCreatedAt(page.frontmatter),
     warnings: page.warnings,
     freshness: page.freshness,
     citationCount: page.citations.length,
@@ -280,10 +278,7 @@ function pagePayload(
     warnings: page.warnings,
     freshness: page.freshness,
     updatedAt: pageTimestamp(page.frontmatter),
-    // Literal, NOT `pageTimestamp`: this field means "when was the page first
-    // written", so it must never inherit an `updatedAt`.
-    createdAt:
-      typeof page.frontmatter.createdAt === "string" ? (page.frontmatter.createdAt as string) : "",
+    createdAt: pageCreatedAt(page.frontmatter),
     generatedAt: snapshot.generatedAt,
     ...(page.entityType !== undefined && page.entityContext ? { entityContext: page.entityContext } : {}),
     ...entityTypeField(page),

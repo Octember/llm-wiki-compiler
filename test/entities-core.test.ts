@@ -8,7 +8,9 @@
 import { describe, expect, it } from "bun:test";
 import { mention, personProfile } from "./entity-steps.js";
 import { extractableTypes, extractionTool, structuralDigest } from "../src/entities/schema.js";
-import { ownerPageId, parseRegistry, possibleDuplicates, recordId, resolveRecords } from "../src/entities/identity.js";
+import { ownerPageId, recordId, resolveRecords } from "../src/entities/identity.js";
+import { possibleDuplicates } from "../src/entities/duplicates.js";
+import { parseRegistry } from "../src/entities/registry.js";
 import { extractionRequest, parseRecords } from "../src/entities/extract.js";
 
 describe("extractable types and the structural digest", () => {
@@ -43,7 +45,7 @@ describe("identity", () => {
       { ...mention("Sam's mother"), writtenAs: ["mama"] },
       { ...mention("Sam's mother"), writtenAs: ["Mom"] },
     ], { entities: {} });
-    expect(records.map((record) => [record.names, record.writtenAs])).toEqual([[["Alex Kim"], ["Alexx", "alex"]], [["Sam's mother"], ["mama", "Mom"]]]);
+    expect(records.map((record) => record.names)).toEqual([["Alex Kim", "Alexx", "alex"], ["Sam's mother", "mama", "Mom"]]);
   });
 
   it("never merges or excludes by spelling: a registered or excluded spelling only flags a possible duplicate", () => {
@@ -51,13 +53,13 @@ describe("identity", () => {
     const records = resolveRecords("person", [
       { ...mention("Tom Hanks"), writtenAs: ["Tom"] }, { ...mention("Alex Chen"), writtenAs: ["Tom"] }, mention("Tom Baker"),
     ], registry);
-    expect(records.map((record) => [record.id, record.names])).toEqual([["alex-chen", ["Alex Chen"]], ["tom-baker", ["Tom Baker"]]]);
+    expect(records.map((record) => [record.id, record.names])).toEqual([["alex-chen", ["Alex Chen", "Tom"]], ["tom-baker", ["Tom Baker"]]]);
     expect(possibleDuplicates(records).get("alex-chen")).toEqual(["tom-baker"]);
   });
 
-  it("leaves bare pronouns out of how the sources wrote someone", () => {
-    const [record] = resolveRecords("person", [{ ...mention("Sam's mother"), writtenAs: ["mama", "they", "Their", "his", "the parents"] }], { entities: {} });
-    expect(record.writtenAs).toEqual(["mama", "the parents"]);
+  it("leaves bare pronouns and addresses out of how the sources wrote someone", () => {
+    const [record] = resolveRecords("person", [{ ...mention("Sam's mother"), writtenAs: ["mama", "they", "Their", "his", "mama@example.com", " the parents"] }], { entities: {} });
+    expect(record.names).toEqual(["Sam's mother", "mama", "the parents"]);
   });
 
   it("does not flag spellings that start with a pronoun or family word, and keeps a possessive off a spelling", () => {
@@ -65,7 +67,7 @@ describe("identity", () => {
       { ...mention("Sam's father"), writtenAs: ["my dad", "parents’"] }, { ...mention("Alex's father"), writtenAs: ["My dad"] }, { ...mention("Mo"), writtenAs: ["mom"] },
     ], { entities: {} });
     expect(possibleDuplicates(records).size).toBe(0);
-    expect(records.find((record) => record.id === "sams-father")!.writtenAs).toEqual(["my dad", "parents"]);
+    expect(records.find((record) => record.id === "sams-father")!.names).toEqual(["Sam's father", "my dad", "parents"]);
   });
 
   it("flags names that start with an initial or a short given name, but not mum or an in-law", () => {
@@ -92,7 +94,7 @@ describe("identity", () => {
 
   it("joins names that normalize the same, keeps other names apart, and drops the owner", () => {
     const registry = parseRegistry(JSON.stringify({ owner: { type: "person", names: ["Sam"] } }));
-    const records = resolveRecords("person", [mention("Alex"), mention("alex "), mention("Alex Kim"), mention("SAM")], registry);
+    const records = resolveRecords("person", [mention("Alex"), mention("alex"), mention("Alex Kim"), mention("SAM")], registry);
     expect(records.map((record) => [record.id, record.names])).toEqual([["alex", ["Alex", "alex"]], ["alex-kim", ["Alex Kim"]]]);
   });
 
@@ -168,14 +170,14 @@ describe("identity", () => {
 describe("reading an extraction answer", () => {
   const types = extractableTypes(personProfile());
 
-  it("keeps named records with lines inside the file and nulls missing fields", () => {
+  it("keeps named records with lines inside the file, spellings as written, and nulls missing fields", () => {
     const answer = JSON.stringify({ person: [
       { name: " Ana ", writtenAs: ["ana", " ana", 3, "Ana’s", "ana@example.com"], relationship: "friend", lines: [{ start: 2, end: 3 }, { start: 9, end: 12 }] },
       { name: "", lines: [{ start: 1, end: 1 }] },
       { name: "Ghost", lines: [{ start: 0, end: 1 }] },
     ] });
     expect(parseRecords(answer, types, 10).person).toEqual([
-      { name: "Ana", writtenAs: ["ana", "Ana"], fields: { aliases: null, organization: null, relationship: "friend" }, lines: [{ start: 2, end: 3 }] },
+      { name: "Ana", writtenAs: ["ana", " ana", "Ana’s", "ana@example.com"], fields: { aliases: null, organization: null, relationship: "friend" }, lines: [{ start: 2, end: 3 }] },
     ]);
   });
 

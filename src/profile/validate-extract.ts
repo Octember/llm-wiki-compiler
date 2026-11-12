@@ -7,7 +7,7 @@
  */
 
 import type { EntityTypeDef } from "./types.js";
-import { assert } from "./validate-helpers.js";
+import { assert, isDeclared } from "./validate-helpers.js";
 
 /** Keys every extracted record answers, so an extracted type cannot declare them as fields. */
 const EXTRACTED_RECORD_KEYS = ["name", "writtenAs", "lines"];
@@ -15,7 +15,7 @@ const EXTRACTED_RECORD_KEYS = ["name", "writtenAs", "lines"];
 /** Each of `names`, listed under `label` (`requiredFields`, `extract.fields`), must be a declared field. */
 function assertDeclaredFields(entityType: string, def: EntityTypeDef, label: string, names: Iterable<string>): void {
   for (const name of names) {
-    assert(def.fields?.[name] !== undefined, `entity '${entityType}' ${label} entry '${name}' is not a declared field`);
+    assert(isDeclared(def.fields, name), `entity '${entityType}' ${label} entry '${name}' is not a declared field`);
   }
 }
 
@@ -35,6 +35,6 @@ export function validateExtract(entityType: string, def: EntityTypeDef, canonica
   assertDeclaredFields(entityType, def, "extract.fields", Object.keys(def.extract.fields ?? {}));
   assert(canonicalDirectory === `wiki/${entityType}`, `entity '${entityType}' with extract must use directory 'wiki/${entityType}'`);
   for (const reserved of EXTRACTED_RECORD_KEYS) {
-    assert(def.fields?.[reserved] === undefined, `entity '${entityType}' with extract cannot declare field '${reserved}': extraction answers it for every record`);
+    assert(!isDeclared(def.fields, reserved), `entity '${entityType}' with extract cannot declare field '${reserved}': extraction answers it for every record`);
   }
 }

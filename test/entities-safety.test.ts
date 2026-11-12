@@ -11,7 +11,8 @@ import { describe, expect, it } from "bun:test";
 import { parseFrontmatter } from "../src/utils/markdown.js";
 import type { ProfilePack } from "../src/profile/types.js";
 import { generateEntitiesWith } from "../src/entities/generate.js";
-import { ownerPageId, parseRegistry, recordId, resolveRecords } from "../src/entities/identity.js";
+import { ownerPageId, recordId, resolveRecords } from "../src/entities/identity.js";
+import { parseRegistry } from "../src/entities/registry.js";
 import { CHAT, CHAT_PEOPLE, entityConfig, memoryEntitySteps, mention, personProfile } from "./entity-steps.js";
 
 
@@ -49,10 +50,13 @@ describe("entity pages when things go wrong", () => {
 });
 
 describe("the alias registry's exclude list", () => {
-  it("reports an exclude key that names no extracted type", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE, { entities: {}, exclude: { people: ["Alex"] } });
+  it("reports a registry key that names no extracted type", async () => {
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE, { entities: { persons: { ana: ["Ana"] } }, exclude: { people: ["Alex"] } });
     const result = await generateEntitiesWith(memory.steps, entityConfig());
-    expect(result.errors).toEqual(['.llmwiki/aliases.json excludes names from "people", which is not an extracted type; ignored']);
+    expect(result.errors).toEqual([
+      '.llmwiki/aliases.json "entities" names "persons", which is not an extracted type; ignored',
+      '.llmwiki/aliases.json "exclude" names "people", which is not an extracted type; ignored',
+    ]);
     expect(memory.pages.has("person/alex")).toBe(true);
   });
 

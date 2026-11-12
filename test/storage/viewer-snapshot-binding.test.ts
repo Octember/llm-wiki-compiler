@@ -243,7 +243,7 @@ const JOURNAL = ["journal open", "journal list", "journal read pending", "journa
 /** One default-profile load, in its own order: the binding leaf, then the private directory. Typed pages make it once; the profile summary makes it again. */
 const TYPED = ["typed binding.readBindingLeaf max=65536", "typed binding.resolvePrivateDir"];
 const ENDS = ["freshness open", "freshness resolve notes.md", "freshness read mem:sources/notes.md", ...JOURNAL, ...TYPED];
-const UNAVAILABLE = { available: false, href: "/#/index", body: "", outgoingLinks: [] };
+const UNAVAILABLE = { available: false, href: "/#/index", body: "" };
 const isTyped = (entry: string): boolean => entry.startsWith("typed ");
 
 describe("the viewer snapshot over its sources", () => {
@@ -276,7 +276,7 @@ describe("the viewer snapshot over its sources", () => {
   it("S2 maps the bound index, runs the real freshness and journal warning over memory, and leaves no profile block on the default profile", async () => {
     vi.spyOn(output, "note").mockImplementation(() => {});
     const built = await buildViewerSnapshotFrom(sourcesOf().sources);
-    expect(built.index).toEqual({ available: true, href: "/#/index", body: "[[alpha]] [[question]]", outgoingLinks: ["concepts/alpha", "queries/question"] });
+    expect(built.index).toEqual({ available: true, href: "/#/index", body: "[[alpha]] [[question]]" });
     expect(built.pages.map((page) => page.freshness.freshnessStatus)).toEqual(["stale", "unverified", "unverified"]);
     expect(built.warnings).toEqual([{ code: "incomplete-compile", message: "A prior project mutation did not finish; run `llmwiki recover` to recover. The wiki may reflect partial, post-crash state." }]);
     expect(["profile", "entityTypes", "pipeline", "artifactDefinitions"].filter((key) => key in built)).toEqual([]);

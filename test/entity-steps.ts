@@ -10,7 +10,8 @@ import type { EntityConfig, EntitySteps } from "../src/entities/generate.js";
 import { extractableTypes } from "../src/entities/schema.js";
 import { memoryDerivedSteps } from "./memory-derived-steps.js";
 import type { ExtractionCache, ExtractRequest } from "../src/entities/extract.js";
-import type { AliasRegistry, Mention } from "../src/entities/identity.js";
+import type { Mention } from "../src/entities/extract.js";
+import type { AliasRegistry } from "../src/entities/registry.js";
 
 /** A profile with a `person` type that opts in, and a `project` type that does not. */
 export function personProfile(description = "A person the owner knows"): ProfilePack {

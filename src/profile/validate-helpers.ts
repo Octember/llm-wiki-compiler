@@ -19,6 +19,15 @@ export function assert(condition: unknown, message: string): asserts condition {
 }
 
 /**
+ * Whether `name` is a key `map` declares itself. `map[name] !== undefined` and
+ * `name in map` would count `constructor` or `toString`, inherited from
+ * `Object.prototype`, as declared.
+ */
+export function isDeclared(map: Record<string, unknown> | undefined, name: string): boolean {
+  return map !== undefined && Object.hasOwn(map, name);
+}
+
+/**
  * The lifecycle's state set: the union of its terminal states and every
  * transition endpoint (both sides). The single primitive both lifecycle
  * FSM validation and relation-requirement validation compute states with, so a

@@ -108,7 +108,7 @@ describe("the viewer snapshot through its root function, as it behaves today", (
   it("L1 builds the whole snapshot of a small project as one literal value", async () => {
     expect(await snapshot()).toEqual({
       root, stateStatus: "ok", project: { title: path.basename(root), rootName: path.basename(root) }, counts: countsOf({}),
-      index: { available: true, href: "/#/index", body: INDEX_BODY, outgoingLinks: ["concepts/alpha", "queries/question"] },
+      index: { available: true, href: "/#/index", body: INDEX_BODY },
       recentPages: RECENT, pages: pages("stale"), sourceFilenames: ["notes.md"], graph: GRAPH,
     });
   });
@@ -116,7 +116,7 @@ describe("the viewer snapshot through its root function, as it behaves today", (
   it("L2 reports a missing index as unavailable and changes nothing else", async () => {
     await rm(at("wiki/index.md"));
     const built = await snapshot();
-    expect(built.index).toEqual({ available: false, href: "/#/index", body: "", outgoingLinks: [] });
+    expect(built.index).toEqual({ available: false, href: "/#/index", body: "" });
     expect(built.pages).toEqual(pages("stale"));
     expect(built.counts).toEqual(countsOf({}));
   });
@@ -128,7 +128,7 @@ describe("the viewer snapshot through its root function, as it behaves today", (
     await symlink(at("elsewhere"), at("wiki"));
     const built = await snapshot();
     expect(built.pages).toEqual([]);
-    expect(built.index).toEqual({ available: false, href: "/#/index", body: "", outgoingLinks: [] });
+    expect(built.index).toEqual({ available: false, href: "/#/index", body: "" });
     expect(built.counts).toEqual(countsOf({ concepts: 0, queries: 0, stale: 0 }));
     expect(built.graph).toEqual({ nodes: [], edges: [] });
   });

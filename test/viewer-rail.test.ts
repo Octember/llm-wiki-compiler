@@ -205,7 +205,7 @@ async function loadStickyPageAndNavigate(
 describe("stale support rail clearing", () => {
   it("clears the rail when navigating from a page to /#/index", async () => {
     const rail = await loadStickyPageAndNavigate("#/index", {
-      index: { html: "<p>idx</p>", outgoingLinks: [], generatedAt: "x" },
+      index: { html: "<p>idx</p>", generatedAt: "x" },
     });
     expect(rail.textContent ?? "").not.toContain("sticky-marker");
   });

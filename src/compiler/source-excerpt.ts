@@ -52,13 +52,13 @@ interface SourceRows {
  * source's ranges to the rows actually shown, so citations can be fitted to
  * what the model saw.
  */
-export function sourcesExcerpt<T extends ShownLines>(sources: T[], texts: Map<string, string>): { text: string; shown: T[] } {
+export function sourcesExcerpt(sources: ShownLines[], texts: Map<string, string>): { text: string; shown: ShownLines[] } {
   const rows = sources.map((source) => sourceRows(source.file, source.ranges, texts.get(source.file) ?? ""));
   const allowances = fairShares(rows.map((source) => source.size), EXCERPT_BUDGET);
   const rendered = rows.map((source, index) => renderSource(source, allowances[index]));
   return {
     text: rendered.map((source) => source.text).join("\n\n"),
-    shown: sources.map((source, index) => ({ ...source, ranges: rendered[index].ranges })),
+    shown: sources.map((source, index) => ({ file: source.file, ranges: rendered[index].ranges })),
   };
 }
 

@@ -42,6 +42,8 @@ defaults:
 
 jobs:
   publish:
+    # A run started by hand from another branch would publish that branch as a main build.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

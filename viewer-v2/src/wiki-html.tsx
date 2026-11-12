@@ -18,7 +18,7 @@
  */
 import { useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { closestElement } from "./dom";
-import { rangeLabel } from "./page-model";
+import { rangeLabel } from "./citation-label";
 import { previewTarget, type CitationTarget } from "./preview-data";
 import { sourceHref } from "./route";
 

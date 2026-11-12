@@ -14,12 +14,13 @@
  * per-process file there, so CI can name the file a hung worker was running.
  */
 
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach } from "bun:test";
 
 const traceDir = process.env.LLMWIKI_TEST_TRACE;
 if (traceDir) {
+  mkdirSync(traceDir, { recursive: true });
   const trace = path.join(traceDir, `${process.pid}.log`);
   beforeEach(() => appendFileSync(trace, `${new Date().toISOString()} ${Bun.main}\n`));
 }

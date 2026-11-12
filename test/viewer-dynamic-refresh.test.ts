@@ -94,7 +94,7 @@ function makeStubSnapshot(root: string, conceptCount: number): ViewerSnapshot {
       stale: 0,
       orphaned: 0,
     },
-    index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+    index: { available: false, href: "/#/index", body: "" },
     recentPages: [],
     pages: [],
     sourceFilenames: [],

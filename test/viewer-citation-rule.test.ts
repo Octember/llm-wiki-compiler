@@ -24,7 +24,7 @@ function buildSnapshot(sourceFilenames: string[]): ViewerSnapshot {
       pendingReviews: 0,
       compiledSources: 0,
     },
-    index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+    index: { available: false, href: "/#/index", body: "" },
     recentPages: [],
     pages: [],
     sourceFilenames,

@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { changedSince, dailyActivity, heatLevel, stampVisit, tagCounts, tagWeight } from "../viewer-v2/src/activity-model.js";
 import { CitedByList } from "../viewer-v2/src/cited-by.js";
-import { rangeLabel } from "../viewer-v2/src/page-model.js";
+import { rangeLabel } from "../viewer-v2/src/citation-label.js";
 import { ActivityCard, SinceLastVisit, TopicsCard } from "../viewer-v2/src/dashboard-panels.js";
 import { bootstrapSignature, nextBootstrapState } from "../viewer-v2/src/live-bootstrap.js";
 import { TagList } from "../viewer-v2/src/lists.js";

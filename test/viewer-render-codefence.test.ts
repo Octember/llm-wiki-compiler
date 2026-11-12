@@ -36,7 +36,7 @@ const SNAPSHOT: ViewerSnapshot = {
   generatedAt: "2026-05-12T00:00:00.000Z",
   project: { title: "t", rootName: "t" },
   counts: { concepts: 1, queries: 0, sourceFiles: 1, pendingReviews: 0, compiledSources: 0 },
-  index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+  index: { available: false, href: "/#/index", body: "" },
   recentPages: [],
   pages: [ALPHA],
   sourceFilenames: ["src.md"],

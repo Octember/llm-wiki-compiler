@@ -97,7 +97,7 @@ export function buildGraphData(pages: DefaultViewerPage[], opts?: GraphBuildOpti
   const entityPages = opts?.entityPages ?? [];
   // A link to a page outside the graph (a timeline day) draws no edge and no ghost.
   const nodeIds = new Set<GraphNodeId>([...pages, ...entityPages].map((page) => page.id));
-  const edges = [...buildEdges(pages, nodeIds), ...buildEntityLinkEdges(entityPages, nodeIds)];
+  const edges = [...buildEdges(pages, nodeIds), ...entityPages.flatMap((page) => linkEdges(page, nodeIds))];
   const ghostDisplayMap = buildGhostDisplayMap(pages);
   const degree = buildDegreeMap(edges, nodeIds);
   const realNodes = pages.map((p) => buildNode(p, degree));
@@ -152,24 +152,24 @@ function ghostId(slug: string): GraphNodeId {
   return (isQualifiedKey(slug) ? slug : `${GHOST_DIRECTORY}/${slug}`) as PageId;
 }
 
+/** A default page's edges: one per link to a node in the graph, then one per dangling link to its ghost. */
 function buildEdges(pages: DefaultViewerPage[], nodeIds: ReadonlySet<GraphNodeId>): WikilinkEdge[] {
-  const edges: WikilinkEdge[] = [];
-  for (const page of pages) {
-    for (const target of page.outgoingLinks) {
-      if (nodeIds.has(target)) edges.push({ source: page.id, target });
-    }
-    for (const { slug } of page.danglingLinks ?? []) {
-      edges.push({ source: page.id, target: ghostId(slug) });
-    }
-  }
-  return edges;
+  return pages.flatMap((page) => [
+    ...linkEdges(page, nodeIds),
+    ...(page.danglingLinks ?? []).map(({ slug }) => ({ source: page.id, target: ghostId(slug) })),
+  ]);
 }
 
-/** One wikilink edge per typed page's link to a node in the graph; dangling ones draw nothing. */
-function buildEntityLinkEdges(entityPages: EntityPageNode[], nodeIds: ReadonlySet<GraphNodeId>): WikilinkEdge[] {
-  return entityPages.flatMap((page) =>
-    (page.outgoingLinks ?? []).filter((target) => nodeIds.has(target)).map((target) => ({ source: page.id, target })),
-  );
+/** One wikilink edge per link of a page to a node in the graph. */
+function linkEdges(page: { id: GraphNodeId; outgoingLinks?: readonly GraphNodeId[] }, nodeIds: ReadonlySet<GraphNodeId>): WikilinkEdge[] {
+  return (page.outgoingLinks ?? []).filter((target) => nodeIds.has(target)).map((target) => ({ source: page.id, target }));
+}
+
+/** A ghost node for an id nothing in the graph backs: `directory/slug`, titled by its slug unless a title is given. */
+function ghostNode(id: GraphNodeId, degree: number, title?: string): GraphNode {
+  const [directory, ...rest] = id.split("/");
+  const slug = rest.join("/");
+  return { id, title: title ?? slug, slug, directory, kind: "dangling", degree, isDangling: true };
 }
 
 function buildGhostNodes(
@@ -183,17 +183,7 @@ function buildGhostNodes(
   for (const { target } of edges) {
     if (nodeIds.has(target) || seen.has(target)) continue;
     seen.add(target);
-    const [directory, ...rest] = target.split("/");
-    const slug = rest.join("/");
-    ghosts.push({
-      id: target,
-      title: displayMap.get(target) ?? slug,
-      slug,
-      directory,
-      kind: "dangling",
-      degree: degree.get(target) ?? 0,
-      isDangling: true,
-    });
+    ghosts.push(ghostNode(target, degree.get(target) ?? 0, displayMap.get(target)));
   }
   return ghosts;
 }
@@ -288,17 +278,5 @@ function buildRelationGhostNodes(
     if (!knownIds.has(rel.from)) missing.add(rel.from);
     if (!knownIds.has(rel.to)) missing.add(rel.to);
   }
-  return [...missing].sort((a, b) => a.localeCompare(b)).map((id) => {
-    const [directory, ...rest] = id.split("/");
-    const slug = rest.join("/");
-    return {
-      id,
-      title: slug,
-      slug,
-      directory,
-      kind: "dangling",
-      degree: relationDegree.get(id) ?? 0,
-      isDangling: true,
-    };
-  });
+  return [...missing].sort((a, b) => a.localeCompare(b)).map((id) => ghostNode(id, relationDegree.get(id) ?? 0));
 }

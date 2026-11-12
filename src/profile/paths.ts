@@ -15,12 +15,26 @@
  */
 
 import path from "path";
+import { ProfileValidationError } from "./errors.js";
+import { EXPORT_DIR, LLMWIKI_DIR, SOURCES_DIR, WORKFLOW_PROJECTION_DIR } from "../utils/constants.js";
+
+/** Repo-relative roots an entity directory may not overlap. */
+export const RESERVED_ROOTS = [
+  SOURCES_DIR,
+  LLMWIKI_DIR,
+  ".git",
+  "node_modules",
+  "dist",
+  EXPORT_DIR,
+  "wiki/graph",
+  WORKFLOW_PROJECTION_DIR,
+];
 
 /** The directory every entity type's pages must live under. */
 const WIKI_ROOT = "wiki";
 
-/** Error raised when a profile declares a structurally invalid directory. */
-export class ProfilePathError extends Error {
+/** Error raised when a profile declares a structurally invalid directory: a profile validation error like any other. */
+export class ProfilePathError extends ProfileValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ProfilePathError";

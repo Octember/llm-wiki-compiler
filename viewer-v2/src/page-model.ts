@@ -6,6 +6,7 @@
  * functions, so the rules are tested without a fetch or a DOM.
  */
 import type { ClaimCitation, EntityRelation, PagePayload, PagesEnvelope, SourceSpan } from "./api";
+import { spanLabel } from "./citation-label";
 import { timelinePeriodOf } from "./timeline-model";
 import { humanLabel, plural } from "./wiki-model";
 
@@ -78,19 +79,6 @@ export function sourceFilesLabel({ total, missing, partial }: { total: number; m
   return `From ${count}${missing > 0 ? ` (${missing} missing)` : ""}`;
 }
 
-/** A cited range as a chip reads it: `L12–15`, `L12`, or "whole file" when the citation names no lines. */
-export function rangeLabel(lines: { start: number; end: number } | null | undefined): string {
-  if (!lines) return "whole file";
-  return lines.end !== lines.start ? `L${lines.start}–${lines.end}` : `L${lines.start}`;
-}
-
-/** `notes.md`, `notes.md:12`, `notes.md:12-15`: the label the server gives a citation chip. */
-export function spanLabel(span: SourceSpan): string {
-  if (span.lines === undefined) return span.file;
-  const { start, end } = span.lines;
-  return start === end ? `${span.file}:${start}` : `${span.file}:${start}-${end}`;
-}
-
 /** Items in first-seen order of their key, each key's items together. */
 function groupBy<T>(items: T[], keyOf: (item: T) => string): T[][] {
   const groups = new Map<string, T[]>();
@@ -132,8 +120,8 @@ function uniqueSpans(spans: SourceSpan[]): SourceSpan[] {
   });
 }
 
-/** A page that links to the current one. */
-export interface Backlink {
+/** A page a rail link list shows: one the current page links to, or one linking to it. */
+export interface LinkedPage {
   id: string;
   title: string;
 }
@@ -143,12 +131,12 @@ export interface Backlink {
  * every page's own links, so a timeline day or a typed page counts too, though
  * neither is a wikilink node in the graph.
  */
-export function backlinksFrom(page: PagePayload, wiki: PagesEnvelope): Backlink[] {
+export function backlinksFrom(page: PagePayload, wiki: PagesEnvelope): LinkedPage[] {
   return linkedPages([...new Set(page.backlinks)], wiki).sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /** Page ids as rail links, in the given order, each titled from the page list (its id when the list has no title). */
-export function linkedPages(ids: string[], wiki: PagesEnvelope): Backlink[] {
+export function linkedPages(ids: string[], wiki: PagesEnvelope): LinkedPage[] {
   const titles = new Map(wiki.pages.map((row) => [row.id, row.title]));
   return ids.map((id) => ({ id, title: titles.get(id) || id }));
 }

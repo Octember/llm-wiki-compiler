@@ -22,10 +22,11 @@ import { resolveCompileConcurrency } from "../compiler/concurrency.js";
 import { loadProfile } from "../profile/load.js";
 import * as output from "../utils/output.js";
 import type { TimelineSchema } from "../schema/types.js";
-import type { PersonMentions } from "../timeline/pages.js";
+import type { SpannedLink } from "../timeline/pages.js";
 import { mentionsOf, type ExtractionCache } from "./extract.js";
 import { extractableTypes } from "./schema.js";
-import { parseRegistry, resolveRecords, type AliasRegistry } from "./identity.js";
+import { resolveRecords } from "./identity.js";
+import { parseRegistry, type AliasRegistry } from "./registry.js";
 import { generateEntitiesWith, type EntityResult, type EntitySteps } from "./generate.js";
 import { isRecordPage } from "./pages.js";
 import { generateOwnerPageWith } from "./owner.js";
@@ -124,7 +125,7 @@ export async function generateOwnerPage(root: string, timeline: TimelineSchema):
 }
 
 /** The records of `type` whose page this step wrote, with every source line they are mentioned on. */
-export async function listRecordMentions(root: string, type: string): Promise<PersonMentions[]> {
+export async function listRecordMentions(root: string, type: string): Promise<SpannedLink[]> {
   const cache = await readCache(root);
   if (!cache) return [];
   const registry = await readRegistry(root);

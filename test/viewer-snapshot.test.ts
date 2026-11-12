@@ -4,8 +4,7 @@
  * Focused on the security-sensitive corners that the per-endpoint tests
  * cannot easily reach: symlinked `wiki/index.md` (must be treated as
  * unavailable, not served), a named pipe at `wiki/index.md` (must not
- * block the build), and the index outgoing-link resolution that
- * Slice 2 wires through `resolveWikilinkTargets`.
+ * block the build), and a readable index captured as written.
  */
 
 import { describe, it, expect } from "bun:test";
@@ -37,7 +36,6 @@ describe("buildViewerSnapshot — wiki/index.md handling", () => {
     const snapshot = await buildViewerSnapshot(root);
     expect(snapshot.index.available).toBe(true);
     expect(snapshot.index.body).toContain("Links to [[alpha]].");
-    expect(snapshot.index.outgoingLinks).toEqual(["concepts/alpha"]);
   });
 
   it("treats a symlinked wiki/index.md pointing outside the project as unavailable", async () => {

@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+permissions:
+  contents: read
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
@@ -49,6 +51,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
@@ -68,10 +71,9 @@ jobs:
       # Pull requests run only the affected test files; pushes to main run all.
       # On a hang, snapshot the live processes at 200s, then fail at 240s.
       # Ignore patterns given here replace bunfig's list rather than adding to
-      # it, so the two packing tests bunfig ignores are named again.
+      # it, so the tests bunfig ignores that live in this tree are named again.
       - name: Run this shard's tests
         run: >-
-          mkdir -p "$LLMWIKI_TEST_TRACE" &&
           (sleep 200 && bash .github/ci/hang-snapshot.sh) &
           timeout 240 bash scripts/ci-test.sh "$BASE_SHA" --shard=${{ matrix.shard }}/${{ strategy.job-total }}
           --timings=test-timings.json
@@ -84,6 +86,7 @@ jobs:
   # Two legs, each building what it reads, so the slowest sets the time.
   package:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +97,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
@@ -119,6 +123,11 @@ jobs:
 
   codebase-health:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # fallow reads the pull request's diff when local history cannot scope it.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
       # Pin the action wrapper while using the signed 2.82.0 binary release.
