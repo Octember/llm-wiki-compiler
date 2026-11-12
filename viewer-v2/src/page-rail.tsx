@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import type { ConnectorProvenance, EntityContext, EntityRelation, PagePayload, PagesEnvelope, SourceSpan } from "./api";
 import { Badge, DefinitionRows, RangeChip, SURFACE } from "./components";
-import { backlinksFrom, connectorHref, declaredFields, groupCitationsByFile, groupRelations, isTimelinePage, pageCitationCounts, pageKind, rangeLabel, spanLabel } from "./page-model";
+import { backlinksFrom, connectorHref, linkedPages, declaredFields, groupCitationsByFile, groupRelations, isTimelinePage, pageCitationCounts, pageKind, rangeLabel, spanLabel } from "./page-model";
 import { pageIdHref, sourceHref } from "./route";
 import { formatUtcTimestamp, humanLabel } from "./wiki-model";
 
@@ -98,8 +98,7 @@ function LinkList({ links, whenEmpty }: { links: { id: string; title: string }[]
 }
 
 function ConnectionsSection({ page, wiki }: { page: PagePayload; wiki: PagesEnvelope }): ReactNode {
-  const titles = new Map(wiki.pages.map((row) => [row.id, row.title]));
-  const linksOut = page.outgoingLinks.map((id) => ({ id, title: titles.get(id) || id }));
+  const linksOut = linkedPages(page.outgoingLinks, wiki);
   return (
     <RailSection title="Connections">
       <h3 className={RAIL_HEADING}>Links out</h3>

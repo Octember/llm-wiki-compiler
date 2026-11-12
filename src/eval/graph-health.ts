@@ -19,6 +19,7 @@
  * builds the local-disk scans from its root and delegates.
  */
 
+import { isKnowledgePage } from "../wiki/collect.js";
 import { diskLocalEntityScans } from "../storage/disk-local-reads.js";
 import type { LegacyLocalEntityScans } from "../storage/legacy-local-reads.js";
 import { collectViewerPagesFrom } from "../viewer/collect.js";
@@ -141,7 +142,7 @@ export async function evaluateGraphHealth(
  * @returns The metrics, or null when there are no wiki pages.
  */
 export async function evaluateGraphHealthFrom(scans: LegacyLocalEntityScans): Promise<GraphHealthResult | null> {
-  const pages = (await collectViewerPagesFrom(scans)).filter((page) => page.pageDirectory !== "timeline");
+  const pages = (await collectViewerPagesFrom(scans)).filter(isKnowledgePage);
   if (pages.length === 0) return null;
 
   const graph = buildGraphData(pages);

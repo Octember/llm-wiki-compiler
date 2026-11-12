@@ -12,7 +12,8 @@
 
 import { callClaude } from "../utils/llm.js";
 import { diskLocalEntityScans } from "../storage/disk-local-reads.js";
-import { collectRawWikiPagesFrom } from "../wiki/collect.js";
+import { scanEntityDirFrom } from "../wiki/collect.js";
+import { CONCEPTS_DIR } from "../utils/constants.js";
 import { localDerivedSteps, warnErrors, type DerivedResult } from "../compiler/derived-steps.js";
 import { resolveCompileConcurrency } from "../compiler/concurrency.js";
 import * as output from "../utils/output.js";
@@ -27,9 +28,8 @@ const PEOPLE_TYPE = "person";
 function localTimelineSteps(root: string): TimelineSteps {
   return {
     ...localDerivedSteps(root),
-    listConceptPages: async () => (await collectRawWikiPagesFrom(diskLocalEntityScans(root)))
-      .filter((page) => page.pageDirectory === "concepts")
-      .map((page) => ({ slug: page.slug, title: page.title ?? page.slug, body: page.body })),
+    listConceptPages: async () => (await scanEntityDirFrom(diskLocalEntityScans(root), CONCEPTS_DIR)).scans
+      .map((scan) => ({ slug: scan.stem, title: scan.parseStatus.hasTitle ? scan.frontmatter.title as string : scan.stem, body: scan.body })),
     // The entity step has already reported an unreadable registry; a day still gets its page.
     listPeople: () => listRecordMentions(root, PEOPLE_TYPE).catch(() => []),
     complete: (request) => callClaude(request),
@@ -45,7 +45,7 @@ function localTimelineSteps(root: string): TimelineSteps {
 export async function generateTimeline(root: string, timeline: TimelineSchema, concurrency?: number): Promise<DerivedResult> {
   if (!timeline.enabled) return { written: [], deleted: [], errors: [] };
   output.status("🗓", output.info("Updating the timeline..."));
-  const result = await generateTimelineWith(localTimelineSteps(root), { ...timeline, concurrency: resolveCompileConcurrency(concurrency) });
+  const result = await generateTimelineWith(localTimelineSteps(root), { timeZone: timeline.timeZone, concurrency: resolveCompileConcurrency(concurrency) });
   warnErrors(result);
   if (result.written.length + result.deleted.length > 0) {
     output.status("✓", output.success(`Timeline: ${result.written.length} written, ${result.deleted.length} removed.`));

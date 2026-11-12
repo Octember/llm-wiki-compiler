@@ -47,6 +47,7 @@
  * object reaches the executor.
  */
 
+import type { PageDirectory } from "../utils/constants.js";
 import {
   planPageMutation,
   type PlannedMutation,
@@ -66,7 +67,7 @@ import { COMPILE_ORIGIN } from "../trust/checks.js";
  * full `wiki/<namespace>/<slug>.md` path itself, so the `wiki/` prefix is NOT
  * included here (passing the `CONCEPTS_DIR` constant would double the prefix).
  */
-export type CompilePageNamespace = "concepts" | "queries" | "timeline";
+export type CompilePageNamespace = PageDirectory;
 
 /** What every compiled page write carries: its slug stem and its bytes. */
 interface CompileWriteBase {
@@ -127,9 +128,10 @@ const localCompilePageWriteSteps: CompilePageWriteSteps = Object.freeze({
 
 /**
  * Plan a set of compile page writes, PARTITIONING them into the allowed plan and
- * the floor-skipped set. Each item goes through {@link planPageMutation} as a
- * `raw` (default-page) target with `origin:"compile"`, `reviewRouted:false`, and
- * `allowOverwrite:true` (compile recompiles existing pages). A page the planner
+ * the floor-skipped set. Each item goes through {@link planPageMutation} as an
+ * `entity` target when it names an entity type, else a `raw` (default-page)
+ * target, with `origin:"compile"`, `reviewRouted:false`, `allowOverwrite:true`
+ * (compile recompiles existing pages) and its `deleting` flag. A page the planner
  * blocks (returns `planned: []`) is collected into `skipped` rather than aborting
  * — preserving compile's per-page resilience — while allowed pages accumulate
  * their planned mutations for a single executor batch.

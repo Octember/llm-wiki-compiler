@@ -1,9 +1,8 @@
 /**
  * The page's neighbourhood in its rail: the pages it links to and from, then
  * their best-connected neighbours, drawn as a small graph with the page itself
- * ringed and labelled. It reuses the graph the page view already loads for
- * backlinks, so it costs no request. A page with no links says so instead of
- * drawing a lone dot.
+ * ringed and labelled, from the graph the page view loads for it. A page with
+ * no links says so instead of drawing a lone dot.
  */
 import { useMemo, type ReactNode } from "react";
 import type { GraphData, PagesEnvelope } from "./api";

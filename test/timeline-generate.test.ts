@@ -13,7 +13,7 @@ import { dayBuckets } from "../src/timeline/buckets.js";
 import { withDaySections } from "../src/timeline/pages.js";
 import { memoryDerivedSteps } from "./memory-derived-steps.js";
 
-const CONFIG = { enabled: true, timeZone: "UTC" };
+const CONFIG = { timeZone: "UTC" };
 /** One timeline pass over CONFIG, one model call at a time. */
 const RUN = { ...CONFIG, concurrency: 1 };
 const CHAT = ["# Chat", "- 2026-05-04 09:00 A: plan the trip", "- 2026-05-05 10:00 B: booked it"].join("\n");
@@ -169,14 +169,9 @@ describe("generateTimelineWith", () => {
     expect(result.errors).toContain("wiki/timeline/2026-05-04.md was not written by the timeline; left as it is");
   });
 
-  it("does nothing at all when the timeline is off", async () => {
-    const memory = memorySteps({ "chat.md": CHAT });
-    expect(await generateTimelineWith(memory.steps, { ...CONFIG, enabled: false, concurrency: 1 })).toEqual({ written: [], deleted: [], errors: [] });
-    expect(memory.batches).toEqual([]);
-  });
 });
 
-describe("timeline prompts", () => {
+describe("a day's source excerpt", () => {
   it("cuts a day past the excerpt budget at a line, and says how much was cut", () => {
     const long = Array.from({ length: 3000 }, (_, index) => `- 2026-05-0${index < 2999 ? 4 : 5} 09:00 ${"x".repeat(40)}`).join("\n");
     const [day] = dayBuckets([{ file: "big.md", hash: "h", text: long }], "UTC");

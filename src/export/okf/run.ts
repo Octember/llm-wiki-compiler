@@ -1,5 +1,6 @@
 // src/export/okf/run.ts
 /** @file Output-free OKF export core shared by CLI/SDK/MCP: collect pages + build the bundle, returning the written paths. */
+import { isKnowledgePage } from "../../wiki/collect.js";
 import path from "path";
 import { collectExportPagesFrom, diskExportPageSources, type ExportPageSources } from "../collect.js";
 import { buildOkfBundleFrom, diskOkfBundleSources, type OkfBundleSources } from "./bundle.js";
@@ -39,9 +40,7 @@ export function diskOkfExportSources(root: string): OkfExportSources {
  */
 export async function runOkfExportFrom(sources: OkfExportSources, root: string, opts: { out?: string } = {}): Promise<OkfExportReport> {
   const outDir = opts.out ?? path.join(root, EXPORT_DIR, "okf");
-  // Timeline pages are regenerated from the sources' dates on every compile, so
-  // they are not knowledge to carry between projects; the bundle holds concepts and queries.
-  const pages = (await collectExportPagesFrom(sources.pages)).filter((page) => page.pageDirectory !== "timeline");
+  const pages = (await collectExportPagesFrom(sources.pages)).filter(isKnowledgePage);
   const warnings: string[] = [];
   // Surface a pending/unavailable compile journal so an OKF-bundle consumer never
   // imports partial post-crash or tampered page bodies as a clean export. The

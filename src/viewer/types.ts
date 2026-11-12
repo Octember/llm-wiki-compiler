@@ -23,9 +23,9 @@ import type { EntityId } from "../profile/types.js";
 import type { StateStatus } from "../utils/state.js";
 
 /**
- * Canonical page identifier: `concepts/<slug>` or `queries/<slug>`. Bare
- * slugs collide between the two directories, so every viewer surface uses
- * the namespaced form.
+ * Canonical page identifier: `concepts/<slug>`, `queries/<slug>` or
+ * `timeline/<slug>`. Bare slugs collide between directories, so every viewer
+ * surface uses the namespaced form.
  */
 export type PageId = `${PageDirectory}/${string}`;
 
@@ -138,8 +138,8 @@ export interface ViewerPage {
 }
 
 /**
- * A viewer page collected from the DEFAULT `wiki/concepts` + `wiki/queries`
- * directories, narrowing {@link ViewerPage}'s widened id/directory back to the
+ * A viewer page collected from the DEFAULT `wiki/concepts`, `wiki/queries` and
+ * `wiki/timeline` directories, narrowing {@link ViewerPage}'s widened id/directory back to the
  * concrete `PageId`/`PageDirectory` and pinning `entityType` absent.
  *
  * The concept/query counts and bare-slug link resolution are defined over

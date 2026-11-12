@@ -37,15 +37,6 @@ import type { WikiState, ReviewCandidate } from "../utils/types.js";
 import { findWikilinks } from "../wiki/wikilinks.js";
 import { parseQualifiedTarget } from "../wiki/wikilink-target.js";
 
-/**
- * Matches `[[Target]]` and `[[Target|Display]]`, capturing the inner text.
- *
- * Declared locally, matching the existing convention: `src/linter/rules.ts` and
- * `src/schema/helpers.ts` each own an identical private copy rather than sharing
- * one. Keeping the third copy local follows that precedent and avoids widening
- * this change into a refactor of the linter's module boundaries.
- */
-
 /** A surviving page holding a wikilink to a page this removal would delete. */
 export interface BrokenLinkRef {
   /** Path of the surviving page, exactly as `collectAllPages` reports it. */

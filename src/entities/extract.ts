@@ -17,7 +17,8 @@
 
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
-import type { LineRange } from "../compiler/source-excerpt.js";
+import type { LineRange, PageRequest } from "../compiler/source-excerpt.js";
+import type { LLMTool } from "../utils/provider.js";
 import { extractionTool, structuralDigest, type ExtractableType } from "./schema.js";
 import type { Mention } from "./identity.js";
 
@@ -54,31 +55,29 @@ export interface ExtractionCache {
   sources: Record<string, SourceExtraction>;
 }
 
-/** One extraction request. */
-export interface ExtractRequest {
-  system: string;
-  messages: { role: "user"; content: string }[];
-  tools: ReturnType<typeof extractionTool>[];
+/** A model request: a page request, or an extraction request with its tool. */
+export interface ExtractRequest extends PageRequest {
+  tools?: LLMTool[];
   maxTokens?: number;
 }
 
-/** The reads and the model call extraction composes. */
+/** The model call extraction composes. */
 export interface ExtractSteps {
-  readSource(file: string): Promise<string>;
   complete(request: ExtractRequest): Promise<string>;
 }
 
-/** What a refresh did. */
+/** What a refresh did: the new cache, how many sources took a model call, and what failed. */
 export interface ExtractResult {
   cache: ExtractionCache;
-  extracted: string[];
+  extracted: number;
   errors: string[];
 }
 
 /** What one refresh reads and how. */
 export interface ExtractRun {
   types: ExtractableType[];
-  sources: { file: string; hash: string }[];
+  /** Every compiled source with its hash and whole text. */
+  sources: { file: string; hash: string; text: string }[];
   previous: ExtractionCache | null;
   ownerNames: string[];
   concurrency: number;
@@ -91,7 +90,7 @@ export interface ExtractRun {
  */
 export async function refreshExtractions(steps: ExtractSteps, run: ExtractRun): Promise<ExtractResult> {
   const digest = structuralDigest(run.types);
-  const result: ExtractResult = { cache: { digest, sources: {} }, extracted: [], errors: [] };
+  const result: ExtractResult = { cache: { digest, sources: {} }, extracted: 0, errors: [] };
   const limit = pLimit(run.concurrency);
   await Promise.all(run.sources.map((source) => limit(() => refreshSource(steps, { ...run, digest, ...source }, result))));
   return result;
@@ -104,7 +103,7 @@ async function refreshSource(steps: ExtractSteps, job: SourceJob, result: Extrac
   try {
     const { chunks, calls } = await extractSource(steps, job, prior?.chunks ?? []);
     result.cache.sources[job.file] = { hash: job.hash, chunks };
-    if (calls > 0) result.extracted.push(job.file);
+    if (calls > 0) result.extracted++;
   } catch (error) {
     keepAfterFailure(job.file, prior, error, result);
   }
@@ -123,11 +122,12 @@ type SourceJob = Pick<ExtractRun, "types" | "ownerNames" | "previous"> & {
   file: string;
   /** The source's current hash. */
   hash: string;
+  text: string;
 };
 
 /** Every chunk's answer for one source, reusing `priorChunks` whose hash still matches; and how many calls it took. */
 async function extractSource(steps: ExtractSteps, job: SourceJob, priorChunks: ChunkExtraction[]): Promise<{ chunks: ChunkExtraction[]; calls: number }> {
-  const lines = (await steps.readSource(job.file)).split("\n");
+  const lines = job.text.split("\n");
   const known = new Map(priorChunks.map((chunk) => [chunk.hash, chunk]));
   const chunks: ChunkExtraction[] = [];
   let calls = 0;

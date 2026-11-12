@@ -118,7 +118,7 @@ export function splitAnswer(answer: string): { summary: string; body: string } {
 }
 
 /** Sorted, non-overlapping ranges; adjacent ones join. */
-export function mergeRanges(ranges: LineRange[]): LineRange[] {
+function mergeRanges(ranges: LineRange[]): LineRange[] {
   const merged: LineRange[] = [];
   for (const range of [...ranges].sort((a, b) => a.start - b.start)) {
     const last = merged.at(-1);
@@ -126,6 +126,13 @@ export function mergeRanges(ranges: LineRange[]): LineRange[] {
     else merged.push({ ...range });
   }
   return merged;
+}
+
+/** One entry per file, in file order, with all of that file's ranges merged. */
+export function mergeByFile(sources: ShownLines[]): ShownLines[] {
+  const byFile = new Map<string, LineRange[]>();
+  for (const { file, ranges } of sources) byFile.set(file, [...(byFile.get(file) ?? []), ...ranges]);
+  return [...byFile].sort(([a], [b]) => a.localeCompare(b)).map(([file, ranges]) => ({ file, ranges: mergeRanges(ranges) }));
 }
 
 /** A page body with its citations fitted to the shown lines, and how many cited spans still fall outside them. */
@@ -143,8 +150,7 @@ export interface FittedCitations {
  * Fitting a fitted body changes nothing.
  */
 export function fitCitations(body: string, shown: ShownLines[]): FittedCitations {
-  const rangesByFile = new Map<string, LineRange[]>();
-  for (const source of shown) rangesByFile.set(source.file, mergeRanges([...(rangesByFile.get(source.file) ?? []), ...source.ranges]));
+  const rangesByFile = new Map(mergeByFile(shown).map((source) => [source.file, source.ranges]));
   let outside = 0;
   const fitted = body.replace(CITATION_MARKER, (marker) => {
     if (hasMalformedEntry(marker)) return marker;

@@ -8,7 +8,7 @@
 import { describe, expect, it } from "bun:test";
 import { mention, personProfile } from "./entity-steps.js";
 import { extractableTypes, extractionTool, structuralDigest } from "../src/entities/schema.js";
-import { displayName, ownerPageId, parseRegistry, possibleDuplicates, recordId, resolveRecords } from "../src/entities/identity.js";
+import { ownerPageId, parseRegistry, possibleDuplicates, recordId, resolveRecords } from "../src/entities/identity.js";
 import { extractionRequest, parseRecords } from "../src/entities/extract.js";
 
 describe("extractable types and the structural digest", () => {
@@ -135,7 +135,7 @@ describe("identity", () => {
     const registry = parseRegistry(JSON.stringify({ entities: { person: { "alex-kim": ["Alex Kim", "Alex"] } } }));
     const [record] = resolveRecords("person", [mention("Alex"), mention("Alex Kim")], registry);
     expect(record.id).toBe("alex-kim");
-    expect(displayName(record, registry.entities.person["alex-kim"])).toBe("Alex Kim");
+    expect(record.title).toBe("Alex Kim");
   });
 
   it("flags records that share a first name both ways instead of merging them", () => {
@@ -148,9 +148,9 @@ describe("identity", () => {
 
   it("shows a name written only in lowercase capitalized, and prefers a capitalized spelling", () => {
     const [lower] = resolveRecords("person", [mention("elon musk")], { entities: {} });
-    expect(displayName(lower, undefined)).toBe("Elon Musk");
+    expect(lower.title).toBe("Elon Musk");
     const [mixed] = resolveRecords("person", [mention("lori"), mention("lori"), mention("Lori")], { entities: {} });
-    expect(displayName(mixed, undefined)).toBe("Lori");
+    expect(mixed.title).toBe("Lori");
   });
 
   it("gives the owner page an id no registered record has", () => {

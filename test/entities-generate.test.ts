@@ -10,18 +10,17 @@ import { describe, expect, it } from "bun:test";
 import { parseFrontmatter } from "../src/utils/markdown.js";
 import { generateEntitiesWith } from "../src/entities/generate.js";
 import { withAliases } from "../src/entities/pages.js";
-import { CHAT, entityConfig, memoryEntitySteps, type FakePerson } from "./entity-steps.js";
+import { CHAT, entityConfig, OWNER_REGISTRY, memoryEntitySteps, type FakePerson } from "./entity-steps.js";
 
 const NOTE = "Alex Kim joined the team.";
 const PEOPLE: Record<string, FakePerson[]> = {
   "chat.md": [{ name: "Ana", relationship: "friend", line: 2 }, { name: "Ana", line: 3 }, { name: "Alex", line: 4 }, { name: "Sam", line: 2 }],
   "note.md": [{ name: "Alex Kim", relationship: "family", line: 1 }],
 };
-const OWNER = { owner: { type: "person", names: ["Sam", "Sam Rivera"] }, entities: {} };
 
 describe("entity pages", () => {
   it("writes a cited page per record with its agreed fields, and never one for the owner", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER_REGISTRY);
     const result = await generateEntitiesWith(memory.steps, entityConfig());
     expect(result.errors).toEqual([]);
     expect([...memory.pages.keys()].sort()).toEqual(["person/alex", "person/alex-kim", "person/ana"]);
@@ -31,14 +30,14 @@ describe("entity pages", () => {
   });
 
   it("writes how the sources spelled a person as aliases", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, { "chat.md": [{ name: "Ana Lee", writtenAs: ["Annna", "ana"], line: 2 }] }, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, { "chat.md": [{ name: "Ana Lee", writtenAs: ["Annna", "ana"], line: 2 }] }, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig());
     expect(parseFrontmatter(memory.pages.get("person/ana-lee")!).meta.aliases).toEqual(["Annna", "ana"]);
   });
 
   it("refreshes a page's aliases without a model call when only the spellings change", async () => {
     const people: Record<string, FakePerson[]> = { "chat.md": [{ name: "Ana Lee", writtenAs: ["Annna"], line: 2 }] };
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, people, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, people, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig());
     const before = memory.pages.get("person/ana-lee")!;
     expect(withAliases(before, ["Annna"])).toBe(before);
@@ -52,7 +51,7 @@ describe("entity pages", () => {
   });
 
   it("lists each record's days and flags possible duplicates without merging them", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig());
     const ana = memory.pages.get("person/ana")!;
     expect(ana).toContain("## Days\n\n- [[timeline/2026-05-04|May 4, 2026]]\n- [[timeline/2026-05-05|May 5, 2026]]");
@@ -61,7 +60,7 @@ describe("entity pages", () => {
   });
 
   it("makes no model call and writes nothing when nothing changed", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig());
     const [extractions, pageRequests, batches] = [memory.extractions.length, memory.pageRequests.length, memory.batches.length];
     const result = await generateEntitiesWith(memory.steps, entityConfig());
@@ -71,7 +70,7 @@ describe("entity pages", () => {
 
   it("re-reads only a changed source and rewrites only the pages it touches", async () => {
     const sources = { "chat.md": CHAT, "note.md": NOTE };
-    const memory = memoryEntitySteps(sources, PEOPLE, OWNER);
+    const memory = memoryEntitySteps(sources, PEOPLE, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig());
     memory.extractions.length = 0;
     memory.pageRequests.length = 0;
@@ -84,7 +83,7 @@ describe("entity pages", () => {
 
 describe("entity pages over time", () => {
   it("refreshes the tail without a model call when only the days change", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER_REGISTRY);
     await generateEntitiesWith(memory.steps, entityConfig({ timeZone: null }));
     expect(memory.pages.get("person/ana")).not.toContain("## Days");
     memory.pageRequests.length = 0;
@@ -95,7 +94,7 @@ describe("entity pages over time", () => {
 
   it("removes the page of a record no source names any more, and leaves hand-written pages alone", async () => {
     const sources: Record<string, string> = { "chat.md": CHAT, "note.md": NOTE };
-    const memory = memoryEntitySteps(sources, PEOPLE, OWNER);
+    const memory = memoryEntitySteps(sources, PEOPLE, OWNER_REGISTRY);
     memory.pages.set("person/ana", "---\ntitle: Ana\n---\n\nWritten by hand.\n");
     const first = await generateEntitiesWith(memory.steps, entityConfig());
     expect(first.errors).toEqual(["wiki/person/ana.md was not written by entity extraction; left as it is"]);
@@ -106,9 +105,9 @@ describe("entity pages over time", () => {
   });
 
   it("reports a source whose extraction failed and leaves it out of the cache for the next compile", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER);
+    const memory = memoryEntitySteps({ "chat.md": CHAT, "note.md": NOTE }, PEOPLE, OWNER_REGISTRY);
     const complete = memory.steps.complete;
-    memory.steps.complete = async (request) => (request.messages[0].content.includes("note.md") && request.tools.length > 0 ? Promise.reject(new Error("down")) : complete(request));
+    memory.steps.complete = async (request) => (request.messages[0].content.includes("note.md") && request.tools?.length ? Promise.reject(new Error("down")) : complete(request));
     const result = await generateEntitiesWith(memory.steps, entityConfig());
     expect(result.errors).toEqual(["Records not read from note.md: down"]);
     expect(Object.keys(memory.state.cache!.sources)).toEqual(["chat.md"]);

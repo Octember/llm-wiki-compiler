@@ -94,17 +94,16 @@ export interface GraphBuildOptions {
  * graph (no field on an existing node/edge is touched).
  */
 export function buildGraphData(pages: DefaultViewerPage[], opts?: GraphBuildOptions): GraphData {
-  const pageIds = new Set<PageId>(pages.map((p) => p.id));
   const entityPages = opts?.entityPages ?? [];
   // A link to a page outside the graph (a timeline day) draws no edge and no ghost.
-  const nodeIds = new Set<GraphNodeId>([...pageIds, ...entityPages.map((page) => page.id)]);
+  const nodeIds = new Set<GraphNodeId>([...pages, ...entityPages].map((page) => page.id));
   const edges = [...buildEdges(pages, nodeIds), ...buildEntityLinkEdges(entityPages, nodeIds)];
   const ghostDisplayMap = buildGhostDisplayMap(pages);
-  const inDegreeMap = buildInDegreeMap(edges);
-  const realNodes = pages.map((p) => buildNode(p, nodeIds, inDegreeMap));
-  const ghostNodes = buildGhostNodes(edges, nodeIds, inDegreeMap, ghostDisplayMap);
+  const degree = buildDegreeMap(edges, nodeIds);
+  const realNodes = pages.map((p) => buildNode(p, degree));
+  const ghostNodes = buildGhostNodes(edges, nodeIds, degree, ghostDisplayMap);
   const base: GraphData = { nodes: [...realNodes, ...ghostNodes], edges };
-  return appendTypedGraph(base, pageIds, opts, buildLinkDegreeMap(edges, nodeIds));
+  return appendTypedGraph(base, opts, degree);
 }
 
 /**
@@ -115,7 +114,6 @@ export function buildGraphData(pages: DefaultViewerPage[], opts?: GraphBuildOpti
  */
 function appendTypedGraph(
   base: GraphData,
-  pageIds: ReadonlySet<PageId>,
   opts: GraphBuildOptions | undefined,
   linkDegree: ReadonlyMap<GraphNodeId, number>,
 ): GraphData {
@@ -125,7 +123,7 @@ function appendTypedGraph(
   const relationDegree = buildRelationDegreeMap(relations);
   const entityNodes = buildEntityNodes(entityPages, relationDegree, linkDegree);
   const relationEdges = buildRelationEdges(relations);
-  const knownIds = collectKnownNodeIds(pageIds, base.nodes, entityNodes);
+  const knownIds = new Set<GraphNodeId>([...base.nodes, ...entityNodes].map((node) => node.id));
   const relationGhosts = buildRelationGhostNodes(relations, knownIds, relationDegree);
   return {
     nodes: [...base.nodes, ...entityNodes, ...relationGhosts],
@@ -177,7 +175,7 @@ function buildEntityLinkEdges(entityPages: EntityPageNode[], nodeIds: ReadonlySe
 function buildGhostNodes(
   edges: WikilinkEdge[],
   nodeIds: ReadonlySet<GraphNodeId>,
-  inDegreeMap: Map<GraphNodeId, number>,
+  degree: ReadonlyMap<GraphNodeId, number>,
   displayMap: Map<GraphNodeId, string>,
 ): GraphNode[] {
   const seen = new Set<GraphNodeId>();
@@ -193,28 +191,28 @@ function buildGhostNodes(
       slug,
       directory,
       kind: "dangling",
-      degree: inDegreeMap.get(target) ?? 0,
+      degree: degree.get(target) ?? 0,
       isDangling: true,
     });
   }
   return ghosts;
 }
 
-function buildInDegreeMap(edges: WikilinkEdge[]): Map<GraphNodeId, number> {
+/**
+ * Each node's wikilink degree: an edge counts for its target, and for its source
+ * when the target is a node in the graph, so a link to a ghost counts only for the ghost.
+ */
+function buildDegreeMap(edges: WikilinkEdge[], nodeIds: ReadonlySet<GraphNodeId>): Map<GraphNodeId, number> {
   const map = new Map<GraphNodeId, number>();
-  for (const edge of edges) {
-    map.set(edge.target, (map.get(edge.target) ?? 0) + 1);
+  const count = (id: GraphNodeId): void => void map.set(id, (map.get(id) ?? 0) + 1);
+  for (const { source, target } of edges) {
+    count(target);
+    if (nodeIds.has(target)) count(source);
   }
   return map;
 }
 
-function buildNode(
-  page: DefaultViewerPage,
-  nodeIds: ReadonlySet<GraphNodeId>,
-  inDegreeMap: Map<GraphNodeId, number>,
-): GraphNode {
-  const outDegree = page.outgoingLinks.filter((t) => nodeIds.has(t)).length;
-  const inDegree = inDegreeMap.get(page.id) ?? 0;
+function buildNode(page: DefaultViewerPage, degree: ReadonlyMap<GraphNodeId, number>): GraphNode {
   const kind = resolvePageKind(page.frontmatter);
   return {
     id: page.id,
@@ -222,7 +220,7 @@ function buildNode(
     slug: page.slug,
     directory: page.pageDirectory,
     kind,
-    degree: outDegree + inDegree,
+    degree: degree.get(page.id) ?? 0,
   };
 }
 
@@ -262,16 +260,6 @@ function buildEntityNodes(
     }));
 }
 
-/** Each node's wikilink degree, both directions, counting only edges between real nodes (never a ghost). */
-function buildLinkDegreeMap(edges: WikilinkEdge[], nodeIds: ReadonlySet<GraphNodeId>): Map<GraphNodeId, number> {
-  const map = new Map<GraphNodeId, number>();
-  for (const { source, target } of edges.filter((edge) => nodeIds.has(edge.target))) {
-    map.set(source, (map.get(source) ?? 0) + 1);
-    map.set(target, (map.get(target) ?? 0) + 1);
-  }
-  return map;
-}
-
 /** Map each relation to one relation-tagged edge (`from`→`to`), carrying direction when supplied. */
 function buildRelationEdges(relations: RelationEdge[]): GraphEdge[] {
   return relations.map((rel) => ({
@@ -281,18 +269,6 @@ function buildRelationEdges(relations: RelationEdge[]): GraphEdge[] {
     relationType: rel.type,
     ...(rel.direction !== undefined ? { direction: rel.direction } : {}),
   }));
-}
-
-/** Collect every id that already has a backing node (pages, ghosts, entity nodes). */
-function collectKnownNodeIds(
-  pageIds: ReadonlySet<PageId>,
-  baseNodes: GraphNode[],
-  entityNodes: GraphNode[],
-): Set<GraphNodeId> {
-  const known = new Set<GraphNodeId>(pageIds);
-  for (const node of baseNodes) known.add(node.id);
-  for (const node of entityNodes) known.add(node.id);
-  return known;
 }
 
 /**

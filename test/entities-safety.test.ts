@@ -12,13 +12,12 @@ import { parseFrontmatter } from "../src/utils/markdown.js";
 import type { ProfilePack } from "../src/profile/types.js";
 import { generateEntitiesWith } from "../src/entities/generate.js";
 import { ownerPageId, parseRegistry, recordId, resolveRecords } from "../src/entities/identity.js";
-import { CHAT, entityConfig, memoryEntitySteps, mention, personProfile, type FakePerson } from "./entity-steps.js";
+import { CHAT, CHAT_PEOPLE, entityConfig, memoryEntitySteps, mention, personProfile } from "./entity-steps.js";
 
-const PEOPLE: Record<string, FakePerson[]> = { "chat.md": [{ name: "Ana", relationship: "friend", line: 2 }, { name: "Alex", line: 4 }] };
 
 describe("entity pages when things go wrong", () => {
   it("keeps every page when extraction fails, and retries the source next time", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE);
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE);
     await generateEntitiesWith(memory.steps, entityConfig());
     const widened = personProfile();
     widened.entities.person.fields!.role = { type: "string" };
@@ -32,7 +31,7 @@ describe("entity pages when things go wrong", () => {
   it("makes no model call for a page that cannot pass the field contract, on any compile", async () => {
     const strict = personProfile();
     strict.entities.person.requiredFields = ["relationship"];
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE);
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE);
     const first = await generateEntitiesWith(memory.steps, entityConfig({ profile: strict }));
     expect(first.errors).toEqual([expect.stringContaining('Page "person/alex" not written: Required field "relationship"')]);
     await generateEntitiesWith(memory.steps, entityConfig({ profile: strict }));
@@ -43,7 +42,7 @@ describe("entity pages when things go wrong", () => {
     const named = personProfile();
     named.entities.person.titleField = "fullName";
     named.entities.person.fields!.fullName = { type: "string", required: true };
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE);
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE);
     expect((await generateEntitiesWith(memory.steps, entityConfig({ profile: named }))).errors).toEqual([]);
     expect(parseFrontmatter(memory.pages.get("person/ana")!).meta).toMatchObject({ title: "Ana", fullName: "Ana" });
   });
@@ -51,14 +50,14 @@ describe("entity pages when things go wrong", () => {
 
 describe("the alias registry's exclude list", () => {
   it("reports an exclude key that names no extracted type", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE, { entities: {}, exclude: { people: ["Alex"] } });
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE, { entities: {}, exclude: { people: ["Alex"] } });
     const result = await generateEntitiesWith(memory.steps, entityConfig());
     expect(result.errors).toEqual(['.llmwiki/aliases.json excludes names from "people", which is not an extracted type; ignored']);
     expect(memory.pages.has("person/alex")).toBe(true);
   });
 
   it("removes an excluded person's page with no model call", async () => {
-    const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE, { owner: { type: "person", names: ["Sam"] }, entities: {} });
+    const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE, { owner: { type: "person", names: ["Sam"] }, entities: {} });
     await generateEntitiesWith(memory.steps, entityConfig());
     const [extractions, pageRequests] = [memory.extractions.length, memory.pageRequests.length];
     memory.state.registry = { ...memory.state.registry, exclude: { person: ["Alex"] } };

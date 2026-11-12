@@ -9,16 +9,17 @@
 import type { PageRow } from "./api";
 
 /** The directory compile writes timeline pages to. */
-export const TIMELINE_DIRECTORY = "timeline";
+const TIMELINE_DIRECTORY = "timeline";
 
 const DAY_SLUG = /^\d{4}-\d{2}-\d{2}$/;
 const WEEK_SLUG = /^\d{4}-W\d{2}$/;
 const DAY_MS = 86_400_000;
 
-/** Whether a timeline slug names a day or a week; null for any other file in the directory. */
-export function timelinePeriod(slug: string): "day" | "week" | null {
-  if (DAY_SLUG.test(slug)) return "day";
-  return WEEK_SLUG.test(slug) ? "week" : null;
+/** Whether a page is a timeline day or week; null for any other page, in the timeline directory or not. */
+export function timelinePeriodOf(page: Pick<PageRow, "pageDirectory" | "slug">): "day" | "week" | null {
+  if (page.pageDirectory !== TIMELINE_DIRECTORY) return null;
+  if (DAY_SLUG.test(page.slug)) return "day";
+  return WEEK_SLUG.test(page.slug) ? "week" : null;
 }
 
 /** The pages compile learned from sources, leaving out the generated day and week pages. */
@@ -51,9 +52,9 @@ export function timelineWeeks(pages: PageRow[]): TimelineWeek[] {
     return entry;
   };
   for (const page of pages) {
-    if (page.pageDirectory !== TIMELINE_DIRECTORY) continue;
-    if (WEEK_SLUG.test(page.slug)) weekOf(page.slug).page = page;
-    else if (DAY_SLUG.test(page.slug)) weekOf(isoWeek(page.slug)).days.push(page);
+    const period = timelinePeriodOf(page);
+    if (period === "week") weekOf(page.slug).page = page;
+    else if (period === "day") weekOf(isoWeek(page.slug)).days.push(page);
   }
   for (const entry of weeks.values()) entry.days.sort((a, b) => b.slug.localeCompare(a.slug));
   return [...weeks.values()].sort((a, b) => b.week.localeCompare(a.week));
@@ -71,11 +72,11 @@ export interface TimelineLinks {
 
 /** The pages a timeline page links to; days step to days and weeks to weeks, oldest to newest. */
 export function timelineLinks(pages: PageRow[], slug: string): TimelineLinks {
-  const timeline = pages.filter((page) => page.pageDirectory === TIMELINE_DIRECTORY);
+  const timeline = pages.filter((page) => timelinePeriodOf(page) !== null);
   const isWeek = WEEK_SLUG.test(slug);
-  const peers = timeline.filter((page) => (isWeek ? WEEK_SLUG : DAY_SLUG).test(page.slug)).sort((a, b) => a.slug.localeCompare(b.slug));
+  const peers = timeline.filter((page) => (timelinePeriodOf(page) === "week") === isWeek).sort((a, b) => a.slug.localeCompare(b.slug));
   const index = peers.findIndex((page) => page.slug === slug);
-  const days = timeline.filter((page) => DAY_SLUG.test(page.slug));
+  const days = timeline.filter((page) => timelinePeriodOf(page) === "day");
   return {
     previous: index > 0 ? peers[index - 1] : null,
     next: index !== -1 && index < peers.length - 1 ? peers[index + 1] : null,

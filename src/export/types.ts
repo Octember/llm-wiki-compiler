@@ -13,6 +13,7 @@
  * export time, not as runtime guarantees.
  */
 
+import type { PageDirectory } from "../utils/constants.js";
 import type { PageKind } from "../schema/types.js";
 import type { ProvenanceState, ContradictionRef } from "../utils/types.js";
 import type { FlatCitation } from "../context/provenance.js";
@@ -46,7 +47,7 @@ export interface XOkfSnapshot {
  * a semantic typology. Renaming avoids field collision when JSON export and
  * schema metadata are consumed by the same downstream tooling.
  */
-export type PageDirectory = "concepts" | "queries" | "timeline";
+export type { PageDirectory };
 
 /** A fully-resolved wiki page ready for export serialisation. */
 export interface ExportPage {

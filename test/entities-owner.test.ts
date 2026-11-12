@@ -13,10 +13,8 @@ import { generateEntitiesWith } from "../src/entities/generate.js";
 import { generateOwnerPageWith, type OwnerSteps } from "../src/entities/owner.js";
 import { extractableTypes } from "../src/entities/schema.js";
 import type { PageRequest } from "../src/compiler/source-excerpt.js";
-import { CHAT, entityConfig, memoryEntitySteps, personProfile, type FakePerson } from "./entity-steps.js";
+import { CHAT, CHAT_PEOPLE, OWNER_REGISTRY, entityConfig, memoryEntitySteps, personProfile } from "./entity-steps.js";
 
-const PEOPLE: Record<string, FakePerson[]> = { "chat.md": [{ name: "Ana", relationship: "friend", line: 2 }, { name: "Alex", line: 4 }] };
-const OWNER = { owner: { type: "person", names: ["Sam", "Sam Rivera"] }, entities: {} };
 
 /** A week page as the timeline writes it, with `body`. */
 function weekPage(week: string, body: string): string {
@@ -25,7 +23,7 @@ function weekPage(week: string, body: string): string {
 
 /** Person pages from the entity step, two week pages, and owner steps whose model cites the first week's citation. */
 async function project() {
-  const memory = memoryEntitySteps({ "chat.md": CHAT }, PEOPLE, OWNER);
+  const memory = memoryEntitySteps({ "chat.md": CHAT }, CHAT_PEOPLE, OWNER_REGISTRY);
   await generateEntitiesWith(memory.steps, entityConfig());
   memory.pages.set("timeline/2026-W19", weekPage("2026-W19", "- Ana visited. ^[chat.md:2-2]"));
   memory.pages.set("timeline/2026-W18", weekPage("2026-W18", "- Planned. ^[chat.md:3-3]"));

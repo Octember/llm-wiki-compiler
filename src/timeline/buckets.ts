@@ -12,11 +12,12 @@
  * the prompts or the page layout change.
  */
 
-import { createHash } from "node:crypto";
 import { shortDigest } from "../utils/short-digest.js";
 import { sourceDayRanges } from "./event-days.js";
 import type { LineRange } from "../compiler/source-excerpt.js";
 
+/** Milliseconds in a UTC day. */
+const MS_PER_DAY = 86_400_000;
 /** Bump to regenerate every timeline page after a prompt or layout change. */
 const TIMELINE_PAGE_VERSION = 2;
 
@@ -90,7 +91,7 @@ export function isoWeek(day: string): string {
   const thursday = new Date(date);
   thursday.setUTCDate(date.getUTCDate() + 3 - ((date.getUTCDay() + 6) % 7));
   const yearStart = Date.UTC(thursday.getUTCFullYear(), 0, 1);
-  const week = Math.floor((thursday.getTime() - yearStart) / 86_400_000 / 7) + 1;
+  const week = Math.floor((thursday.getTime() - yearStart) / MS_PER_DAY / 7) + 1;
   return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 

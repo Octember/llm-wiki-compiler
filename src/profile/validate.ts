@@ -59,6 +59,7 @@ import { isValidArtifactFileName, MAX_ARTIFACT_BYTES } from "../artifacts/name.j
 import { getConnectorDef } from "../connectors/registry.js";
 import { assertMembersDef } from "./validate-artifact-members.js";
 import { validateStageExecutor, validateStageGate, validateSubjectGate } from "./validate-stage-authority.js";
+import { validateExtract, validateRequiredFields } from "./validate-extract.js";
 
 
 
@@ -179,34 +180,6 @@ function assertArtifactTypesScoped(where: string, name: string, field: FieldDef,
 function validateArtifactTypesScope(entityType: string, def: EntityTypeDef, declaredArtifactTypes: Set<string>): void {
   for (const [name, field] of Object.entries(def.fields ?? {})) {
     assertArtifactTypesScoped(`entity '${entityType}'`, name, field, declaredArtifactTypes);
-  }
-}
-
-/** Keys every extracted record answers, so an extracted type cannot declare them as fields. */
-const EXTRACTED_RECORD_KEYS = ["name", "writtenAs", "lines"];
-
-/**
- * An extraction opt-in must name only declared fields, and its type must live
- * at `wiki/<type>`: compile writes extracted records through the planner's typed
- * target, which always places a page at `wiki/<entityType>/`, so any other
- * directory would write pages the type's own scans never read.
- */
-function validateExtract(entityType: string, def: EntityTypeDef, canonicalDirectory: string): void {
-  if (!def.extract) return;
-  for (const name of Object.keys(def.extract.fields ?? {})) {
-    assert(def.fields?.[name] !== undefined, `entity '${entityType}' extract.fields entry '${name}' is not a declared field`);
-  }
-  assert(canonicalDirectory === `wiki/${entityType}`, `entity '${entityType}' with extract must use directory 'wiki/${entityType}'`);
-  for (const reserved of EXTRACTED_RECORD_KEYS) {
-    assert(def.fields?.[reserved] === undefined, `entity '${entityType}' with extract cannot declare field '${reserved}': extraction answers it for every record`);
-  }
-}
-
-
-/** Every requiredFields entry must reference a declared field. */
-function validateRequiredFields(entityType: string, def: EntityTypeDef): void {
-  for (const name of def.requiredFields ?? []) {
-    assert(def.fields?.[name] !== undefined, `entity '${entityType}' requiredFields entry '${name}' is not a declared field`);
   }
 }
 
