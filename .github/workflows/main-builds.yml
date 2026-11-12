@@ -3,7 +3,12 @@
 # track main by URL. The knowledge base pins them that way, with bun.lock
 # holding each tarball's sha512, so a published asset must never change: a
 # commit whose facade asset exists is skipped, and the facade uploads last, so
-# its presence means the whole set is there.
+# its presence means the whole set is there. Once a commit is published, the
+# knowledge base's Pin llmwiki workflow is dispatched to repin it, with
+# KB_DISPATCH_TOKEN: a fine-grained token whose only permission is Actions
+# read/write on Octember/knowledge-base. Without that secret the publish still
+# succeeds and the run carries a warning; the KB catches up when Pin llmwiki is
+# run by hand.
 #
 # Only the newest KEEP commits' assets are kept. A consumer pinned to an older
 # commit (more than KEEP merges behind main) can no longer install from scratch.
@@ -77,6 +82,16 @@ jobs:
           # A failed run may have left these; nothing pins them until the facade exists.
           gh release upload "$TAG" --clobber "$RUNNER_TEMP"/packed/atomicstrata-*.tgz
           gh release upload "$TAG" "$RUNNER_TEMP"/packed/llm-wiki-compiler-*.tgz
+      - name: Tell the knowledge base
+        if: steps.published.outputs.done != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.KB_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::KB_DISPATCH_TOKEN is not set, so the knowledge base was not told about ${GITHUB_SHA:0:7}"
+            exit 0
+          fi
+          gh workflow run pin-llmwiki.yml --repo Octember/knowledge-base --ref main
       - name: Prune all but the newest commits
         run: |
           id=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .id)
