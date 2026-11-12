@@ -182,7 +182,7 @@ describe("reading an extraction answer", () => {
   it("asks without the owner, with each field's guidance, and names a relation from the owner", () => {
     const { system } = extractionRequest(types, "chat.md", "1 | hi", ["Sam", "Sam R"]);
     expect(system).toContain('"Sam\'s mother"');
-    expect(system).toContain("never list the owner");
+    expect(system).toContain("Never list the owner");
     expect(system).toContain("Sam / Sam R");
     expect(system).toContain("  - relationship: How the owner knows them");
   });

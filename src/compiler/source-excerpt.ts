@@ -34,8 +34,7 @@ const EXCERPT_BUDGET = 60_000;
 /** The marker the model's first line must start with. */
 export const SUMMARY_PREFIX = "SUMMARY:";
 /** The prompt lines asking for cited bullets from the numbered lines shown. */
-export const CITED_BULLETS = `Then short "## " sections of bullets. End each bullet with its citation, ^[file.md:START-END], using the line numbers shown.
-Only what the records say. No title.`;
+export const CITED_BULLETS = `Short "## " sections of bullets, each ending ^[file.md:START-END] (lines shown). Only what the records say. No title.`;
 
 /** One source's numbered rows, with the line number each row shows. */
 interface SourceRows {
