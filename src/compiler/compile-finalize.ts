@@ -1,8 +1,9 @@
 /**
  * @file src/compiler/compile-finalize.ts
  * @description Compile's TAIL: seed pages, then interlink resolution and repair,
- * the SINGLE durable state flush, the index and MOC, and the optional embeddings
- * refresh — on both the changed route and the no-source-changes route.
+ * the SINGLE durable state flush, the index and MOC, the optional embeddings
+ * refresh, the entity pages, the timeline and the owner page — on both the
+ * changed route and the no-source-changes route.
  *
  * ONE BODY, EXPLICIT STEPS. {@link seedThenFinalizeWith} and
  * {@link finalizeUnchangedCompileWith} are the bodies. They are handed
@@ -33,6 +34,9 @@ import { qualifiedPageId, type PageId } from "../utils/page-id.js";
 import { refreshEmbeddingsDrainingPending } from "../utils/embeddings-refresh.js";
 import { emptyCompileResult, type CompilePreparation } from "./compile-phases.js";
 import { generateSeedPages } from "./seed-pages.js";
+import { generateTimeline } from "../timeline/local.js";
+import { generateEntities, generateOwnerPage } from "../entities/local.js";
+import type { TimelineSchema } from "../schema/types.js";
 import * as output from "../utils/output.js";
 import { CONCEPTS_DIR } from "../utils/constants.js";
 import type { MergedConcept, PageGenerationResult } from "./types.js";
@@ -57,9 +61,15 @@ export interface CompileFinalizeSteps {
   generateMOC(root: string): Promise<void>;
   /** Drain and refresh embeddings for `changedPageIds`. Local: `refreshEmbeddingsDrainingPending(root, changedPageIds)`. */
   refreshEmbeddings(root: string, changedPageIds: PageId[]): Promise<void>;
+  /** Bring the opted-in entity types' pages up to date with the sources. Local: `generateEntities(root, timeline, concurrency)`. */
+  updateEntities(root: string, timeline: TimelineSchema, concurrency?: number): Promise<unknown>;
+  /** Bring `wiki/timeline/` up to date with the sources, `concurrency` model calls at a time. Local: `generateTimeline(root, timeline, concurrency)`. */
+  updateTimeline(root: string, timeline: TimelineSchema, concurrency?: number): Promise<unknown>;
+  /** Bring the owner page up to date from the timeline just written. Local: `generateOwnerPage(root, timeline)`. */
+  updateOwnerPage(root: string, timeline: TimelineSchema): Promise<unknown>;
 }
 
-/** LOCAL. The incumbent steps, called at call time with their old arguments; frozen. In no package index. */
+/** LOCAL. The steps over the local project, each calling its domain function at call time; frozen. In no package index. */
 const localCompileFinalizeSteps: CompileFinalizeSteps = Object.freeze({
   seedPages: (root: string, schema: SchemaConfig, generation: PageGenerationResult) => generateSeedPages(root, schema, generation),
   orphanFrozen: (root: string, draft: CompileStateDraft, slugs: Set<string>) => orphanUnownedFrozenPages(root, draft, slugs),
@@ -69,6 +79,9 @@ const localCompileFinalizeSteps: CompileFinalizeSteps = Object.freeze({
   generateIndex: (root: string) => generateIndex(root),
   generateMOC: (root: string) => generateMOC(root),
   refreshEmbeddings: (root: string, changedPageIds: PageId[]) => refreshEmbeddingsDrainingPending(root, changedPageIds),
+  updateEntities: (root: string, timeline: TimelineSchema, concurrency?: number) => generateEntities(root, timeline, concurrency),
+  updateTimeline: (root: string, timeline: TimelineSchema, concurrency?: number) => generateTimeline(root, timeline, concurrency),
+  updateOwnerPage: (root: string, timeline: TimelineSchema) => generateOwnerPage(root, timeline),
 });
 
 /**
@@ -117,7 +130,14 @@ export async function seedThenFinalize(
   return seedThenFinalizeWith(localCompileFinalizeSteps, root, schema, generation, options, draft);
 }
 
-/** THE ONE BODY of {@link seedThenFinalize}: seed pages unless reviewing or told to skip them, then finalize. */
+/**
+ * THE ONE BODY of {@link seedThenFinalize}: seed pages unless reviewing or told
+ * to skip them, then finalize, then the entity pages, the timeline and the owner
+ * page. All read the state this compile flushed; the timeline follows the entity
+ * pages because it links days to them, and the owner page follows the timeline
+ * because it is written from the week pages. A review run holds pages back, so
+ * it leaves all three alone.
+ */
 export async function seedThenFinalizeWith(
   steps: CompileFinalizeSteps,
   root: string,
@@ -133,6 +153,24 @@ export async function seedThenFinalizeWith(
     scoped: options.changeFilter !== undefined,
     embeddings: options.embeddings !== false,
   });
+  if (options.review) return;
+  await timeStage("compile.entities", () => runOrWarn("Entity pages", () => steps.updateEntities(root, schema.timeline, options.concurrency)));
+  await timeStage("compile.timeline", () => runOrWarn("Timeline", () => steps.updateTimeline(root, schema.timeline, options.concurrency)));
+  await timeStage("compile.owner", () => runOrWarn("Owner page", () => steps.updateOwnerPage(root, schema.timeline)));
+}
+
+/**
+ * Run a derived step (entity pages, the timeline, the owner page), reporting a
+ * failure instead of throwing it. By now the compile's pages and state are
+ * committed; these steps are derived from them and the next compile retries
+ * them, so a failure here must not fail the compile.
+ */
+async function runOrWarn(name: string, step: () => Promise<unknown>): Promise<void> {
+  try {
+    await step();
+  } catch (error) {
+    output.status("!", output.warn(`${name} not updated: ${error instanceof Error ? error.message : String(error)}`));
+  }
 }
 
 /** The parts of the preparation the no-source-changes branch reads. */

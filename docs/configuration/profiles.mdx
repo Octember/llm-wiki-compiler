@@ -315,6 +315,145 @@ instructions.
 }
 ```
 
+## Extracted records (people pages)
+
+Add `extract` to an entity type and compile writes one page per record of
+that type it finds in your sources, in the type's directory, which must be
+`wiki/<type>`. `description` says what counts as a record; `fields` gives
+optional guidance per declared field. Both are prompt text only.
+
+```json
+{
+  "entities": {
+    "person": {
+      "directory": "wiki/person",
+      "titleField": "title",
+      "fields": {
+        "title": { "type": "string" },
+        "relationship": { "type": "enum", "enum": ["partner", "family", "friend", "coworker", "professional", "acquaintance", "unknown"] },
+        "organization": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "extract": {
+        "description": "A real person the sources name",
+        "fields": { "relationship": "How the owner knows them" }
+      }
+    }
+  }
+}
+```
+
+Each source is read once for records of every opted-in type. For each record
+the model answers who it is (`name`: the fullest correctly spelled name the
+source supports, or a relation such as "Sam's mother" for someone called only
+"mama"), how the source writes it (`writtenAs`: "Tommmy", "mama"), the declared
+fields, and the line numbers that mention it. A type with `extract` cannot
+declare fields named `name`, `writtenAs` or `lines`.
+A long source is read in chunks of about 60,000 characters. Answers are kept
+in `.llmwiki/entities.json`, per chunk, keyed by the chunk's text and the types'
+structure (type names, field names, field types, enum values). A compile
+re-reads only chunks that changed, so a chat export that grows at its end
+re-reads only its last chunk. Adding a type or a field re-reads every source
+once; rewording `description` or field guidance does not. When a read fails,
+the source keeps its previous answers and is retried on the next compile, so a
+failed call never removes a page.
+
+Every record gets a page, `wiki/<type>/<id>.md`:
+
+- **Frontmatter**: the name (under `title`, and under the type's `titleField`
+  too), every other name it went by (`aliases`), each declared field's most
+  common value across its mentions (a list field gets every value), and the
+  sources it appears in. A page that would break the type's field contract,
+  such as a required field no source states, is not written, costs no model
+  call, and compile says why.
+- **Body**: written by the model from the lines that mention the record (with
+  two lines of context), every claim cited to those lines. A citation the model
+  writes across a gap in those lines (lines it was never shown) is cut to the
+  lines it was shown, on new pages and existing ones, with no model call.
+- **Days**: when the timeline is on, the days the record is mentioned on.
+- **Might be the same as**: records sharing a first name with it. A name or
+  spelling that starts with a possessive pronoun or a family word ("my dad",
+  "mom", "mother-in-law") names no one, so it never makes a flag.
+
+A page is regenerated only when what the model would be shown changes. The
+**Days** and **Might be the same as** lists are refreshed on every compile
+without a model call. Pages for records no source names any more are removed.
+Pages without `entitySignature` in their frontmatter were not written by
+compile and are never replaced or removed.
+
+### Who is who: `.llmwiki/aliases.json`
+
+Records are grouped by `name`, so a misspelling, a nickname or a relation the
+source makes clear joins the right record, and every spelling becomes one of
+its `aliases` (refreshed without a model call). The registry, `exclude` and the
+owner's names all match `name`, never a spelling, so a spelling can flag two
+records as possibly the same but never merges or removes one.
+Names that differ only in case, accents or spacing are one record. Any other
+two names are two records until you say otherwise; compile never guesses. Two
+names that make the same id (`Anne-Marie` and `Anne Marie`) stay two records,
+the second with a numbered id (`anne-marie-2`). List
+the names that are one record under one id, and name the owner of the memory:
+
+```json
+{
+  "owner": { "type": "person", "names": ["Sam", "Sam Rivera"] },
+  "entities": {
+    "person": { "alex-kim": ["Alex Kim", "Alex"] }
+  }
+}
+```
+
+The first name listed is the one the page shows. Names under `exclude` are not
+records of that type, so they get no page and no place in a day's People list:
+people only mentioned in passing, such as public figures, or names the model
+took for a person that are not one. A name is matched against each record's
+`name`, exactly, ignoring only case, accents, punctuation and spacing, in every
+source: excluding `Thomas` excludes every record whose name is just "Thomas", so
+prefer full names, and list each name a record may get (`Trump`, `Donald
+Trump`). A name cannot be both
+excluded and registered under an id; compile refuses the registry and says
+which name. Excluding a name needs no model call; to
+keep such names out of future extractions too, say so in the type's
+`extract.description` (for example "A person the owner knows or deals with
+directly; not public figures only mentioned").
+
+```json
+{
+  "exclude": { "person": ["Donald Trump", "Acme Corp"] }
+}
+```
+
+Records you know are different people stop being flagged as possibly the same
+once you list their ids together, two or more per set, under `distinct`:
+
+```json
+{
+  "distinct": { "person": [["ben", "ben-eggers"]] }
+}
+```
+
+### The owner page
+
+The owner's names are never a record. Instead the owner gets the **owner
+page**, `wiki/<type>/<owner>.md` (or `<owner>-owner.md` when a record is
+registered under that id): the page about who they are now. Compile writes it
+after the timeline:
+
+- **Body**: written by the model from the week pages, newest first (as many as
+  fit about 60,000 characters), keeping their citations, so its claims resolve
+  to source lines. It is regenerated only when those week pages change; a
+  change to the owner's names only updates `aliases`. With the timeline off no
+  week pages are read, so the page has no body and costs no model call.
+- **People**: every record of the type, grouped by the first enum field the
+  type declares (here, relationship), each with its summary, rebuilt on every
+  compile without a model call.
+
+Memory only writes the owner page. Whether an agent loads it on every turn is
+up to the agent.
+
+With the timeline on, each day's page lists the `person` records mentioned on
+its lines under **People this day**, linked as `[[person/<id>|Name]]`.
+
 ## Default behavior
 
 Projects without `.llmwiki/profile.json` keep the default behavior. Profile

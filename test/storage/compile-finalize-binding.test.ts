@@ -185,13 +185,14 @@ describe("compile's tail over one copied project, with the minting directory gon
 });
 
 describe("the tail's order and flags over the bound steps (memory only)", () => {
-  it("F3 runs seed, resolve, repair, flush, index, MOC, then embeddings over the concept page ids; skips embeddings when off and seeding when told", async () => {
+  it("F3 runs seed, resolve, repair, flush, index, MOC, embeddings over the concept page ids, then the timeline; skips embeddings when off and seeding when told", async () => {
     const log: string[] = [];
     const side = memorySide(log);
     vi.spyOn(output, "status").mockImplementation(() => {});
     await side.seedThenFinalize(generation(["beta"]), {}, await side.load());
-    await side.seedThenFinalize(generation([]), { skipSeedPages: true, embeddings: false }, null);
-    expect(log).toEqual(["seed", "resolve", "repair", "flush", "index", "moc", "embeddings concepts/beta,concepts/overview", "index", "moc"]);
+    await side.seedThenFinalize(generation([]), { skipSeedPages: true, embeddings: false, concurrency: 20 }, null);
+    // The compile's --concurrency reaches the timeline, which makes most of a compile's model calls.
+    expect(log).toEqual(["seed", "resolve", "repair", "flush", "index", "moc", "embeddings concepts/beta,concepts/overview", "entities", "timeline", "owner", "index", "moc", "entities x20", "timeline x20", "owner"]);
   });
 
   it("F4 leaves the state record untouched and the index unbuilt when resolution fails before the flush", async () => {
