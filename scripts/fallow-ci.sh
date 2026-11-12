@@ -12,13 +12,12 @@
 #   - --changed-since <merge-base with the canonical PR base branch>
 #       (CI uses the PR base SHA; merge-base is the closest local equivalent)
 #
-# Fork-aware base resolution:
-#   - Prefer `upstream/main` when an `upstream` remote is configured (the
-#     fork-and-PR workflow described in CONTRIBUTING.md, where `origin`
-#     points at the contributor's fork and `upstream` at atomicmemory/*).
-#   - Fall back to `origin/main` for direct clones.
-#   - When neither remote tracks main, fall back to running fallow without
-#     `--changed-since` (full-tree analysis).
+# Base resolution:
+#   - Compare against `origin/main`, or the `<remote>/<branch>` named in
+#     FALLOW_BASE (for example `FALLOW_BASE=upstream/main` on a fork whose
+#     pull requests target the upstream repository).
+#   - When the base cannot be resolved, run fallow without `--changed-since`
+#     (full-tree analysis).
 #
 # IMPORTANT — known parity gap:
 #   fallow's clone-detection has empirical platform variation. The same
@@ -31,20 +30,14 @@
 
 set -euo pipefail
 
-# Resolve the upstream base branch ref. Forks should configure an
-# `upstream` remote pointing at atomicmemory/llm-wiki-compiler so the
-# script compares against the canonical main, not the fork's main.
-if git remote get-url upstream >/dev/null 2>&1; then
-  BASE_REMOTE="upstream"
-else
-  BASE_REMOTE="origin"
-fi
-BASE_REF="${BASE_REMOTE}/main"
+BASE_REF="${FALLOW_BASE:-origin/main}"
+BASE_REMOTE="${BASE_REF%%/*}"
+BASE_BRANCH="${BASE_REF#*/}"
 
 # Refresh the base ref so the merge-base reflects what CI's PR base SHA
 # would point at right now. A fetch failure (offline, auth issue) is
 # non-fatal — we'll fall back to whatever's already cached locally.
-git fetch --quiet "$BASE_REMOTE" main || \
+git fetch --quiet "$BASE_REMOTE" "$BASE_BRANCH" || \
   echo "warning: could not fetch ${BASE_REF}; using last-known cached state."
 
 # `git merge-base` returns non-zero when the ref is missing or there's no
@@ -54,8 +47,8 @@ BASE_SHA=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || true)
 
 if [ -z "$BASE_SHA" ]; then
   echo "Could not determine merge-base with ${BASE_REF}; running fallow without --changed-since."
-  npx fallow --root . --format json | node scripts/check-fallow-report.mjs
+  bunx fallow --root . --format json | bun scripts/check-fallow-report.mjs
 else
   echo "Running fallow scoped to changes since $(git rev-parse --short "$BASE_SHA") (${BASE_REF})..."
-  npx fallow --root . --format json --changed-since "$BASE_SHA" | node scripts/check-fallow-report.mjs
+  bunx fallow --root . --format json --changed-since "$BASE_SHA" | bun scripts/check-fallow-report.mjs
 fi

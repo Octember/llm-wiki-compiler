@@ -94,14 +94,11 @@ bunx fallow          # Codebase health (dead code, duplication, complexity)
 bun run fallow:ci   # Run fallow scoped to changes since origin/main (matches CI args)
 ```
 
-**A note on `bun run fallow:ci`:** the `codebase-health` job in CI passes `--changed-since <PR-base-sha>` so it scopes analysis to the diff. `bun run fallow:ci` mirrors that locally by computing the merge-base between `HEAD` and the canonical main branch. The script prefers `upstream/main` when an `upstream` remote is configured (the fork workflow), and falls back to `origin/main` for direct clones. To make sure the comparison uses the canonical main from atomicmemory/llm-wiki-compiler:
+**A note on `bun run fallow:ci`:** the `codebase-health` job in CI passes `--changed-since <PR-base-sha>` so it scopes analysis to the diff. `bun run fallow:ci` mirrors that locally by computing the merge-base between `HEAD` and `origin/main`. When your pull requests target another repository's main, name that base in `FALLOW_BASE`:
 
 ```bash
-# One-time setup on your fork
-git remote add upstream https://github.com/atomicstrata/llm-wiki-compiler.git
+FALLOW_BASE=upstream/main bun run fallow:ci
 ```
-
-Without an `upstream` remote on a fork checkout, the script compares against your fork's `origin/main`, which can drift from the canonical main and miss findings CI will catch.
 
 There is also one known parity gap that no flag closes: fallow's clone-detection occasionally returns different results across platforms (CI Linux x64 vs macOS arm64). When CI flags a clone you can't reproduce locally, dedupe by intent and re-push — it's not a bug in your branch.
 
@@ -142,11 +139,11 @@ that comparison locally, run `bun run typecheck:tests -- --base-ref origin/main`
 an explicit baseline migration and review; routine updates do not accept them.
 `--init` is only for initial baseline creation, not for clearing failures.
 
-`test-typecheck` is required by main's branch protection, alongside
-`codebase-health` and `build-and-test`, which passes only when every test shard
-and package leg in CI passed. Branches must be up to date before
-merging. Workflow changes must preserve the required check name or update
-branch protection in the same rollout.
+`build-and-test` is the check main's branch protection should require: it
+fails when any test shard, package leg, `codebase-health` or `test-typecheck`
+failed or was cancelled. Branches must be up to date before merging. Workflow
+changes must preserve the required check name or update branch protection in
+the same rollout.
 
 ## Submitting a Pull Request
 
