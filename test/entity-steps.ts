@@ -34,6 +34,12 @@ export const CHAT = ["# Chat", "- 2026-05-04 09:00 Sam: Ana is coming", "- 2026-
 /** An extracted person, as the fake model reports one: who, how the source wrote them (default: the name), and where. */
 export interface FakePerson { name: string; writtenAs?: string[]; relationship?: string; line: number }
 
+/** The people the fake model finds in {@link CHAT}: a friend and someone of no stated relationship. */
+export const CHAT_PEOPLE: Record<string, FakePerson[]> = { "chat.md": [{ name: "Ana", relationship: "friend", line: 2 }, { name: "Alex", line: 4 }] };
+
+/** A registry naming the owner, Sam, and no records. */
+export const OWNER_REGISTRY: AliasRegistry = { owner: { type: "person", names: ["Sam", "Sam Rivera"] }, entities: {} };
+
 /** In-memory steps over `sources`; `people` says who each source names. */
 export function memoryEntitySteps(sources: Record<string, string>, people: Record<string, FakePerson[]>, registry: AliasRegistry = { entities: {} }) {
   const base = memoryDerivedSteps(sources);
@@ -63,7 +69,7 @@ export function mention(name: string, file = "chat.md", line = 1): Mention {
 /** The fake model: extraction answers from `people`; a page answer cites the first line shown. */
 function answer(request: ExtractRequest, people: Record<string, FakePerson[]>, extractions: string[], pageRequests: string[]): string {
   const content = request.messages[0].content;
-  if (request.tools.length > 0) {
+  if (request.tools?.length) {
     const file = /--- SOURCE: (\S+) ---/.exec(content)![1];
     extractions.push(file);
     return JSON.stringify({ person: (people[file] ?? []).map((person) => ({

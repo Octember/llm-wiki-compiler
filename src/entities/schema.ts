@@ -15,9 +15,9 @@
  * which is what strict structured-output providers accept.
  */
 
-import { createHash } from "node:crypto";
 import { shortDigest } from "../utils/short-digest.js";
 import type { EntityExtractDef, EntityTypeDef, FieldDef, ProfilePack } from "../profile/types.js";
+import type { LLMTool } from "../utils/provider.js";
 
 /** Field types extraction can fill from text; references and artifacts are not read from sources. */
 const EXTRACTABLE_FIELD_TYPES = new Set(["string", "slug", "date", "enum", "string[]", "number", "integer", "boolean"]);
@@ -78,7 +78,7 @@ function recordSchema({ fields }: ExtractableType): Record<string, unknown> {
 }
 
 /** The extraction tool: one array of records per extractable type. */
-export function extractionTool(types: ExtractableType[]): { name: string; description: string; input_schema: Record<string, unknown> } {
+export function extractionTool(types: ExtractableType[]): LLMTool {
   const properties = Object.fromEntries(types.map((type) => [type.type, { type: "array", items: recordSchema(type) }]));
   return {
     name: "extract_records",

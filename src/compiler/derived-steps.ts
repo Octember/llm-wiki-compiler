@@ -154,9 +154,9 @@ export function claimable(report: PageReport, slug: string, foreign: ReadonlySet
 }
 
 /** The model's answer for a page, or null after reporting why there is none. */
-export async function completePage(report: PageReport, complete: (request: PageRequest) => Promise<string>, request: PageRequest, slug: string): Promise<string | null> {
+export async function completePage(report: PageReport, steps: { complete(request: PageRequest): Promise<string> }, request: PageRequest, slug: string): Promise<string | null> {
   try {
-    const answer = await complete(request);
+    const answer = await steps.complete(request);
     if (splitAnswer(answer).body) return answer;
     report.result.errors.push(`${report.label(slug)} came back empty`);
   } catch (error) {
@@ -195,9 +195,9 @@ export async function writeAndReport<T extends CompilePageWrite>(report: PageRep
   return landed;
 }
 
-/** Apply `deletes` (this step's own pages whose period or record is gone), reporting each. */
-export async function deleteAndReport(report: PageReport, steps: Pick<DerivedSteps, "writePages">, deletes: CompilePageWrite[]): Promise<void> {
-  const { landed, blocked } = await applyWrites(steps, deletes);
+/** Delete `pages` (this step's own pages whose period or record is gone), reporting each. */
+export async function deleteAndReport(report: PageReport, steps: Pick<DerivedSteps, "writePages">, pages: CompilePageWrite[]): Promise<void> {
+  const { landed, blocked } = await applyWrites(steps, pages.map((page) => ({ ...page, deleting: true })));
   for (const write of blocked) report.result.errors.push(`${report.label(write.slug)} not removed`);
   report.result.deleted.push(...landed.map((write) => report.id(write.slug)));
 }

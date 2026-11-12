@@ -28,7 +28,7 @@ import {
 import { sourcesExcerpt, splitAnswer, type ShownLines } from "../compiler/source-excerpt.js";
 import { dayBuckets, type DayBucket } from "../timeline/buckets.js";
 import { mentionsOf, refreshExtractions, type ExtractionCache, type ExtractSteps } from "./extract.js";
-import { displayName, ownerPageId, possibleDuplicates, resolveRecords, type AliasRegistry, type ResolvedRecord } from "./identity.js";
+import { ownerPageId, possibleDuplicates, resolveRecords, type AliasRegistry, type ResolvedRecord } from "./identity.js";
 import type { ExtractableType } from "./schema.js";
 import {
   agreedFields, entityReport, isRecordPage, meetsFieldContract, recordDays, recordPage, recordPageRequest, recordSignature, recordTail, shownSources, withAliases,
@@ -70,8 +70,6 @@ interface TypeContext extends StepContext {
   type: ExtractableType;
   /** This step's own pages in the type's directory, by slug. */
   pages: Map<string, OwnPage>;
-  /** Slugs of the pages this step did not write. */
-  foreign: Set<string>;
   /** Record id → the name its page shows. */
   titles: Map<string, string>;
   report: PageReport;
@@ -87,7 +85,7 @@ export async function generateEntitiesWith(steps: EntitySteps, config: EntityCon
   const extraction = await refreshExtractions(steps, {
     types: config.types, sources: read, previous: await steps.readCache(), ownerNames: registry.owner?.names ?? [], concurrency: config.concurrency,
   });
-  result.extracted = extraction.extracted.length;
+  result.extracted = extraction.extracted;
   result.errors.push(...extraction.errors);
   await steps.writeCache(extraction.cache);
   const step: StepContext = {
@@ -109,8 +107,8 @@ function unknownExcludeTypes(registry: AliasRegistry, types: ExtractableType[]):
 async function writeType(step: StepContext, type: ExtractableType, cache: ExtractionCache): Promise<void> {
   const records = resolveRecords(type.type, mentionsOf(cache, type.type), step.registry);
   const { own: pages, foreign } = ownPages(await step.steps.listPages(type.type), isRecordPage);
-  const titles = new Map(records.map((record) => [record.id, displayName(record, step.registry.entities[type.type]?.[record.id])]));
-  const ctx: TypeContext = { ...step, type, pages, foreign, titles, report: entityReport(type.type, step.result) };
+  const titles = new Map(records.map((record) => [record.id, record.title]));
+  const ctx: TypeContext = { ...step, type, pages, titles, report: entityReport(type.type, step.result) };
   const duplicates = possibleDuplicates(records, step.registry.distinct?.[type.type]);
   const writable = records.filter((record) => claimable(ctx.report, record.id, foreign));
   const writes = await Promise.all(writable.map((record) => ctx.limit(() => planRecord(ctx, record, duplicates.get(record.id) ?? []))));
@@ -118,7 +116,7 @@ async function writeType(step: StepContext, type: ExtractableType, cache: Extrac
   const ownerPage = ownerPageId(step.registry, type.type);
   const live = new Set([...records.map((record) => record.id), ...(ownerPage ? [ownerPage] : [])]);
   await deleteAndReport(ctx.report, ctx.steps, [...pages].filter(([slug]) => !live.has(slug))
-    .map(([slug, page]) => ({ ...entityWrite(ctx, slug, page.text), deleting: true })));
+    .map(([slug, page]) => entityWrite(ctx, slug, page.text)));
 }
 
 /** What a record page is built from, before any model call. */
@@ -133,7 +131,7 @@ interface RecordDraft {
 
 /** The write for one record: a regenerated page, a refreshed tail and aliases, or nothing when the page is current. */
 async function planRecord(ctx: TypeContext, record: ResolvedRecord, sameIds: string[]): Promise<CompilePageWrite | null> {
-  const title = ctx.titles.get(record.id)!;
+  const { title } = record;
   const fields = agreedFields(ctx.type, record);
   const excerpt = sourcesExcerpt(shownSources(record, ctx.texts), ctx.texts);
   const maybeSame: PageLink[] = sameIds.map((id) => ({ target: `${ctx.type.type}/${id}`, title: ctx.titles.get(id) ?? id }));
@@ -154,7 +152,7 @@ async function regenerate(ctx: TypeContext, draft: RecordDraft, page: OwnPage | 
   const meta = recordMeta(ctx, draft, page);
   if (!meetsFieldContract(ctx.report, record.id, meta, ctx.type.def)) return null;
   const request = recordPageRequest(ctx.type.type, draft.title, draft.excerpt.text, ctx.registry.owner?.names ?? []);
-  const answer = await completePage(ctx.report, (req) => ctx.steps.complete({ ...req, tools: [] }), request, record.id);
+  const answer = await completePage(ctx.report, ctx.steps, request, record.id);
   if (answer === null) return null;
   const { summary, body } = splitAnswer(fitAndReportCitations(ctx.report, record.id, answer, draft.excerpt.shown));
   return entityWrite(ctx, record.id, recordPage({ ...meta, summary }, body, draft.tail));

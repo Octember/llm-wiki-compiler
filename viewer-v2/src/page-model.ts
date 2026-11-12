@@ -6,7 +6,7 @@
  * functions, so the rules are tested without a fetch or a DOM.
  */
 import type { ClaimCitation, EntityRelation, PagePayload, PagesEnvelope, SourceSpan } from "./api";
-import { TIMELINE_DIRECTORY, timelinePeriod } from "./timeline-model";
+import { timelinePeriodOf } from "./timeline-model";
 import { humanLabel, plural } from "./wiki-model";
 
 /** The warning code the server attaches to each citation whose file is missing. */
@@ -24,12 +24,12 @@ export function pageTitle(page: PagePayload): string {
 
 /** Whether a page is a generated timeline day or week, written by compile from the sources' dates. */
 export function isTimelinePage(page: Pick<PagePayload, "pageDirectory" | "slug">): boolean {
-  return page.pageDirectory === TIMELINE_DIRECTORY && timelinePeriod(page.slug) !== null;
+  return timelinePeriodOf(page) !== null;
 }
 
 /** The display kind: day or week for a timeline page, else frontmatter `kind`, the saved-query `type`, the entity type, or concept. */
 export function pageKind(page: PagePayload): string {
-  const period = page.pageDirectory === TIMELINE_DIRECTORY ? timelinePeriod(page.slug) : null;
+  const period = timelinePeriodOf(page);
   if (period) return period;
   const { kind, type } = page.frontmatter;
   if (typeof kind === "string" && kind.length > 0) return kind;
@@ -144,10 +144,13 @@ export interface Backlink {
  * neither is a wikilink node in the graph.
  */
 export function backlinksFrom(page: PagePayload, wiki: PagesEnvelope): Backlink[] {
+  return linkedPages([...new Set(page.backlinks)], wiki).sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/** Page ids as rail links, in the given order, each titled from the page list (its id when the list has no title). */
+export function linkedPages(ids: string[], wiki: PagesEnvelope): Backlink[] {
   const titles = new Map(wiki.pages.map((row) => [row.id, row.title]));
-  return [...new Set(page.backlinks)]
-    .map((id) => ({ id, title: titles.get(id) || id }))
-    .sort((a, b) => a.title.localeCompare(b.title));
+  return ids.map((id) => ({ id, title: titles.get(id) || id }));
 }
 
 /** One field a typed page's profile declares, as the rail shows it. */

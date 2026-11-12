@@ -21,7 +21,6 @@
 
 import pLimit, { type LimitFunction } from "p-limit";
 import type { CompilePageWrite } from "../compiler/compile-write.js";
-import type { TimelineSchema } from "../schema/types.js";
 import { splitAnswer, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
 import {
   claimable, completePage, createdAtOf, deleteAndReport, fitAndReportCitations, fitPageCitations, ownPages, pageBody, readSources, stringField, writeAndReport,
@@ -41,8 +40,9 @@ export interface TimelineSteps extends DerivedSteps {
   complete(request: PageRequest): Promise<string>;
 }
 
-/** How a timeline pass runs: the project's timeline settings and how many model calls may run at once. */
-export interface TimelineRun extends TimelineSchema {
+/** How a timeline pass runs: the zone that dates its days and how many model calls may run at once. */
+export interface TimelineRun {
+  timeZone: string;
   concurrency: number;
 }
 
@@ -70,10 +70,9 @@ interface PeriodPage {
   shown: ShownLines[];
 }
 
-/** Bring `wiki/timeline/` up to date with the sources; a disabled timeline does nothing. */
+/** Bring `wiki/timeline/` up to date with the sources. */
 export async function generateTimelineWith(steps: TimelineSteps, run: TimelineRun): Promise<DerivedResult> {
   const report = timelineReport();
-  if (!run.enabled) return report.result;
   const read = await readSources(steps);
   const texts = new Map(read.map((source) => [source.file, source.text]));
   const allDays = dayBuckets(read, run.timeZone);
@@ -132,7 +131,7 @@ async function planDay(pass: TimelinePass, day: DayBucket, texts: Map<string, st
     const updated = withDaySections(fitPageCitations(page.text, shown), sections);
     return updated === page.text ? null : { write: timelineWrite(day.day, updated) };
   }
-  const answer = await completePage(pass.report, (req) => pass.steps.complete(req), request, day.day);
+  const answer = await completePage(pass.report, pass.steps, request, day.day);
   if (answer === null) return null;
   const sources = day.sources.map((source) => source.file);
   return periodWrite(pass, { kind: "daily", period: day.day, sources, signature: day.signature, shown }, answer, sections);
@@ -150,16 +149,16 @@ async function writeWeeks(pass: TimelinePass, weeks: WeekBucket[], freshDays: Ma
  */
 async function planWeek(pass: TimelinePass, week: WeekBucket, freshDays: Map<string, string>): Promise<PeriodWrite | null> {
   const page = pass.existing.get(week.week);
+  const shown = week.days.flatMap((day) => day.sources);
   if (page && storedSignature(page) === week.signature) {
-    const fitted = fitPageCitations(page.text, week.days.flatMap((day) => day.sources));
+    const fitted = fitPageCitations(page.text, shown);
     return fitted === page.text ? null : { write: timelineWrite(week.week, fitted) };
   }
   const bodies = week.days.map((day) => ({ day: day.day, body: freshDays.get(day.day) ?? currentBody(pass, day) }));
   if (bodies.some((entry) => !entry.body)) return null;
-  const answer = await completePage(pass.report, (req) => pass.steps.complete(req), weeklyRequest(week.week, bodies), week.week);
+  const answer = await completePage(pass.report, pass.steps, weeklyRequest(week.week, bodies), week.week);
   if (answer === null) return null;
-  const sources = [...new Set(week.days.flatMap((day) => day.sources.map((source) => source.file)))].sort();
-  const shown = week.days.flatMap((day) => day.sources);
+  const sources = [...new Set(shown.map((source) => source.file))].sort();
   return periodWrite(pass, { kind: "weekly", period: week.week, sources, signature: week.signature, shown }, answer);
 }
 
@@ -167,7 +166,7 @@ async function planWeek(pass: TimelinePass, week: WeekBucket, freshDays: Map<str
 function orphanDeletes(pass: TimelinePass, days: DayBucket[], weeks: WeekBucket[]): CompilePageWrite[] {
   const live = new Set([...days.map((day) => day.day), ...weeks.map((week) => week.week)]);
   return [...pass.existing].filter(([slug]) => !live.has(slug))
-    .map(([slug, page]) => ({ ...timelineWrite(slug, page.text), deleting: true }));
+    .map(([slug, page]) => timelineWrite(slug, page.text));
 }
 
 /** A regenerated day or week page from the model's answer, keeping the page's original creation time. */

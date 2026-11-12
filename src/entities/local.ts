@@ -25,7 +25,7 @@ import type { TimelineSchema } from "../schema/types.js";
 import type { PersonMentions } from "../timeline/pages.js";
 import { mentionsOf, type ExtractionCache } from "./extract.js";
 import { extractableTypes } from "./schema.js";
-import { displayName, parseRegistry, resolveRecords, type AliasRegistry } from "./identity.js";
+import { parseRegistry, resolveRecords, type AliasRegistry } from "./identity.js";
 import { generateEntitiesWith, type EntityResult, type EntitySteps } from "./generate.js";
 import { isRecordPage } from "./pages.js";
 import { generateOwnerPageWith } from "./owner.js";
@@ -113,12 +113,10 @@ export async function generateEntities(root: string, timeline: TimelineSchema, c
  */
 export async function generateOwnerPage(root: string, timeline: TimelineSchema): Promise<DerivedResult> {
   const types = extractableTypes((await loadProfile(root)).profile);
-  if (types.length === 0) return { written: [], deleted: [], errors: [] };
   const result = await generateOwnerPageWith({
-    ...localDerivedSteps(root),
+    ...localEntitySteps(root),
     // A malformed registry was already reported by the entity step; without it there is no owner page to write.
     readRegistry: () => readRegistry(root).catch((): AliasRegistry => ({ entities: {} })),
-    complete: (request) => callClaude(request),
   }, { types, useTimeline: timeline.enabled });
   warnErrors(result);
   if (result.written.length > 0) output.status("✓", output.success(`Owner page: ${result.written.join(", ")} written.`));
@@ -135,7 +133,7 @@ export async function listRecordMentions(root: string, type: string): Promise<Pe
     .filter((record) => own.has(record.id))
     .map((record) => ({
       target: `${type}/${record.id}`,
-      title: displayName(record, registry.entities[type]?.[record.id]),
+      title: record.title,
       spans: record.mentions.flatMap((mention) => mention.lines.map((lines) => ({ file: mention.file, lines }))),
     }));
 }

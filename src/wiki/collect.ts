@@ -33,8 +33,7 @@
  */
 
 import { parseFrontmatterStatus, slugify } from "../utils/markdown.js";
-import { CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR } from "../utils/constants.js";
-import type { PageDirectory } from "../export/types.js";
+import { PAGE_DIRECTORIES, PAGE_DIRECTORY_PATHS, type PageDirectory } from "../utils/constants.js";
 import { diskLocalEntityScans } from "../storage/disk-local-reads.js";
 import type { LegacyLocalEntityScans, LocalEntityDirectory } from "../storage/legacy-local-reads.js";
 import { findWikilinks } from "./wikilinks.js";
@@ -343,6 +342,17 @@ export async function scanEntityDirFrom(
 }
 
 /**
+ * Whether a page is knowledge rather than the generated timeline. Day and week
+ * pages have their own screen; in "recently updated" a re-dated week would crowd
+ * out the pages a compile actually learned, in the graph every day would be a
+ * hub tying together pages that merely happened the same day, and an export
+ * carries knowledge, not pages regenerated from the sources' dates.
+ */
+export function isKnowledgePage(page: { pageDirectory: string }): boolean {
+  return page.pageDirectory !== "timeline";
+}
+
+/**
  * Map a raw scan to the default-pipeline `RawWikiPage` shape. The scan's raw
  * `stem` becomes the page `slug` BYTE-FOR-BYTE — never slugified — because
  * filename stems are the canonical filesystem-truth identifier on the default
@@ -380,16 +390,7 @@ export function collectRawWikiPages(root: string): Promise<RawWikiPage[]> {
  * The directory scans start together on the ONE binding, concepts first.
  */
 export async function collectRawWikiPagesFrom(scans: LegacyLocalEntityScans): Promise<RawWikiPage[]> {
-  const [concepts, queries, timeline] = await Promise.all([
-    scanEntityDirFrom(scans, CONCEPTS_DIR),
-    scanEntityDirFrom(scans, QUERIES_DIR),
-    scanEntityDirFrom(scans, TIMELINE_DIR),
-  ]);
-  // The default path ignores dirStatus: a missing OR invalid dir is treated as
-  // empty, exactly as before the refactor (the parity golden proves this).
-  return [
-    ...concepts.scans.map((s) => scanToRawWikiPage(s, "concepts")),
-    ...queries.scans.map((s) => scanToRawWikiPage(s, "queries")),
-    ...timeline.scans.map((s) => scanToRawWikiPage(s, "timeline")),
-  ];
+  const scanned = await Promise.all(PAGE_DIRECTORIES.map((dir) => scanEntityDirFrom(scans, PAGE_DIRECTORY_PATHS[dir])));
+  // The default path ignores dirStatus: a missing OR invalid dir is treated as empty (the parity golden proves this).
+  return PAGE_DIRECTORIES.flatMap((dir, index) => scanned[index].scans.map((s) => scanToRawWikiPage(s, dir)));
 }

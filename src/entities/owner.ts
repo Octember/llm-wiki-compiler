@@ -106,7 +106,7 @@ async function ownerPageText(draft: OwnerDraft): Promise<string | null> {
   const meta = ownerMeta(draft);
   if (!meetsFieldContract(draft.report, draft.id, meta, draft.type.def)) return null;
   if (draft.weeks.length === 0) return recordPage(meta, "", draft.people);
-  const answer = await completePage(draft.report, (request) => draft.steps.complete(request), ownerRequest(draft.names[0], draft.weeks), draft.id);
+  const answer = await completePage(draft.report, draft.steps, ownerRequest(draft.names[0], draft.weeks), draft.id);
   if (answer === null) return page ? refreshed(draft, page) : null;
   const shown = citedLines(draft.weeks);
   const { summary, body } = splitAnswer(fitAndReportCitations(draft.report, draft.id, answer, shown));

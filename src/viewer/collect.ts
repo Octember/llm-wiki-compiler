@@ -20,7 +20,7 @@
  * second collector.
  */
 
-import { collectRawWikiPagesFrom, extractWikilinkSlugs, extractWikilinkTargets } from "../wiki/collect.js";
+import { collectRawWikiPagesFrom, extractWikilinkTargets } from "../wiki/collect.js";
 import type { RawWikiPage } from "../wiki/collect.js";
 import { diskLocalEntityScans } from "../storage/disk-local-reads.js";
 import type { LegacyLocalEntityScans } from "../storage/legacy-local-reads.js";
@@ -247,28 +247,11 @@ function decoratePages(raw: RawWikiPage[]): DefaultViewerPage[] {
  */
 export function linkPages(pages: ReadonlyArray<ViewerPage>): void {
   for (const page of pages) {
-    page.outgoingLinks = resolveWikilinkTargets(extractWikilinkSlugs(page.body), pages);
-    page.danglingLinks = collectDanglingLinks(extractWikilinkTargets(page.body), pages);
+    const targets = extractWikilinkTargets(page.body);
+    const resolved = targets.map((target) => resolveWikilinkTarget(target.slug, pages));
+    page.outgoingLinks = [...new Set(resolved.filter((id) => id !== null))];
+    page.danglingLinks = targets.filter((_, index) => resolved[index] === null);
   }
-}
-
-/**
- * Return targets from `targets` that {@link resolveWikilinkTarget} could not
- * find, deduplicated by slug and in first-occurrence order.
- */
-function collectDanglingLinks(
-  targets: { slug: string; display: string }[],
-  pages: ReadonlyArray<PageIndexEntry>,
-): { slug: string; display: string }[] {
-  const seen = new Set<string>();
-  const dangling: { slug: string; display: string }[] = [];
-  for (const t of targets) {
-    if (resolveWikilinkTarget(t.slug, pages) === null && !seen.has(t.slug)) {
-      seen.add(t.slug);
-      dangling.push(t);
-    }
-  }
-  return dangling;
 }
 
 /**

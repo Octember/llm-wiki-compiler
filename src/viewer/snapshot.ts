@@ -32,6 +32,8 @@
  * nine. See the type.
  */
 
+import type { EntityPage } from "../profile/types.js";
+import { isKnowledgePage } from "../wiki/collect.js";
 import { locationRealPath } from "../storage/disk-locations.js";
 import { diskLocalReads } from "../storage/disk-local-reads.js";
 import { diskLocalRecordDirs } from "../storage/disk-local-record-dirs.js";
@@ -208,10 +210,7 @@ export async function buildViewerSnapshotFrom(sources: ViewerSnapshotSources): P
     ]);
   const freshnessSnapshot = await buildFreshnessSnapshotFrom(bindings.freshness, classified);
   const decorate = buildPageDecorator(sourceFilenames, freshnessSnapshot);
-  const typedPages = decorateEntityPages(typed?.pages ?? []);
-  const linkable = [...defaultPages, ...typedPages];
-  // Typed pages link, and are linked to by qualified links, only once both lists exist.
-  if (typedPages.length > 0) linkPages(linkable);
+  const { typedPages, linkable } = withTypedPages(defaultPages, typed?.pages ?? []);
   const annotatedDefault = defaultPages.map(decorate);
   const annotatedTyped = typedPages.map(decorate);
   const pages = attachEntityContexts([...annotatedDefault, ...annotatedTyped], typed?.graph.relations ?? [], sourceFilenames);
@@ -267,6 +266,18 @@ function buildPageDecorator(
  */
 function countableState(classified: ClassifiedState): { sources: Record<string, unknown> } {
   return classified.status === "ok" ? classified.state : { sources: {} };
+}
+
+/**
+ * The typed pages as viewer pages, and every page a link may name. Typed pages
+ * link, and are linked to by qualified links, only once both lists exist, so
+ * with any typed page every page is linked again over the two together.
+ */
+function withTypedPages(defaultPages: ViewerPage[], entityPages: EntityPage[]): { typedPages: ViewerPage[]; linkable: ViewerPage[] } {
+  const typedPages = decorateEntityPages(entityPages);
+  const linkable = [...defaultPages, ...typedPages];
+  if (typedPages.length > 0) linkPages(linkable);
+  return { typedPages, linkable };
 }
 
 /** The captured `wiki/index.md` state plus its wikilinks resolved against every page. */
@@ -450,16 +461,6 @@ async function readDiskIndexText(root: string): Promise<string | null> {
   if (resolved !== expectedIndex) return null;
   const read = await readCappedNoFollow(resolved, Number.POSITIVE_INFINITY);
   return read.kind === "ok" ? read.body : null;
-}
-
-/**
- * Whether a page is knowledge rather than the generated timeline. Day and week
- * pages have their own screen; in "recently updated" a re-dated week would crowd
- * out the pages a compile actually learned, and in the graph every day would be
- * a hub tying together unrelated pages that merely happened the same day.
- */
-function isKnowledgePage(page: ViewerPage): boolean {
-  return page.pageDirectory !== "timeline";
 }
 
 /**

@@ -29,7 +29,6 @@ interface NavItem {
   icon: LucideIcon;
   count?: number;
   collisionLabel?: string;
-  profileOnly?: boolean;
 }
 
 interface NavSection {
@@ -61,13 +60,14 @@ function browseItems(wiki: PagesEnvelope): NavItem[] {
   return [...defaults.filter((item) => (item.count ?? 0) > 0), ...typeRows];
 }
 
-/** The profile-only Maintain rows, each only when the profile declares what its screen shows. */
+/** The profile-only Maintain rows: none on a default project, else each only when the profile declares what its screen shows. */
 function profileItems(wiki: PagesEnvelope, typeCount: number): NavItem[] {
+  if (!isProfileProject(wiki)) return [];
   const declaresWorkflows = (wiki.profilePipeline?.workflows?.length ?? 0) > 0;
   const declaresLifecycle = entityTypes(wiki).some((row) => row.lifecycle !== undefined);
   return [
-    ...(declaresWorkflows ? [{ route: "workflows", href: "#/workflows", label: "Workflows", icon: Workflow, profileOnly: true }] : []),
-    ...(declaresLifecycle ? [{ route: "pipeline", href: "#/pipeline", label: "Lifecycle status", icon: ListChecks, count: typeCount, profileOnly: true }] : []),
+    ...(declaresWorkflows ? [{ route: "workflows", href: "#/workflows", label: "Workflows", icon: Workflow }] : []),
+    ...(declaresLifecycle ? [{ route: "pipeline", href: "#/pipeline", label: "Lifecycle status", icon: ListChecks, count: typeCount }] : []),
   ];
 }
 
@@ -110,16 +110,13 @@ function readingItems(wiki: PagesEnvelope): NavItem[] {
   ];
 }
 
-/** The rows a project shows: profile-only rows on profile projects, with collision labels resolved. */
+/** The rows a project shows, with a row whose label a type already uses given its collision label. */
 function visibleSections(wiki: PagesEnvelope, health: HealthPayload | null): NavSection[] {
-  const profile = isProfileProject(wiki);
   const all = sections(wiki, health);
   const typeLabels = new Set(all[0].items.map((item) => item.label));
   return all.map((section) => ({
     ...section,
-    items: section.items
-      .filter((item) => !item.profileOnly || profile)
-      .map((item) => (item.collisionLabel !== undefined && typeLabels.has(item.label) ? { ...item, label: item.collisionLabel } : item)),
+    items: section.items.map((item) => (item.collisionLabel !== undefined && typeLabels.has(item.label) ? { ...item, label: item.collisionLabel } : item)),
   }));
 }
 

@@ -21,19 +21,11 @@ import { assertSafeSlug, PathSafetyError } from "./path-safety.js";
 import { tryRenderBody, writeJson, writeJsonError, writeRenderFailed } from "./respond.js";
 import { UNRESOLVED_CITATION_CODE } from "./types.js";
 import type { ViewerPage, ViewerPageDirectory, ViewerPageId, ViewerSnapshot } from "./types.js";
-import type { PageDirectory } from "../export/types.js";
+import { PAGE_DIRECTORIES } from "../utils/constants.js";
 
 /** Profile id reported when the project runs the built-in default profile. */
 const DEFAULT_PROFILE_ID = "default";
 
-/**
- * The directories every project can address, whatever profile it runs: the
- * default pages and the generated timeline. Keyed by `PageDirectory`, so widening
- * that shared union without adding the new member here is a compile error rather
- * than a silently unreachable directory.
- */
-const ADDRESSABLE: Record<PageDirectory, true> = { concepts: true, queries: true, timeline: true };
-const DEFAULT_DIRECTORIES: readonly PageDirectory[] = Object.keys(ADDRESSABLE) as PageDirectory[];
 
 /** `/api/pages` — the full bootstrap envelope: project/profile identity, stateStatus, counts, graph summary, recent pages, and the page list. */
 export function handleApiPages(res: ServerResponse, snapshot: ViewerSnapshot): void {
@@ -201,14 +193,14 @@ function writePageOrRenderFailure(
 }
 
 /**
- * Every directory segment this snapshot will address: the two default literals
- * plus the ACTIVE PROFILE's declared entity type ids. Built from the frozen
+ * Every directory segment this snapshot will address: the default page
+ * directories (concepts, queries, the generated timeline) plus the ACTIVE PROFILE's declared entity type ids. Built from the frozen
  * snapshot, so it is the profile's own declaration and never anything derived
  * from the request. A default project contributes nothing extra, so no typed
  * directory is addressable there.
  */
 function addressableDirectories(snapshot: ViewerSnapshot): ReadonlySet<string> {
-  return new Set<string>([...DEFAULT_DIRECTORIES, ...(snapshot.entityTypes ?? [])]);
+  return new Set<string>([...PAGE_DIRECTORIES, ...(snapshot.entityTypes ?? [])]);
 }
 
 /**

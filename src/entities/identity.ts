@@ -46,9 +46,10 @@ export interface Mention extends ExtractedRecord {
   file: string;
 }
 
-/** One record after identity: its id, every name it went by, how the sources wrote it, and every mention. */
+/** One record after identity: its id, the name its page shows, every name it went by, how the sources wrote it, and every mention. */
 export interface ResolvedRecord {
   id: string;
+  title: string;
   names: string[];
   /** Spellings the sources used that are not among `names`. */
   writtenAs: string[];
@@ -180,7 +181,9 @@ export function resolveRecords(type: string, mentions: Mention[], registry: Alia
   return [...groupMentions(type, mentions, registry)].sort(([a], [b]) => a.localeCompare(b))
     .map(([, group]) => ({ group, id: group.registered ?? uniqueId(recordId(group.names[0]), taken) }))
     .filter(({ group }) => !group.excluded)
-    .map(({ group, id }) => ({ id, names: group.names, writtenAs: spellingsOf(group), mentions: group.mentions }))
+    .map(({ group, id }) => ({
+      id, title: displayName(group.mentions, registry.entities[type]?.[id]), names: group.names, writtenAs: spellingsOf(group), mentions: group.mentions,
+    }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -266,10 +269,10 @@ function uniqueId(base: string, taken: Set<string>): string {
  * written in lowercase (common in chats) is shown with each word capitalized; the
  * spellings as written stay in the record's names.
  */
-export function displayName(record: ResolvedRecord, registered: string[] | undefined): string {
+function displayName(mentions: Mention[], registered: string[] | undefined): string {
   if (registered?.[0]) return registered[0];
   const uses = new Map<string, number>();
-  for (const mention of record.mentions) uses.set(mention.name.trim(), (uses.get(mention.name.trim()) ?? 0) + 1);
+  for (const mention of mentions) uses.set(mention.name.trim(), (uses.get(mention.name.trim()) ?? 0) + 1);
   const capitalized = (name: string): number => (name === name.toLowerCase() ? 0 : 1);
   const [chosen] = [...uses].sort(([a, x], [b, y]) =>
     b.split(" ").length - a.split(" ").length || capitalized(b) - capitalized(a) || y - x || a.localeCompare(b))[0];

@@ -32,8 +32,6 @@ import { parseFrontmatter, slugify } from "../utils/markdown.js";
 import { findWikilinks } from "../wiki/wikilinks.js";
 import { parseQualifiedTarget } from "../wiki/wikilink-target.js";
 
-/** The wikilink form the linter scans for; shared so the two cannot diverge. */
-
 /** One concrete, reviewable edit a deterministic fix would make. */
 export interface LintFixEditV1 {
   readonly file: string;

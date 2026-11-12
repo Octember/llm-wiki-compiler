@@ -14,13 +14,12 @@
  */
 
 import { frontmatterEnd, type DerivedResult, type PageReport } from "../compiler/derived-steps.js";
-import { validateEntityFields } from "../profile/field-contract.js";
+import { validateEntityFields, validateFieldsAgainstDefs } from "../profile/field-contract.js";
 import type { EntityTypeDef } from "../profile/types.js";
 import { shortDigest } from "../utils/short-digest.js";
 import { buildFrontmatter, parseFrontmatter } from "../utils/markdown.js";
-import { validateFieldsAgainstDefs } from "../profile/field-contract.js";
 import { linkList, withGenerated, type PageLink } from "../wiki/generated-section.js";
-import { CITED_BULLETS, mergeRanges, SUMMARY_PREFIX, type LineRange, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
+import { CITED_BULLETS, mergeByFile, SUMMARY_PREFIX, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
 import type { DayBucket } from "../timeline/buckets.js";
 import { dayCovers, formatDay } from "../timeline/pages.js";
 import type { ExtractableType } from "./schema.js";
@@ -49,13 +48,10 @@ export interface RecordPageMeta {
 
 /** The ranges the model is shown for a record: each mention with {@link CONTEXT_LINES} either side, merged per file. */
 export function shownSources(record: ResolvedRecord, texts: Map<string, string>): ShownLines[] {
-  const byFile = new Map<string, LineRange[]>();
-  for (const mention of record.mentions) {
+  return mergeByFile(record.mentions.map((mention) => {
     const lineCount = (texts.get(mention.file) ?? "").split("\n").length;
-    const widened = mention.lines.map((range) => ({ start: Math.max(1, range.start - CONTEXT_LINES), end: Math.min(lineCount, range.end + CONTEXT_LINES) }));
-    byFile.set(mention.file, [...(byFile.get(mention.file) ?? []), ...widened]);
-  }
-  return [...byFile].sort(([a], [b]) => a.localeCompare(b)).map(([file, ranges]) => ({ file, ranges: mergeRanges(ranges) }));
+    return { file: mention.file, ranges: mention.lines.map((range) => ({ start: Math.max(1, range.start - CONTEXT_LINES), end: Math.min(lineCount, range.end + CONTEXT_LINES) })) };
+  }));
 }
 
 /**
@@ -151,12 +147,14 @@ export function recordPage(meta: RecordPageMeta, body: string, tail: string): st
  * was shown, so a change to them is applied here without regenerating the page.
  */
 export function withAliases(text: string, aliases: string[]): string {
+  const end = frontmatterEnd(text);
+  if (end === -1) return text;
   const { meta } = parseFrontmatter(text);
   const current = Array.isArray(meta.aliases) ? meta.aliases : [];
-  const end = frontmatterEnd(text);
-  if (end === -1 || JSON.stringify(current) === JSON.stringify(aliases)) return text;
+  if (JSON.stringify(current) === JSON.stringify(aliases)) return text;
+  const keys = Object.keys(meta);
+  const at = keys.includes("aliases") ? keys.indexOf("aliases") : keys.indexOf("summary") + 1;
   const entries = Object.entries(meta).filter(([key]) => key !== "aliases");
-  const at = Object.keys(meta).includes("aliases") ? Object.keys(meta).indexOf("aliases") : entries.findIndex(([key]) => key === "summary") + 1;
   if (aliases.length > 0) entries.splice(at, 0, ["aliases", aliases]);
   return buildFrontmatter(Object.fromEntries(entries)) + text.slice(end);
 }

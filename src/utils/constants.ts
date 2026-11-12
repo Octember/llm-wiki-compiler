@@ -172,6 +172,13 @@ export const QUERIES_DIR = "wiki/queries";
 /** Generated daily and weekly pages: what happened when, built from the sources' own dates. */
 export const TIMELINE_DIR = "wiki/timeline";
 
+/** Each default page directory's project-relative path, in listing and lookup order. */
+export const PAGE_DIRECTORY_PATHS = { concepts: CONCEPTS_DIR, queries: QUERIES_DIR, timeline: TIMELINE_DIR } as const;
+/** A default page directory: where a page lives, not what kind of page it is. */
+export type PageDirectory = keyof typeof PAGE_DIRECTORY_PATHS;
+/** The default page directories in listing order. */
+export const PAGE_DIRECTORIES = Object.keys(PAGE_DIRECTORY_PATHS) as PageDirectory[];
+
 /**
  * The reserved subtree workflow-run markdown PROJECTIONS must live under. A
  * `projectionFile` is confined here at profile LOAD so it can never target an

@@ -13,8 +13,7 @@ import { buildFrontmatter, extractClaimCitations } from "../utils/markdown.js";
 import { overlaps, type LineRange } from "../compiler/source-excerpt.js";
 import { ownPages, pageBody, stringField } from "../compiler/derived-steps.js";
 import { linkList, withGenerated, type PageLink } from "../wiki/generated-section.js";
-import type { DayBucket } from "./buckets.js";
-import { weekStart } from "./buckets.js";
+import { weekStart, type DayBucket } from "./buckets.js";
 
 /** The wiki namespace timeline pages live in: `wiki/timeline/`. */
 export const TIMELINE_NAMESPACE = "timeline";
@@ -70,7 +69,7 @@ export function timelinePage(meta: TimelinePageMeta, body: string, sections: Day
     updatedAt: meta.updatedAt,
     ...meta.provenance,
   });
-  return withGenerated(`${frontmatter}\n\n${body.trim()}\n`, daySections(sections));
+  return withDaySections(`${frontmatter}\n\n${body.trim()}\n`, sections);
 }
 
 /** A person (a link to their page) with the source lines they are mentioned on, as the timeline reads them. */
