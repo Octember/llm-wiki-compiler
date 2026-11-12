@@ -6,7 +6,9 @@
 # its presence means the whole set is there. Once a commit is published, the
 # knowledge base's Pin llmwiki workflow is dispatched to repin it, with
 # KB_DISPATCH_TOKEN: a fine-grained token whose only permission is Actions
-# read/write on Octember/knowledge-base.
+# read/write on Octember/knowledge-base. Without that secret the publish still
+# succeeds and the run carries a warning; the KB catches up when Pin llmwiki is
+# run by hand.
 #
 # Only the newest KEEP commits' assets are kept. A consumer pinned to an older
 # commit (more than KEEP merges behind main) can no longer install from scratch.
@@ -84,7 +86,12 @@ jobs:
         if: steps.published.outputs.done != 'true'
         env:
           GH_TOKEN: ${{ secrets.KB_DISPATCH_TOKEN }}
-        run: gh workflow run pin-llmwiki.yml --repo Octember/knowledge-base --ref main
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::KB_DISPATCH_TOKEN is not set, so the knowledge base was not told about ${GITHUB_SHA:0:7}"
+            exit 0
+          fi
+          gh workflow run pin-llmwiki.yml --repo Octember/knowledge-base --ref main
       - name: Prune all but the newest commits
         run: |
           id=$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .id)
