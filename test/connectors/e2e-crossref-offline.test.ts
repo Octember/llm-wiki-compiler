@@ -153,7 +153,7 @@ function contentSnapshot(root: string, frontmatter: Record<string, unknown>, bod
     }],
     links: [],
     warnings: [],
-    index: { available: false, href: "", body: "", outgoingLinks: [] },
+    index: { available: false, href: "", body: "" },
   } as const;
 }
 

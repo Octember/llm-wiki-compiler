@@ -55,7 +55,7 @@ const MIN_LOG_ENTRIES = 3;
  */
 export function sourceDayRanges(file: string, text: string, timeZone: string): Map<string, LineRange[]> {
   const lines = text.split("\n");
-  const bodyStart = frontmatterEnd(lines) + 1;
+  const bodyStart = frontmatterCloseLine(lines) + 1;
   const body = bodyRange(lines, bodyStart);
   if (!body) return new Map();
   const stamped = stampedLineDays(lines, bodyStart, timeZone);
@@ -77,7 +77,7 @@ function readsAsLog(stamped: Map<number, string>, hasFileDay: boolean): boolean 
 }
 
 /** The 1-based line of the closing frontmatter fence, or 0 when the file has no frontmatter. */
-function frontmatterEnd(lines: string[]): number {
+function frontmatterCloseLine(lines: string[]): number {
   if (lines[0]?.trim() !== FRONTMATTER_FENCE) return 0;
   const close = lines.findIndex((line, index) => index > 0 && line.trim() === FRONTMATTER_FENCE);
   return close === -1 ? 0 : close + 1;
@@ -173,12 +173,17 @@ function normalizeOffset(offset: string): string {
   return /^[+-]\d{4}$/.test(offset) ? `${offset.slice(0, 3)}:${offset.slice(3)}` : offset;
 }
 
+/** One day formatter per time zone: building one per timestamp dominates a busy source's cost. */
+const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+
 /** The calendar day an absolute instant falls on in `timeZone`, or null when it does not parse. */
 function zonedDay(instant: string, timeZone: string): string | null {
   const time = Date.parse(instant);
   if (Number.isNaN(time)) return null;
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
+  const formatter = dayFormatters.get(timeZone) ?? new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  dayFormatters.set(timeZone, formatter);
+  const part = Object.fromEntries(formatter.formatToParts(time).map(({ type, value }) => [type, value]));
+  return `${part.year}-${part.month}-${part.day}`;
 }
 
 /** The body's lines without trailing blank lines, or null when the body is empty. */

@@ -20,7 +20,6 @@ import pLimit from "p-limit";
 import type { LineRange, PageRequest } from "../compiler/source-excerpt.js";
 import type { LLMTool } from "../utils/provider.js";
 import { extractionTool, structuralDigest, type ExtractableType } from "./schema.js";
-import type { Mention } from "./identity.js";
 
 /** Characters of numbered source text one extraction call carries. */
 const CHUNK_CHARS = 60_000;
@@ -192,22 +191,14 @@ export function parseRecords(answer: string, types: ExtractableType[], lineCount
   }));
 }
 
-/** An address rather than a name, which is never kept as a spelling. */
-const ADDRESS = /@|:\/\//;
-/** A possessive ending after a lowercase letter ("Ben’s", "parents’"), which is not part of the name; "O'S" is left alone. */
-const POSSESSIVE = /(?<=\p{Ll})['’]s?$/u;
-
-/** A spelling as kept: trimmed, without a possessive ending. */
-export function cleanSpelling(form: string): string {
-  return form.trim().replace(POSSESSIVE, "").trim();
+/** The strings in a `writtenAs` answer, as the model wrote them; identity reads them into spellings. */
+function spellings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((form): form is string => typeof form === "string") : [];
 }
 
-/** The distinct names in a `writtenAs` answer: trimmed, without possessive endings, and without addresses. */
-function spellings(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const forms = value.filter((form): form is string => typeof form === "string" && !ADDRESS.test(form))
-    .map(cleanSpelling).filter(Boolean);
-  return [...new Set(forms)];
+/** One record as one source names it: an extracted record and the file it came from. */
+export interface Mention extends ExtractedRecord {
+  file: string;
 }
 
 /** Every mention of `type` across the cached sources, in file order. */

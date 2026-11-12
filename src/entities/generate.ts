@@ -28,11 +28,13 @@ import {
 import { sourcesExcerpt, splitAnswer, type ShownLines } from "../compiler/source-excerpt.js";
 import { dayBuckets, type DayBucket } from "../timeline/buckets.js";
 import { mentionsOf, refreshExtractions, type ExtractionCache, type ExtractSteps } from "./extract.js";
-import { ownerPageId, possibleDuplicates, resolveRecords, type AliasRegistry, type ResolvedRecord } from "./identity.js";
+import { ownerPageId, resolveRecords, type ResolvedRecord } from "./identity.js";
+import { possibleDuplicates } from "./duplicates.js";
+import type { AliasRegistry } from "./registry.js";
 import type { ExtractableType } from "./schema.js";
 import {
   agreedFields, entityReport, isRecordPage, meetsFieldContract, recordDays, recordPage, recordPageRequest, recordSignature, recordTail, shownSources, withAliases,
-  type RecordPageMeta,
+  aliasesOf, withoutAliases, type RecordPageMeta,
 } from "./pages.js";
 
 /** The reads, model calls and writes the entity step composes. */
@@ -80,7 +82,7 @@ export async function generateEntitiesWith(steps: EntitySteps, config: EntityCon
   const result: EntityResult = { extracted: 0, written: [], deleted: [], errors: [] };
   if (config.types.length === 0) return result;
   const registry = await steps.readRegistry();
-  result.errors.push(...unknownExcludeTypes(registry, config.types));
+  result.errors.push(...unknownRegistryTypes(registry, config.types));
   const read = await readSources(steps);
   const extraction = await refreshExtractions(steps, {
     types: config.types, sources: read, previous: await steps.readCache(), ownerNames: registry.owner?.names ?? [], concurrency: config.concurrency,
@@ -96,11 +98,12 @@ export async function generateEntitiesWith(steps: EntitySteps, config: EntityCon
   return result;
 }
 
-/** A report for each `exclude` key that names no opted-in type, so a misspelled type is not silently ignored. */
-function unknownExcludeTypes(registry: AliasRegistry, types: ExtractableType[]): string[] {
+/** A report for each registry key (`entities`, `exclude`, `distinct`) naming a type that is not extracted, so a misspelled type is not silently ignored. */
+function unknownRegistryTypes(registry: AliasRegistry, types: ExtractableType[]): string[] {
   const known = new Set(types.map(({ type }) => type));
-  return Object.keys(registry.exclude ?? {}).filter((type) => !known.has(type))
-    .map((type) => `.llmwiki/aliases.json excludes names from "${type}", which is not an extracted type; ignored`);
+  return (["entities", "exclude", "distinct"] as const).flatMap((key) => Object.keys(registry[key] ?? {})
+    .filter((type) => !known.has(type))
+    .map((type) => `.llmwiki/aliases.json "${key}" names "${type}", which is not an extracted type; ignored`));
 }
 
 /** Write one type's record pages, and remove its pages for records that are gone (never the owner page). */
@@ -122,7 +125,6 @@ async function writeType(step: StepContext, type: ExtractableType, cache: Extrac
 /** What a record page is built from, before any model call. */
 interface RecordDraft {
   record: ResolvedRecord;
-  title: string;
   fields: Record<string, unknown>;
   excerpt: { text: string; shown: ShownLines[] };
   signature: string;
@@ -135,10 +137,10 @@ async function planRecord(ctx: TypeContext, record: ResolvedRecord, sameIds: str
   const fields = agreedFields(ctx.type, record);
   const excerpt = sourcesExcerpt(shownSources(record, ctx.texts), ctx.texts);
   const maybeSame: PageLink[] = sameIds.map((id) => ({ target: `${ctx.type.type}/${id}`, title: ctx.titles.get(id) ?? id }));
-  const draft: RecordDraft = { record, title, fields, excerpt, signature: recordSignature(title, fields, excerpt.text), tail: recordTail(recordDays(record, ctx.days), maybeSame) };
+  const draft: RecordDraft = { record, fields, excerpt, signature: recordSignature(title, fields, excerpt.text), tail: recordTail(recordDays(record, ctx.days), maybeSame) };
   const page = ctx.pages.get(record.id);
   if (!page || stringField(page.meta, "entitySignature") !== draft.signature) return regenerate(ctx, draft, page);
-  const text = withGenerated(withAliases(fitPageCitations(page.text, excerpt.shown), aliasesOf(record, title, fields)), draft.tail);
+  const text = withGenerated(withAliases(fitPageCitations(page.text, excerpt.shown), aliasesOf(record, fields)), draft.tail);
   return text === page.text ? null : entityWrite(ctx, record.id, text);
 }
 
@@ -151,7 +153,7 @@ async function regenerate(ctx: TypeContext, draft: RecordDraft, page: OwnPage | 
   const { record } = draft;
   const meta = recordMeta(ctx, draft, page);
   if (!meetsFieldContract(ctx.report, record.id, meta, ctx.type.def)) return null;
-  const request = recordPageRequest(ctx.type.type, draft.title, draft.excerpt.text, ctx.registry.owner?.names ?? []);
+  const request = recordPageRequest(ctx.type.type, record.title, draft.excerpt.text, ctx.registry.owner?.names ?? []);
   const answer = await completePage(ctx.report, ctx.steps, request, record.id);
   if (answer === null) return null;
   const { summary, body } = splitAnswer(fitAndReportCitations(ctx.report, record.id, answer, draft.excerpt.shown));
@@ -160,25 +162,13 @@ async function regenerate(ctx: TypeContext, draft: RecordDraft, page: OwnPage | 
 
 /** A record page's frontmatter fields, with the summary still to come. */
 function recordMeta(ctx: TypeContext, draft: RecordDraft, page: OwnPage | undefined): RecordPageMeta {
-  const { record, title, fields } = draft;
+  const { record, fields } = draft;
   const now = ctx.steps.now();
   return {
-    title, titleField: ctx.type.def.titleField, summary: "", aliases: aliasesOf(record, title, fields), fields: withoutAliases(fields),
+    title: record.title, titleField: ctx.type.def.titleField, summary: "", aliases: aliasesOf(record, fields), fields: withoutAliases(fields),
     signature: draft.signature, sources: [...new Set(record.mentions.map((mention) => mention.file))].sort(),
     createdAt: createdAtOf(page, now), updatedAt: now, provenance: ctx.steps.provenance(),
   };
-}
-
-/** Every other name the record went by, how the sources wrote it, and any `aliases` the sources gave. */
-function aliasesOf(record: ResolvedRecord, title: string, fields: Record<string, unknown>): string[] {
-  const given = Array.isArray(fields.aliases) ? fields.aliases as string[] : [];
-  return [...new Set([...record.names, ...record.writtenAs, ...given])].filter((name) => name !== title);
-}
-
-/** The agreed fields without `aliases`, which the page carries from {@link aliasesOf}. */
-function withoutAliases(fields: Record<string, unknown>): Record<string, unknown> {
-  const { aliases: _aliases, ...rest } = fields;
-  return rest;
 }
 
 /** A page write for `id` in the type's directory. */

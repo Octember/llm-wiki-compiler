@@ -47,8 +47,7 @@ import { countCandidatesFrom } from "../compiler/candidate-read.js";
 import { readStateClassifiedFrom, isPlainObject } from "../utils/state.js";
 import { readCappedNoFollow } from "../utils/confined-read.js";
 import type { ClassifiedState } from "../utils/state.js";
-import { collectViewerPagesFrom, decorateEntityPages, linkPages, resolveWikilinkTargets } from "./collect.js";
-import { extractWikilinkSlugs } from "../wiki/collect.js";
+import { collectViewerPagesFrom, decorateEntityPages, linkPages } from "./collect.js";
 import { isMalformedCitationEntry, splitCitationMarker } from "../utils/markdown.js";
 import { buildGraphData, type GraphBuildOptions } from "./graph.js";
 import { pageTimestamp } from "./page-fields.js";
@@ -69,7 +68,6 @@ import { UNRESOLVED_CITATION_CODE } from "./types.js";
 import type {
   DefaultViewerPage,
   ViewerCounts,
-  ViewerIndex,
   ViewerPage,
   ViewerProject,
   ViewerRecentPage,
@@ -210,7 +208,7 @@ export async function buildViewerSnapshotFrom(sources: ViewerSnapshotSources): P
     ]);
   const freshnessSnapshot = await buildFreshnessSnapshotFrom(bindings.freshness, classified);
   const decorate = buildPageDecorator(sourceFilenames, freshnessSnapshot);
-  const { typedPages, linkable } = withTypedPages(defaultPages, typed?.pages ?? []);
+  const typedPages = linkTypedPages(defaultPages, typed?.pages ?? []);
   const annotatedDefault = defaultPages.map(decorate);
   const annotatedTyped = typedPages.map(decorate);
   const pages = attachEntityContexts([...annotatedDefault, ...annotatedTyped], typed?.graph.relations ?? [], sourceFilenames);
@@ -228,7 +226,7 @@ export async function buildViewerSnapshotFrom(sources: ViewerSnapshotSources): P
     stateStatus: classified.status,
     project: buildProject(root),
     counts: buildCounts(annotatedDefault, sourceFilenames, pendingReviews, countableState(classified)),
-    index: buildFullIndex(index, linkable),
+    index: { ...index, href: INDEX_HREF },
     recentPages: buildRecentPages(pages.filter(isKnowledgePage)),
     pages,
     sourceFilenames,
@@ -269,28 +267,14 @@ function countableState(classified: ClassifiedState): { sources: Record<string, 
 }
 
 /**
- * The typed pages as viewer pages, and every page a link may name. Typed pages
- * link, and are linked to by qualified links, only once both lists exist, so
- * with any typed page every page is linked again over the two together.
+ * The typed pages as viewer pages. Typed pages link, and are linked to by
+ * qualified links, only once both lists exist, so with any typed page every
+ * page is linked again over the two together.
  */
-function withTypedPages(defaultPages: ViewerPage[], entityPages: EntityPage[]): { typedPages: ViewerPage[]; linkable: ViewerPage[] } {
+function linkTypedPages(defaultPages: ViewerPage[], entityPages: EntityPage[]): ViewerPage[] {
   const typedPages = decorateEntityPages(entityPages);
-  const linkable = [...defaultPages, ...typedPages];
-  if (typedPages.length > 0) linkPages(linkable);
-  return { typedPages, linkable };
-}
-
-/** The captured `wiki/index.md` state plus its wikilinks resolved against every page. */
-function buildFullIndex(
-  index: { available: boolean; body: string },
-  pages: ViewerPage[],
-): ViewerIndex {
-  return {
-    available: index.available,
-    href: INDEX_HREF,
-    body: index.body,
-    outgoingLinks: resolveWikilinkTargets(extractWikilinkSlugs(index.body), pages),
-  };
+  if (typedPages.length > 0) linkPages([...defaultPages, ...typedPages]);
+  return typedPages;
 }
 
 /** The typed graph inputs, each entity node carrying its page's resolved wikilinks. */

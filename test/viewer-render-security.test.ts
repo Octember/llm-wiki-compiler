@@ -18,7 +18,7 @@ const SNAPSHOT: ViewerSnapshot = {
   generatedAt: "2026-05-12T00:00:00.000Z",
   project: { title: "test-wiki", rootName: "test-wiki" },
   counts: { concepts: 0, queries: 0, sourceFiles: 0, pendingReviews: 0, compiledSources: 0 },
-  index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+  index: { available: false, href: "/#/index", body: "" },
   recentPages: [],
   pages: [],
   sourceFilenames: [],

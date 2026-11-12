@@ -11,7 +11,7 @@ const snapshot: ViewerSnapshot = {
   root: "/tmp/wiki", generatedAt: "2026-09-18T00:00:00Z",
   project: { title: "Test", rootName: "test" }, stateStatus: "missing",
   counts: { concepts: 0, queries: 0, sourceFiles: 1, pendingReviews: 0, compiledSources: 0, stale: 0, orphaned: 0 },
-  index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+  index: { available: false, href: "/#/index", body: "" },
   recentPages: [], pages: [], sourceFilenames: ["source.md"],
   graph: { nodes: [], edges: [] },
 };

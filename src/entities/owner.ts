@@ -28,7 +28,8 @@ import {
 } from "../compiler/derived-steps.js";
 import { SUMMARY_PREFIX, splitAnswer, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
 import { TIMELINE_NAMESPACE, weekPages } from "../timeline/pages.js";
-import { ownerPageId, type AliasRegistry } from "./identity.js";
+import { ownerPageId } from "./identity.js";
+import type { AliasRegistry } from "./registry.js";
 import { entityReport, isRecordPage, meetsFieldContract, recordPage, withAliases, type RecordPageMeta } from "./pages.js";
 import type { ExtractableType } from "./schema.js";
 

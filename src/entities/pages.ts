@@ -21,7 +21,7 @@ import { buildFrontmatter, parseFrontmatter } from "../utils/markdown.js";
 import { linkList, withGenerated, type PageLink } from "../wiki/generated-section.js";
 import { CITED_BULLETS, mergeByFile, SUMMARY_PREFIX, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
 import type { DayBucket } from "../timeline/buckets.js";
-import { dayCovers, formatDay } from "../timeline/pages.js";
+import { dayCovers, formatDay, TIMELINE_NAMESPACE } from "../timeline/pages.js";
 import type { ExtractableType } from "./schema.js";
 import type { ResolvedRecord } from "./identity.js";
 
@@ -159,10 +159,22 @@ export function withAliases(text: string, aliases: string[]): string {
   return buildFrontmatter(Object.fromEntries(entries)) + text.slice(end);
 }
 
+/** Every other name the record went by or the sources wrote, and any `aliases` the sources gave: the page's `aliases`. */
+export function aliasesOf(record: ResolvedRecord, fields: Record<string, unknown>): string[] {
+  const given = Array.isArray(fields.aliases) ? fields.aliases as string[] : [];
+  return [...new Set([...record.names, ...given])].filter((name) => name !== record.title);
+}
+
+/** The agreed fields without `aliases`, which the page carries from {@link aliasesOf}. */
+export function withoutAliases(fields: Record<string, unknown>): Record<string, unknown> {
+  const { aliases: _aliases, ...rest } = fields;
+  return rest;
+}
+
 /** The timeline days a record is mentioned on, oldest first, as links to their pages. */
 export function recordDays(record: ResolvedRecord, days: DayBucket[]): PageLink[] {
   return days.filter((day) => record.mentions.some((mention) => mention.lines.some((lines) => dayCovers(day, mention.file, lines))))
-    .map((day) => ({ target: `timeline/${day.day}`, title: formatDay(day.day, false) }));
+    .map((day) => ({ target: `${TIMELINE_NAMESPACE}/${day.day}`, title: formatDay(day.day) }));
 }
 
 /** A record page's generated tail: the days it appears on, then the records it might be the same as. */

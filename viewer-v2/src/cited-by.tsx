@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import { getJson } from "./api";
 import { AsyncView } from "./async-view";
 import { Card, RangeChip, RowList } from "./components";
-import { rangeLabel } from "./page-model";
+import { rangeLabel } from "./citation-label";
 import { pageIdHref, sourceHref } from "./route";
 import { useAsync } from "./use-async";
 import { plural } from "./wiki-model";

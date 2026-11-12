@@ -512,7 +512,6 @@ function handleApiIndex(
   }
   writeJson(res, 200, {
     html: rendered.html,
-    outgoingLinks: snapshot.index.outgoingLinks,
     generatedAt: snapshot.generatedAt,
   });
 }

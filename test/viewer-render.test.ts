@@ -42,7 +42,7 @@ function buildSnapshot(pages: ViewerPage[], sourceFilenames: string[] = []): Vie
       pendingReviews: 0,
       compiledSources: 0,
     },
-    index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+    index: { available: false, href: "/#/index", body: "" },
     recentPages: [],
     pages,
     sourceFilenames,

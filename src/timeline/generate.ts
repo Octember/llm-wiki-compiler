@@ -28,14 +28,17 @@ import {
 } from "../compiler/derived-steps.js";
 import { dayBuckets, weekBuckets, type DayBucket, type WeekBucket } from "./buckets.js";
 import { dailyRequest, weeklyRequest } from "./prompts.js";
-import { isTimelinePage, pagesCitingDay, peopleInDay, timelinePage, TIMELINE_NAMESPACE, withDaySections, type CitingPage, type DaySections, type PersonMentions } from "./pages.js";
+import { extractClaimCitations } from "../utils/markdown.js";
+import {
+  isTimelinePage, linksOnDay, timelinePage, TIMELINE_NAMESPACE, withDaySections, type CitingPage, type DaySections, type SpannedLink, type TimelinePageMeta,
+} from "./pages.js";
 
 /** The reads, model call and write a timeline pass composes. */
 export interface TimelineSteps extends DerivedSteps {
   /** The concept pages, for each day's "Pages from this day" section. */
   listConceptPages(): Promise<CitingPage[]>;
   /** The people with the lines they are mentioned on, for each day's "People this day" section. */
-  listPeople(): Promise<PersonMentions[]>;
+  listPeople(): Promise<SpannedLink[]>;
   /** One model completion. */
   complete(request: PageRequest): Promise<string>;
 }
@@ -46,9 +49,10 @@ export interface TimelineRun {
   concurrency: number;
 }
 
-/** What one pass works over: its steps, the pages it wrote before, its concurrency, and where it reports. */
+/** What one pass works over: its steps, the sources' texts, the pages it wrote before, its concurrency, and where it reports. */
 interface TimelinePass {
   steps: TimelineSteps;
+  texts: Map<string, string>;
   existing: Map<string, OwnPage>;
   limit: LimitFunction;
   report: PageReport;
@@ -60,29 +64,23 @@ interface PeriodWrite {
   body?: string;
 }
 
-/** What a regenerated period page is built from, besides the model's answer. */
-interface PeriodPage {
-  kind: "daily" | "weekly";
-  period: string;
-  sources: string[];
-  signature: string;
-  /** The source lines the model was shown, which its citations are fitted to. */
-  shown: ShownLines[];
-}
+/** What a regenerated period page is built from, besides the model's answer: its frontmatter, and the source lines the model was shown, which its citations are fitted to. */
+type PeriodPage = Pick<TimelinePageMeta, "kind" | "period" | "sources" | "signature"> & { shown: ShownLines[] };
 
 /** Bring `wiki/timeline/` up to date with the sources. */
 export async function generateTimelineWith(steps: TimelineSteps, run: TimelineRun): Promise<DerivedResult> {
   const report = timelineReport();
   const read = await readSources(steps);
-  const texts = new Map(read.map((source) => [source.file, source.text]));
   const allDays = dayBuckets(read, run.timeZone);
   const { own: existing, foreign } = ownPages(await steps.listPages(TIMELINE_NAMESPACE), isTimelinePage);
-  const pass: TimelinePass = { steps, existing, limit: pLimit(run.concurrency), report };
+  const pass: TimelinePass = { steps, texts: new Map(read.map((source) => [source.file, source.text])), existing, limit: pLimit(run.concurrency), report };
+  const allWeeks = weekBuckets(allDays);
   const days = allDays.filter((day) => claimable(report, day.day, foreign));
-  const weeks = weekBuckets(allDays).filter((week) => claimable(report, week.week, foreign) && hasNoForeignDay(report, week, foreign));
-  const dailyBodies = await writeDays(pass, days, texts);
-  await writeWeeks(pass, weeks, dailyBodies);
-  await deleteAndReport(report, steps, orphanDeletes(pass, days, weeks));
+  const weeks = allWeeks.filter((week) => claimable(report, week.week, foreign) && hasNoForeignDay(report, week, foreign));
+  const dailyBodies = await writeDays(pass, days, soleDayOf(allDays));
+  await planAndCommit(pass, weeks, (week) => planWeek(pass, week, dailyBodies));
+  // A page is an orphan only when no source covers its period; a week held back by a hand-written day keeps its page.
+  await deleteAndReport(report, steps, orphanDeletes(pass, allDays, allWeeks));
   return report.result;
 }
 
@@ -113,20 +111,19 @@ function hasNoForeignDay(report: PageReport, week: WeekBucket, foreign: Readonly
  * pages moved, without a model call.
  * @returns Day → page body of the days written, for the weekly pass.
  */
-async function writeDays(pass: TimelinePass, days: DayBucket[], texts: Map<string, string>): Promise<Map<string, string>> {
+async function writeDays(pass: TimelinePass, days: DayBucket[], soleDays: ReadonlyMap<string, string>): Promise<Map<string, string>> {
   if (days.length === 0) return new Map();
   const [conceptPages, people] = await Promise.all([pass.steps.listConceptPages(), pass.steps.listPeople()]);
-  const singleDayFiles = singleDaySources(days);
-  const planned = await Promise.all(days.map((day) => pass.limit(() => planDay(pass, day, texts, {
-    related: pagesCitingDay(day, conceptPages, singleDayFiles), people: peopleInDay(day, people),
-  }))));
-  return commit(pass, planned);
+  const cited: SpannedLink[] = conceptPages.map((page) => ({
+    target: page.slug, title: page.title, spans: extractClaimCitations(page.body).flatMap((citation) => citation.spans),
+  }));
+  return planAndCommit(pass, days, (day) => planDay(pass, day, { related: linksOnDay(day, cited, soleDays), people: linksOnDay(day, people, soleDays) }));
 }
 
 /** A day's write: its page regenerated when its lines changed, else its citations and tail refreshed, else nothing. */
-async function planDay(pass: TimelinePass, day: DayBucket, texts: Map<string, string>, sections: DaySections): Promise<PeriodWrite | null> {
+async function planDay(pass: TimelinePass, day: DayBucket, sections: DaySections): Promise<PeriodWrite | null> {
   const page = pass.existing.get(day.day);
-  const { request, shown } = dailyRequest(day, texts);
+  const { request, shown } = dailyRequest(day, pass.texts);
   if (page && storedSignature(page) === day.signature) {
     const updated = withDaySections(fitPageCitations(page.text, shown), sections);
     return updated === page.text ? null : { write: timelineWrite(day.day, updated) };
@@ -135,11 +132,6 @@ async function planDay(pass: TimelinePass, day: DayBucket, texts: Map<string, st
   if (answer === null) return null;
   const sources = day.sources.map((source) => source.file);
   return periodWrite(pass, { kind: "daily", period: day.day, sources, signature: day.signature, shown }, answer, sections);
-}
-
-/** Write every week whose days changed and whose days all have pages, and fit the citations of the others. */
-async function writeWeeks(pass: TimelinePass, weeks: WeekBucket[], freshDays: Map<string, string>): Promise<void> {
-  await commit(pass, await Promise.all(weeks.map((week) => pass.limit(() => planWeek(pass, week, freshDays)))));
 }
 
 /**
@@ -185,18 +177,22 @@ function timelineWrite(slug: string, text: string): CompilePageWrite {
   return { namespace: TIMELINE_NAMESPACE, slug, body: text };
 }
 
-/** Apply the planned writes; returns slug → body of the regenerated pages that landed, for the weekly pass. */
-async function commit(pass: TimelinePass, planned: (PeriodWrite | null)[]): Promise<Map<string, string>> {
-  const ready = planned.filter((plan): plan is PeriodWrite => plan !== null);
-  const landed = new Set(await writeAndReport(pass.report, pass.steps, ready.map((plan) => plan.write)));
-  return new Map(ready.filter((plan) => plan.body && landed.has(plan.write)).map((plan) => [plan.write.slug, plan.body!]));
+/**
+ * Plan each item's write, at most the pass's concurrency at once, and apply the
+ * writes together; returns slug → body of the regenerated pages that landed, for the weekly pass.
+ */
+async function planAndCommit<T>(pass: TimelinePass, items: T[], plan: (item: T) => Promise<PeriodWrite | null>): Promise<Map<string, string>> {
+  const planned = await Promise.all(items.map((item) => pass.limit(() => plan(item))));
+  const ready = planned.filter((write): write is PeriodWrite => write !== null);
+  const landed = new Set(await writeAndReport(pass.report, pass.steps, ready.map((period) => period.write)));
+  return new Map(ready.filter((period) => period.body && landed.has(period.write)).map((period) => [period.write.slug, period.body!]));
 }
 
-/** Files whose dated content falls on exactly one day, so a whole-file citation of them belongs to that day. */
-function singleDaySources(days: DayBucket[]): Set<string> {
-  const dayCount = new Map<string, number>();
-  for (const day of days) for (const source of day.sources) dayCount.set(source.file, (dayCount.get(source.file) ?? 0) + 1);
-  return new Set([...dayCount].filter(([, count]) => count === 1).map(([file]) => file));
+/** File → the one day its dated content falls on, for each file on exactly one day: a whole-file citation of it belongs to that day. */
+function soleDayOf(days: DayBucket[]): Map<string, string> {
+  const daysOf = new Map<string, string[]>();
+  for (const day of days) for (const source of day.sources) daysOf.set(source.file, [...(daysOf.get(source.file) ?? []), day.day]);
+  return new Map([...daysOf].filter(([, fileDays]) => fileDays.length === 1).map(([file, [day]]) => [file, day]));
 }
 
 /**
@@ -206,5 +202,5 @@ function singleDaySources(days: DayBucket[]): Set<string> {
 function currentBody(pass: TimelinePass, day: DayBucket): string {
   const page = pass.existing.get(day.day);
   if (!page || storedSignature(page) !== day.signature) return "";
-  return pageBody(page.text);
+  return pageBody(page);
 }

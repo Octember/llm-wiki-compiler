@@ -90,8 +90,8 @@ export function frontmatterEnd(text: string): number {
 }
 
 /** A page's model-written body: after the frontmatter, before the generated tail, trimmed. */
-export function pageBody(text: string): string {
-  return withoutGenerated(parseFrontmatter(text).body).trim();
+export function pageBody(page: OwnPage): string {
+  return withoutGenerated(page.body).trim();
 }
 
 /** When a page was first written: its `createdAt`, or `now` for a new page. */
@@ -104,10 +104,11 @@ export function warnErrors(result: DerivedResult): void {
   for (const error of result.errors) output.status("!", output.warn(error));
 }
 
-/** A page a step wrote before: its text and parsed frontmatter. */
+/** A page a step wrote before: its text, its parsed frontmatter, and the body after it. */
 export interface OwnPage {
   text: string;
   meta: Record<string, unknown>;
+  body: string;
 }
 
 /**
@@ -119,8 +120,8 @@ export function ownPages(texts: Map<string, string>, isOwn: (meta: Record<string
   const own = new Map<string, OwnPage>();
   const foreign = new Set<string>();
   for (const [slug, text] of texts) {
-    const { meta } = parseFrontmatter(text);
-    if (text && isOwn(meta)) own.set(slug, { text, meta });
+    const { meta, body } = parseFrontmatter(text);
+    if (text && isOwn(meta)) own.set(slug, { text, meta, body });
     else foreign.add(slug);
   }
   return { own, foreign };

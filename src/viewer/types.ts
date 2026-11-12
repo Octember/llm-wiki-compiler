@@ -189,7 +189,6 @@ export interface ViewerIndex {
   available: boolean;
   href: string;
   body: string;
-  outgoingLinks: ViewerPageId[];
 }
 
 /**

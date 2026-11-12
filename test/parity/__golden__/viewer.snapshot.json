@@ -81,12 +81,7 @@
   "index": {
     "available": true,
     "body": "# Wiki Index\n\n## Concepts\n- [[alpha]]\n- [[beta]]\n\n## Queries\n- [[what-is-alpha]]\n",
-    "href": "/#/index",
-    "outgoingLinks": [
-      "concepts/alpha",
-      "concepts/beta",
-      "queries/what-is-alpha"
-    ]
+    "href": "/#/index"
   },
   "pages": [
     {

@@ -5,35 +5,24 @@
  * profile object and a typed `ProfilePack`. It is all-or-nothing: ANY violation
  * throws `ProfileValidationError` and nothing is returned.
  *
- * Validation runs in two phases:
  *  1. STRUCTURAL (ajv): the published JSON Schema at
- *     `./schema/profile.v1.schema.json` (draft 2020-12) is the runtime enforcer
- *     for structure, types, enums, and `additionalProperties` — compiled once in
- *     `schema-validator.ts`. The schema is the single source of truth here; the
- *     hand validator used to drift from it, so that responsibility now lives in
- *     the schema.
- *  2. SEMANTIC (post-ajv): the checks JSON Schema cannot express — directory
- *     canonicalization + uniqueness + reserved-root confinement, requiredFields
- *     references, lifecycle FSM well-formedness, slug-safe entity-type keys,
- *     defensive non-finite-number rejection, the unsupported `extends`
- *     inheritance, relation-type well-formedness (slug-safe keys, declared
- *     endpoints, requiredAttributes membership), lifecycle relation-count
- *     precondition well-formedness (declared state/relation-type, coherent
- *     role/endpoint, satisfiable otherTypes, integer minCount — see
- *     `validate-relation-requirements.ts`), workflow well-formedness
- *     (slug-safe + non-reserved workflow keys, slug-safe and unique stage ids,
- *     declared reads/writes endpoints, well-formed gates), workflow-action
- *     well-formedness (slug-safe dotted + non-reserved action ids, declared
- *     workflow references, well-formed gate/trustGate, gate-requirement rules for
- *     every mutating operation incl. cancel — only `status` is exempt —, and
- *     action-input rules: an entityRef input requires a non-empty `entityTypes`
- *     of declared types, `entityTypes` is rejected on non-entityRef fields, and a
- *     field `default` must match its declared type), lifecycle required-artifact
- *     precondition enforceability (declared state, artifactRef-typed field, declared
- *     + in-scope artifact type — M1) and intra-run DAG ordering (a required artifact
- *     must be produced by a strictly-upstream workflow stage — M3; see
- *     `validate-artifact-requirements.ts`), and (in
- *     `validateProfile` only) reserved profile ids.
+ *     `./schema/profile.v1.schema.json` (draft 2020-12), compiled once in
+ *     `schema-validator.ts`, enforces structure, types, enums and
+ *     `additionalProperties`. The schema is the single source of truth for them.
+ *  2. SEMANTIC: what JSON Schema cannot express, in this order:
+ *     - no `extends` inheritance (here);
+ *     - entity types (`validate-entities.ts`, with `validate-lifecycle.ts`,
+ *       `validate-extract.ts` and `validate-field-defs.ts`);
+ *     - relation types (here) and lifecycle relation-count preconditions
+ *       (`validate-relation-requirements.ts`);
+ *     - workflows (`validate-workflows.ts`) and workflow actions
+ *       (`validate-workflow-actions.ts`);
+ *     - artifact types (here, with `validate-artifact-members.ts`);
+ *     - connector bindings (here);
+ *     - lifecycle required-artifact preconditions and their ordering
+ *       (`validate-artifact-requirements.ts`);
+ *     - and, in `validateProfile` only, reserved profile ids, directories and
+ *       entity type names.
  *
  * Validation NEVER mutates the caller's input: the raw object is cloned up
  * front and only the clone is canonicalized and returned. `validateProfileShape`
@@ -43,26 +32,20 @@
  * Unreachable lifecycle states are collected as warnings, not errors.
  */
 
-import type { ProfilePack, EntityTypeDef, FieldDef, FieldType, LifecycleDef, RelationTypeDef, WorkflowDef, WorkflowStageDef } from "./types.js";
-import { BODY_TIER_TOKEN } from "./types.js";
+import type { ProfilePack, EntityTypeDef, RelationTypeDef } from "./types.js";
 import { isSlugSafe } from "./identity.js";
-import { PROFILE_V1_RESERVED_VERBS } from "./reserved-verbs.js";
-import { assert, lifecycleStates } from "./validate-helpers.js";
+import { assert, isDeclared } from "./validate-helpers.js";
 import { validateWorkflowActions } from "./validate-workflow-actions.js";
 import { assertRelationRequirementsDeclared } from "./validate-relation-requirements.js";
 import { assertArtifactRequirementsDeclared, collectArtifactOrderingWarnings } from "./validate-artifact-requirements.js";
-import { validateEntityDirectory, isInsidePosixDir } from "./paths.js";
 import { assertStructurallyValid } from "./schema-validator.js";
-import { ProfileValidationError } from "./errors.js";
-import { SOURCES_DIR, LLMWIKI_DIR, EXPORT_DIR, CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR, WORKFLOW_PROJECTION_DIR } from "../utils/constants.js";
+import { CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR } from "../utils/constants.js";
 import { isValidArtifactFileName, MAX_ARTIFACT_BYTES } from "../artifacts/name.js";
 import { getConnectorDef } from "../connectors/registry.js";
 import { assertMembersDef } from "./validate-artifact-members.js";
-import { validateStageExecutor, validateStageGate, validateSubjectGate } from "./validate-stage-authority.js";
-import { validateExtract, validateRequiredFields } from "./validate-extract.js";
-
-
-
+import { assertArtifactTypesScoped, assertFieldDefFinite, assertFieldFormatScoped } from "./validate-field-defs.js";
+import { validateEntities } from "./validate-entities.js";
+import { validateWorkflows } from "./validate-workflows.js";
 
 export { ProfileValidationError } from "./errors.js";
 
@@ -85,18 +68,6 @@ const RESERVED_PROFILE_IDS = new Set(["default"]);
  */
 const RESERVED_DEFAULT_DIRS = new Set([CONCEPTS_DIR, QUERIES_DIR, TIMELINE_DIR]);
 
-/** Repo-relative roots an entity directory may not overlap. */
-const RESERVED_ROOTS = [
-  SOURCES_DIR,
-  LLMWIKI_DIR,
-  ".git",
-  "node_modules",
-  "dist",
-  EXPORT_DIR,
-  "wiki/graph",
-  WORKFLOW_PROJECTION_DIR,
-];
-
 /** The result of a successful validation: the typed pack plus any warnings. */
 export interface ProfileValidationResult {
   profile: ProfilePack;
@@ -114,314 +85,6 @@ function rejectInheritance(raw: ProfilePack): void {
     ext === undefined || ext.length === 0,
     "profile inheritance (extends) is not supported in this release",
   );
-}
-
-/** Reject any non-finite numeric value on one FieldDef (default/min/max). */
-function assertFieldDefFinite(where: string, field: FieldDef): void {
-  for (const key of ["default", "min", "max"] as const) {
-    const value = field[key];
-    if (typeof value === "number") {
-      assert(Number.isFinite(value), `${where} has a non-finite ${key}`);
-    }
-  }
-}
-
-/** Reject any non-finite numeric field-def or retrieval value defensively. */
-function assertFiniteNumbers(entityType: string, def: EntityTypeDef): void {
-  for (const [name, field] of Object.entries(def.fields ?? {})) {
-    assertFieldDefFinite(`entity '${entityType}' field '${name}'`, field);
-  }
-  const weight = def.retrieval?.defaultWeight;
-  if (typeof weight === "number") {
-    assert(Number.isFinite(weight), `entity '${entityType}' retrieval.defaultWeight must be finite`);
-  }
-}
-
-/**
- * Reject `artifactTypes` declared on a field whose type is not `artifactRef` /
- * `artifactRef[]` — the property is meaningless (and silently ignored) on any
- * other field type, so a profile author's typo is caught at LOAD rather than
- * producing a scope that never applies. Placement is checked FIRST: a
- * misplaced `artifactTypes` is flagged before its contents, since a field that
- * shouldn't have the property at all makes checking its contents moot.
- *
- * Once placement is confirmed, an artifactRef field's `artifactTypes` scope
- * must be non-empty (an empty array can never be satisfied by any artifact
- * type — the same silently-dead-scope failure as an undeclared entry) and
- * every named type must be DECLARED by the profile's `artifacts` block —
- * otherwise every ref would fail Layer B ({@link validateArtifactRefsAgainstProfile})
- * at runtime, a silently-dead scope caught here at load instead. Shared by
- * entity fields, relation attributes, and artifact-metadata sub-fields, which
- * all carry the same {@link FieldDef} shape.
- */
-function assertArtifactTypesScoped(where: string, name: string, field: FieldDef, declaredArtifactTypes: Set<string>): void {
-  assert(
-    field.artifactTypes === undefined || field.type === "artifactRef" || field.type === "artifactRef[]",
-    `${where} field ${JSON.stringify(name)} declares artifactTypes but is not an artifactRef field`,
-  );
-  if (field.artifactTypes === undefined) return;
-  assert(
-    field.artifactTypes.length > 0,
-    `${where} field ${JSON.stringify(name)} declares an empty artifactTypes — no artifact type could ever satisfy it`,
-  );
-  for (const t of field.artifactTypes) {
-    assert(
-      declaredArtifactTypes.has(t),
-      `${where} field ${JSON.stringify(name)} artifactTypes references undeclared artifact type ${JSON.stringify(t)}`,
-    );
-  }
-}
-
-/**
- * Reject `artifactTypes` declared on any of an entity type's fields that is not
- * `artifactRef` / `artifactRef[]`, plus scope-contents violations — see
- * {@link assertArtifactTypesScoped}.
- */
-function validateArtifactTypesScope(entityType: string, def: EntityTypeDef, declaredArtifactTypes: Set<string>): void {
-  for (const [name, field] of Object.entries(def.fields ?? {})) {
-    assertArtifactTypesScoped(`entity '${entityType}'`, name, field, declaredArtifactTypes);
-  }
-}
-
-/**
- * Field types a declarative `format` can describe. A format is a hint about how
- * to read TEXT, so on a boolean, number, date, enum or artifactRef it would be
- * config no renderer could act on — rejected at load rather than ignored later.
- */
-const FORMATTABLE_TYPES: ReadonlySet<FieldType> = new Set<FieldType>(["string", "string[]"]);
-
-/**
- * A declared `format` must sit on a field whose type it can describe.
- *
- * Applied to EVERY `FieldDef` carrier, not just entity fields: the schema
- * resolves relation `attributes` and artifact `metadata` to the same
- * `$defs/fieldDef`, so all three would otherwise accept a format the contract
- * says is invalid — and artifact metadata is projected onto the wire. Same
- * placement discipline as {@link assertArtifactTypesScoped}, which is wired into
- * all three for the same reason.
- */
-function assertFieldFormatScoped(where: string, name: string, field: FieldDef): void {
-  if (field.format === undefined) return;
-  assert(
-    FORMATTABLE_TYPES.has(field.type),
-    `${where} field '${name}': format '${field.format}' is not valid on type '${field.type}'`,
-  );
-}
-
-/** Every declared `format` on an entity's fields must describe a text type. */
-function validateFieldFormats(entityType: string, def: EntityTypeDef): void {
-  for (const [name, field] of Object.entries(def.fields ?? {})) {
-    assertFieldFormatScoped(`entity '${entityType}'`, name, field);
-  }
-}
-
-/**
- * `titleField` must name a DECLARED field that can actually hold a title.
- *
- * It is schema-typed as a bare string and was checked against nothing, so a
- * profile could title by a field it never declared and load clean — pages would
- * then silently show their slug with no diagnostic on any surface, which is the
- * failure mode the field exists to prevent.
- *
- * Only `string` qualifies. A number, boolean, date or enum is not a name; an
- * `artifactRef` is a pointer to bytes; and `slug` is excluded deliberately,
- * because the slug is already what an untitled page falls back to, so titling by
- * one would be a no-op dressed as a choice. `string[]` is excluded too: a title
- * is one value, and picking an element would be a rule the profile never stated.
- *
- * The declared-field test is confined to OWN properties. `titleField` comes from
- * profile JSON and indexes a plain object, so a bare read resolves inherited
- * names: `titleField: "constructor"` returned `Object.prototype.constructor`,
- * slipped past the undeclared-field check, and was rejected by the type check
- * below as "must be a 'string' field, not 'undefined'" — the right outcome
- * reported as the wrong problem, telling an author their field is mistyped when
- * it does not exist.
- */
-function validateTitleField(entityType: string, def: EntityTypeDef): void {
-  if (def.titleField === undefined) return;
-  const fields = def.fields ?? {};
-  assert(
-    Object.hasOwn(fields, def.titleField),
-    `entity '${entityType}' titleField '${def.titleField}' is not a declared field`,
-  );
-  const field = fields[def.titleField];
-  assert(
-    field.type === "string",
-    `entity '${entityType}' titleField '${def.titleField}' must be a 'string' field, not '${field.type}'`,
-  );
-}
-
-/**
- * Every `contentTiers` entry must be a declared field OR the reserved
- * {@link BODY_TIER_TOKEN}, and entries must be unique. An omitted or empty
- * `contentTiers` is valid (means "no projection"). A field literally named
- * `body` COLLIDES with the reserved token — the projection's `body` token always
- * emits the page body, so a declared `body` field could never be projected; that
- * ambiguity is rejected at load rather than silently misdirecting to the body.
- */
-function validateContentTiers(entityType: string, def: EntityTypeDef): void {
-  const seen = new Set<string>();
-  for (const entry of def.contentTiers ?? []) {
-    const isDeclaredOrBody = def.fields?.[entry] !== undefined || entry === BODY_TIER_TOKEN;
-    assert(isDeclaredOrBody, `entity '${entityType}' contentTiers entry '${entry}' must be a declared field or the reserved 'body' token`);
-    assert(!(entry === BODY_TIER_TOKEN && def.fields?.[BODY_TIER_TOKEN] !== undefined),
-      `entity '${entityType}' declares a field named '${BODY_TIER_TOKEN}', which collides with the reserved contentTiers 'body' token (always the page body); rename the field`);
-    assert(!seen.has(entry), `entity '${entityType}' contentTiers has duplicate entry '${entry}'`);
-    seen.add(entry);
-  }
-}
-
-/**
- * Frontmatter keys a transition's evidence may NEVER set, even if declared: the
- * page `slug` (identity, runtime-dropped at transition time) is reserved here so
- * a profile can never declare an unsatisfiable evidence requirement. The
- * lifecycle `field` is reserved too (the transition WRITES it) and is added
- * dynamically in {@link assertEvidenceFieldsDeclared}.
- */
-const RESERVED_EVIDENCE_KEYS = new Set(["slug"]);
-
-/**
- * Field types the runtime evidence gate ({@link isEvidencePresent} in
- * `lifecycle.ts`) can satisfy: a non-empty string / number / slug / enum value
- * (a non-empty enum value is a non-empty string), or a non-empty `string[]`.
- * `boolean`, `object`, and `date` are EXCLUDED — the gate rejects booleans and
- * objects (a bare `true` proves only key presence, not justification), and a
- * `date` parses to a Date object the scalar gate cannot accept. A profile
- * declaring an evidence field of an excluded type would LOAD but its target state
- * could never be entered (a permanently dead state), so it is rejected at load.
- */
-const EVIDENCE_COMPATIBLE_TYPES: ReadonlySet<FieldType> = new Set<FieldType>([
-  "string",
-  "number",
-  "integer",
-  "slug",
-  "string[]",
-  "enum",
-]);
-
-/**
- * Reject a profile whose `transitionRequirements` declares any evidence field
- * that can never be satisfied via caller evidence — a RESERVED key (`slug`, or
- * the lifecycle `field` the transition writes), one that is NOT a DECLARED entity
- * field, OR one whose declared `type` the runtime evidence gate can never satisfy
- * (see {@link EVIDENCE_COMPATIBLE_TYPES} — `boolean`/`object`/`date` would make
- * the target state permanently unreachable). Requiring evidence fields to be
- * declared makes them first-class typed fields, so the field contract enforces
- * their type/content. Fails closed at profile LOAD.
- */
-function assertEvidenceFieldsDeclared(where: string, lc: LifecycleDef, fields?: Record<string, FieldDef>): void {
-  const declared = fields ?? {};
-  for (const [state, evidenceFields] of Object.entries(lc.transitionRequirements ?? {})) {
-    for (const field of evidenceFields) {
-      const reserved = RESERVED_EVIDENCE_KEYS.has(field) || field === lc.field;
-      assert(!reserved, `${where}: transitionRequirements['${state}'] uses reserved evidence field '${field}'`);
-      assert(field in declared, `${where}: transitionRequirements['${state}'] evidence field '${field}' is not a declared field`);
-      const type = declared[field].type;
-      assert(
-        EVIDENCE_COMPATIBLE_TYPES.has(type),
-        `${where}: evidence field '${field}' has type '${type}' which can never satisfy the required-evidence gate`,
-      );
-    }
-  }
-}
-
-/**
- * Validate a lifecycle FSM and return any unreachable states as warnings.
- *
- * Well-formedness (all throw on violation): the state set is the union of the
- * terminal states and every transition endpoint; initial ∈ states; terminal ⊆
- * states; terminal states have no outgoing transitions; every transition
- * endpoint ∈ states; every transitionRequirements key ∈ states; every
- * transitionRequirements evidence FIELD is a declared, non-reserved entity field
- * (see {@link assertEvidenceFieldsDeclared}); and if the lifecycle `field` maps
- * to a declared field, that field must be an enum whose values equal the state
- * set. Unreachable states are returned, not thrown.
- */
-function validateLifecycle(entityType: string, lc: LifecycleDef, fields?: Record<string, FieldDef>): string[] {
-  const where = `entity '${entityType}' lifecycle`;
-  const states = lifecycleStates(lc);
-  assert(states.has(lc.initial), `${where}: initial state '${lc.initial}' is not in the state set`);
-  for (const t of lc.terminal) {
-    assert(states.has(t), `${where}: terminal state '${t}' is not in the state set`);
-    assert(!(lc.transitions[t]?.length), `${where}: terminal state '${t}' has outgoing transitions`);
-  }
-  for (const key of Object.keys(lc.transitionRequirements ?? {})) {
-    assert(states.has(key), `${where}: transitionRequirements references unknown state '${key}'`);
-  }
-  assertEvidenceFieldsDeclared(where, lc, fields);
-  assertLifecycleEnum(where, lc, states, fields);
-  return unreachableStates(lc, states).map((s) => `${where}: state '${s}' is unreachable from initial`);
-}
-
-/** If the lifecycle field maps to a declared field, it must be an enum = state set. */
-function assertLifecycleEnum(where: string, lc: LifecycleDef, states: Set<string>, fields?: Record<string, FieldDef>): void {
-  const field = fields?.[lc.field];
-  if (!field) return;
-  assert(field.type === "enum", `${where}: field '${lc.field}' must be an enum`);
-  const values = new Set(field.enum ?? []);
-  const sameSize = values.size === states.size;
-  const covers = [...states].every((s) => values.has(s));
-  assert(sameSize && covers, `${where}: enum values of '${lc.field}' must equal the lifecycle state set`);
-}
-
-/** Collect states with no path from `initial` via the transition graph. */
-function unreachableStates(lc: LifecycleDef, states: Set<string>): string[] {
-  const reached = new Set<string>([lc.initial]);
-  const queue = [lc.initial];
-  while (queue.length) {
-    const current = queue.shift() as string;
-    for (const next of lc.transitions[current] ?? []) {
-      if (!reached.has(next)) {
-        reached.add(next);
-        queue.push(next);
-      }
-    }
-  }
-  return [...states].filter((s) => !reached.has(s));
-}
-
-/** The result of validating one entity: its canonical dir plus any warnings. */
-interface EntityValidation {
-  canonicalDirectory: string;
-  warnings: string[];
-}
-
-/**
- * Validate one entity type's SEMANTICS (structure is already ajv-checked).
- * Canonicalizes and confines its directory (returning the canonical form), and
- * validates finite numbers, requiredFields references, and lifecycle.
- */
-function validateEntity(entityType: string, def: EntityTypeDef, declaredArtifactTypes: Set<string>): EntityValidation {
-  const canonicalDirectory = validateEntityDirectory(def.directory, RESERVED_ROOTS);
-  assertFiniteNumbers(entityType, def);
-  validateArtifactTypesScope(entityType, def, declaredArtifactTypes);
-  validateRequiredFields(entityType, def);
-  validateTitleField(entityType, def);
-  validateFieldFormats(entityType, def);
-  validateContentTiers(entityType, def);
-  validateExtract(entityType, def, canonicalDirectory);
-  const warnings = def.lifecycle ? validateLifecycle(entityType, def.lifecycle, def.fields) : [];
-  return { canonicalDirectory, warnings };
-}
-
-/**
- * Validate all entities, enforcing slug-safe type keys and CANONICAL directory
- * uniqueness, writing each canonical directory back ON THE CLONE so downstream
- * scanning uses the same path uniqueness was checked against. Returns warnings.
- */
-function validateEntities(entities: Record<string, EntityTypeDef>, declaredArtifactTypes: Set<string>): string[] {
-  const warnings: string[] = [];
-  const dirs = new Map<string, string>();
-  for (const [entityType, def] of Object.entries(entities)) {
-    assert(isSlugSafe(entityType), `entity type key '${entityType}' must be slug-safe`);
-    const { canonicalDirectory, warnings: entityWarnings } = validateEntity(entityType, def, declaredArtifactTypes);
-    warnings.push(...entityWarnings);
-    const prior = dirs.get(canonicalDirectory);
-    assert(prior === undefined, `entities '${prior}' and '${entityType}' share the same directory '${canonicalDirectory}'`);
-    dirs.set(canonicalDirectory, entityType);
-    def.directory = canonicalDirectory;
-  }
-  return warnings;
 }
 
 /** Every from/to endpoint must reference a DECLARED entity type. */
@@ -442,7 +105,7 @@ function validateRelationAttributes(rel: string, def: RelationTypeDef, declaredA
     assertFieldFormatScoped(`relation '${rel}'`, name, field);
   }
   for (const name of def.requiredAttributes ?? []) {
-    assert(name in attributes, `relation '${rel}' requiredAttributes references undeclared attribute '${name}'`);
+    assert(isDeclared(attributes, name), `relation '${rel}' requiredAttributes references undeclared attribute '${name}'`);
   }
 }
 
@@ -465,134 +128,6 @@ function validateRelations(
     assert(isSlugSafe(rel), `relation type key '${rel}' must be slug-safe`);
     validateRelationEndpoints(rel, def, declared);
     validateRelationAttributes(rel, def, declaredArtifactTypes);
-  }
-}
-
-/** Every stage `reads`/`writes` entry must reference a DECLARED entity type. */
-function validateStageEndpoints(wf: string, stage: WorkflowStageDef, entities: Set<string>): void {
-  for (const endpoint of [...stage.reads, ...stage.writes]) {
-    assert(entities.has(endpoint), `workflow '${wf}' stage '${stage.id}' endpoint '${endpoint}' is not a declared entity type`);
-  }
-}
-
-/** Every stage `artifactWrites` entry must reference a DECLARED artifact type. */
-function validateStageArtifactWrites(wf: string, stage: WorkflowStageDef, artifactTypes: Set<string>): void {
-  for (const artifactType of stage.artifactWrites ?? []) {
-    assert(artifactTypes.has(artifactType), `workflow '${wf}' stage '${stage.id}' artifactWrites '${artifactType}' is not a declared artifact type`);
-  }
-}
-
-/**
- * A stage id must be slug-safe, unique within its workflow, and its gate
- * well-formed. A `trust:` stage gate ADDITIONALLY requires a producible output —
- * a declared entity write OR an artifact write (P-A): a trust gate is
- * satisfiable ONLY by a stage output, so a `trust:`-gated stage with neither
- * would load but be permanently stuck at runtime — rejected at load (M2).
- * `human:`/`agent:` gates are satisfied by approval regardless of output, so
- * they stay valid with no writes/artifactWrites.
- */
-function validateStage(
-  wf: string, stage: WorkflowStageDef, seen: Set<string>, priorStages: WorkflowStageDef[],
-  entities: Record<string, EntityTypeDef>, artifactTypes: Set<string>,
-): void {
-  assert(isSlugSafe(stage.id), `workflow '${wf}' stage id '${stage.id}' must be slug-safe`);
-  assert(!seen.has(stage.id), `workflow '${wf}' has a duplicate stage id '${stage.id}'`);
-  seen.add(stage.id);
-  validateStageEndpoints(wf, stage, new Set(Object.keys(entities)));
-  validateStageArtifactWrites(wf, stage, artifactTypes);
-  validateStageExecutor(wf, stage, entities, artifactTypes);
-  validateStageGate(wf, stage);
-  validateSubjectGate(wf, stage, priorStages, artifactTypes);
-}
-
-/**
- * Validate the stage-rename `previousIds` declarations across one workflow
- * (fail-closed). Each previousId must be slug-safe; a previousId may NOT equal any
- * CURRENT stage id in the same workflow (a rename replaces a REMOVED id, never
- * aliases a live one); and no two stages may share the same previousId (the old→new
- * mapping must be unambiguous). `currentIds` is the set of declared stage ids.
- */
-function assertStagePreviousIds(wf: string, def: WorkflowDef, currentIds: Set<string>): void {
-  const claimedBy = new Map<string, string>();
-  for (const stage of def.stages) {
-    for (const previousId of stage.previousIds ?? []) {
-      assert(isSlugSafe(previousId), `workflow '${wf}' stage '${stage.id}' previousId '${previousId}' must be slug-safe`);
-      assert(!currentIds.has(previousId), `workflow '${wf}' stage '${stage.id}' previousId '${previousId}' is also a current stage id`);
-      const prior = claimedBy.get(previousId);
-      assert(prior === undefined, `workflow '${wf}' previousId '${previousId}' is claimed by both stage '${prior}' and stage '${stage.id}'`);
-      claimedBy.set(previousId, stage.id);
-    }
-  }
-}
-
-/**
- * The reserved roots a `projectionFile` is checked against. The projection
- * subtree itself ({@link WORKFLOW_PROJECTION_DIR}) is EXCLUDED here: a projection
- * legitimately lives INSIDE it (so it must not be rejected as overlapping a
- * reserved root), while {@link validateProjectionFile} separately REQUIRES the
- * target be confined under that subtree.
- */
-const PROJECTION_RESERVED_ROOTS = RESERVED_ROOTS.filter((root) => root !== WORKFLOW_PROJECTION_DIR);
-
-/**
- * Confine an optional workflow `projectionFile` to the RESERVED projection
- * subtree so it can never clobber an authored wiki page. The schema accepts an
- * unconstrained string, so an unvalidated `"../../etc/passwd"`, `/etc/passwd`, or
- * even a clean-but-hostile `wiki/concepts/important.md` would later be written to.
- * Two layered checks (fail-closed at profile LOAD): (1) the same lexical
- * confinement entity directories use ({@link validateEntityDirectory}) rejects
- * absolute paths, `..`/NUL segments, and anything not under `wiki/`; (2) the
- * canonical target MUST sit under {@link WORKFLOW_PROJECTION_DIR} (the only place
- * a projection may write), so a clean `wiki/`-path that targets a real page is
- * rejected — the page-clobber vector is gone at validation.
- */
-function validateProjectionFile(wf: string, def: WorkflowDef): void {
-  if (def.projectionFile === undefined) return;
-  let canonical: string;
-  try {
-    canonical = validateEntityDirectory(def.projectionFile, PROJECTION_RESERVED_ROOTS);
-  } catch (err) {
-    assert(false, `workflow '${wf}' projectionFile is not a safe path under 'wiki/': ${(err as Error).message}`);
-    return; // unreachable: assert(false) throws; satisfies the definite-assignment check
-  }
-  assert(
-    isInsidePosixDir(canonical, WORKFLOW_PROJECTION_DIR),
-    `workflow '${wf}' projectionFile must live under '${WORKFLOW_PROJECTION_DIR}/': ${def.projectionFile}`,
-  );
-}
-
-/**
- * Validate the optional `workflows` block (fail-closed). Each workflow key must
- * be slug-safe and must NOT collide with a reserved core CLI verb (see
- * {@link PROFILE_V1_RESERVED_VERBS}). Within a workflow, every stage id must be
- * slug-safe and unique, every `reads`/`writes` entry must reference a declared
- * entity type, any `gate` must match `<kind>:<id>` for kind ∈ {trust,human,agent},
- * any stage `previousIds` rename source must be slug-safe, must not alias a current
- * stage id, and must be claimed by at most one stage, and any `projectionFile` must
- * be a confined path under `wiki/`. Every stage `artifactWrites` entry must
- * reference a declared artifact type (`declaredArtifactTypes`, shared with
- * {@link validateEntities}/{@link validateRelations}). This is SCHEMA +
- * VALIDATION only: workflows are never executable and carry no run state in
- * this slice.
- */
-function validateWorkflows(
-  workflows: Record<string, WorkflowDef> | undefined,
-  entities: Record<string, EntityTypeDef>,
-  declaredArtifactTypes: Set<string>,
-): void {
-  if (!workflows) return;
-  const declared = new Set(Object.keys(entities));
-  for (const [wf, def] of Object.entries(workflows)) {
-    assert(isSlugSafe(wf), `workflow key '${wf}' must be slug-safe`);
-    assert(!PROFILE_V1_RESERVED_VERBS.has(wf), `workflow id '${wf}' is reserved — it collides with a core CLI verb`);
-    const seen = new Set<string>();
-    const priorStages: WorkflowStageDef[] = [];
-    for (const stage of def.stages) {
-      validateStage(wf, stage, seen, priorStages, entities, declaredArtifactTypes);
-      priorStages.push(stage);
-    }
-    assertStagePreviousIds(wf, def, seen);
-    validateProjectionFile(wf, def);
   }
 }
 
@@ -639,12 +174,12 @@ function validateConnectors(profile: ProfilePack): void {
     assert(isSlugSafe(connectorId), `connector id '${connectorId}' must be slug-safe`);
     const def = getConnectorDef(connectorId);
     assert(def !== undefined, `connector '${connectorId}' is not registered`);
-    const entity = profile.entities[binding.entityType];
+    const entity = isDeclared(profile.entities, binding.entityType) ? profile.entities[binding.entityType] : undefined;
     assert(entity !== undefined, `connector '${connectorId}' entityType '${binding.entityType}' is not declared`);
     const draftFields = new Set(def.draftFields);
     for (const [draftField, entityField] of Object.entries(binding.fields)) {
       assert(draftFields.has(draftField), `connector '${connectorId}' draft field '${draftField}' is not emitted by connector '${connectorId}'`);
-      assert(entity.fields?.[entityField] !== undefined, `connector '${connectorId}' entity field '${entityField}' is not declared on '${binding.entityType}'`);
+      assert(isDeclared(entity.fields, entityField), `connector '${connectorId}' entity field '${entityField}' is not declared on '${binding.entityType}'`);
     }
     if (binding.contentField !== undefined) {
       assert(draftFields.has(binding.contentField), `connector '${connectorId}' contentField '${binding.contentField}' is not emitted by connector '${connectorId}'`);

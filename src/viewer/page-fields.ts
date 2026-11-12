@@ -50,6 +50,18 @@ export function pageTimestamp(frontmatter: Record<string, unknown>): string {
 }
 
 /**
+ * When the page was first written: its `createdAt`, or `""`. Never the
+ * `updatedAt` fallback {@link pageTimestamp} takes: a client compares the two to
+ * tell a page the last compile created from one it merely updated.
+ *
+ * @param frontmatter - Parsed page frontmatter.
+ * @returns An ISO timestamp string, or `""` when the page declares none.
+ */
+export function pageCreatedAt(frontmatter: Record<string, unknown>): string {
+  return typeof frontmatter.createdAt === "string" ? frontmatter.createdAt : "";
+}
+
+/**
  * The page's display kind: `kind` when present, otherwise `type`.
  *
  * `type` is safe as a fallback because no other wiki-page writer emits a

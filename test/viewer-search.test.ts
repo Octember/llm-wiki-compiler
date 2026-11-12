@@ -48,7 +48,7 @@ function buildSnapshot(pages: ViewerPage[]): ViewerSnapshot {
       pendingReviews: 0,
       compiledSources: 0,
     },
-    index: { available: false, href: "/#/index", body: "", outgoingLinks: [] },
+    index: { available: false, href: "/#/index", body: "" },
     recentPages: [],
     pages,
     sourceFilenames: [],
@@ -222,7 +222,6 @@ describe("searchPages — scope", () => {
       available: true,
       href: "/#/index",
       body: "# Index\nalpha mentioned here too",
-      outgoingLinks: [],
     };
     const results = searchPages(snapshot, "alpha").results;
     // Both concept and query pages match; the index body is NEVER

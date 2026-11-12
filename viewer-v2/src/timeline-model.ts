@@ -23,7 +23,7 @@ export function timelinePeriodOf(page: Pick<PageRow, "pageDirectory" | "slug">):
 }
 
 /** The pages compile learned from sources, leaving out the generated day and week pages. */
-export function withoutTimeline(pages: PageRow[]): PageRow[] {
+export function knowledgePages(pages: PageRow[]): PageRow[] {
   return pages.filter((page) => page.pageDirectory !== TIMELINE_DIRECTORY);
 }
 

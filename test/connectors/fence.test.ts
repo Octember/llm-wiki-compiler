@@ -81,7 +81,7 @@ function contentTierSnapshot(): ViewerSnapshot {
     }],
     links: [],
     warnings: [],
-    index: { available: false, href: "", body: "", outgoingLinks: [] },
+    index: { available: false, href: "", body: "" },
   } as unknown as ViewerSnapshot;
 }
 

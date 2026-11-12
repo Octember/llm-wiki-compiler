@@ -97,10 +97,8 @@ export function resolveWikilinkTarget<E extends PageIndexEntry>(
 
 /**
  * Resolve a bare-slug wikilink target to a namespaced `PageId`. The
- * precedence rule (concepts before queries) matches the spec and is the
- * same logic used for both per-page outgoing links and `/api/index` link
- * resolution; exporting it here keeps callers from re-implementing the
- * order and accidentally diverging.
+ * precedence rule (concepts before queries) matches the spec; exporting it
+ * here keeps callers from re-implementing the order and accidentally diverging.
  *
  * Resolution runs once per wikilink occurrence — ~14k times on a 2356-page
  * wiki — so it reads a slug index built once per page list ({@link slugIndexFor})
@@ -204,27 +202,6 @@ function slugIndexFor(pages: ReadonlyArray<PageIndexEntry>): PageSlugIndex {
  */
 function defaultPageId(directory: PageDirectory, entry: PageIndexEntry): PageId {
   return `${directory}/${entry.slug}`;
-}
-
-/**
- * Resolve a list of wikilink keys against an in-memory page index and
- * deduplicate the resulting ids while preserving first-occurrence order.
- * Unresolved targets are dropped.
- */
-export function resolveWikilinkTargets(
-  targets: string[],
-  pages: ReadonlyArray<PageIndexEntry>,
-): ViewerPageId[] {
-  const seen = new Set<ViewerPageId>();
-  const ordered: ViewerPageId[] = [];
-  for (const target of targets) {
-    const resolved = resolveWikilinkTarget(target, pages);
-    if (resolved && !seen.has(resolved)) {
-      seen.add(resolved);
-      ordered.push(resolved);
-    }
-  }
-  return ordered;
 }
 
 /**

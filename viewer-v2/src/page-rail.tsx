@@ -7,7 +7,8 @@
 import type { ReactNode } from "react";
 import type { ConnectorProvenance, EntityContext, EntityRelation, PagePayload, PagesEnvelope, SourceSpan } from "./api";
 import { Badge, DefinitionRows, RangeChip, SURFACE } from "./components";
-import { backlinksFrom, connectorHref, linkedPages, declaredFields, groupCitationsByFile, groupRelations, isTimelinePage, pageCitationCounts, pageKind, rangeLabel, spanLabel } from "./page-model";
+import { backlinksFrom, connectorHref, linkedPages, type LinkedPage, declaredFields, groupCitationsByFile, groupRelations, isTimelinePage, pageCitationCounts, pageKind } from "./page-model";
+import { rangeLabel, spanLabel } from "./citation-label";
 import { pageIdHref, sourceHref } from "./route";
 import { formatUtcTimestamp, humanLabel } from "./wiki-model";
 
@@ -88,7 +89,7 @@ function CitationsSection({ page, wiki }: { page: PagePayload; wiki: PagesEnvelo
 }
 
 /** Pages as links that preview on hover, or a note when there are none. */
-function LinkList({ links, whenEmpty }: { links: { id: string; title: string }[]; whenEmpty: string }): ReactNode {
+function LinkList({ links, whenEmpty }: { links: LinkedPage[]; whenEmpty: string }): ReactNode {
   if (links.length === 0) return <p className="text-zinc-500">{whenEmpty}</p>;
   return (
     <ul role="list" className="space-y-1">

@@ -12,8 +12,8 @@
  * Both answers start with a `SUMMARY:` line that becomes the page's summary.
  */
 
-import type { DayBucket, DaySource } from "./buckets.js";
-import { CITED_BULLETS, SUMMARY_PREFIX, sourcesExcerpt, type PageRequest } from "../compiler/source-excerpt.js";
+import type { DayBucket } from "./buckets.js";
+import { CITED_BULLETS, SUMMARY_PREFIX, sourcesExcerpt, type PageRequest, type ShownLines } from "../compiler/source-excerpt.js";
 
 const DAILY_SYSTEM = `Summarize this day, third person, from the records below.
 First line: "${SUMMARY_PREFIX} " and one sentence.
@@ -26,7 +26,7 @@ Short "## " theme sections; each bullet ends with its days' citations, copied ex
 /** A day request, and the day's sources narrowed to the lines the request actually shows. */
 export interface DailyRequest {
   request: PageRequest;
-  shown: DaySource[];
+  shown: ShownLines[];
 }
 
 /**

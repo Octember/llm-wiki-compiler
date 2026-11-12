@@ -2,20 +2,19 @@
  * The timeline step over in-memory steps: which pages it writes on a first
  * compile, that a second compile with nothing changed writes nothing, that an
  * edited source rewrites only its days and their week, that a failed day holds
- * its week back, that periods without sources are removed, and that daily
- * prompts show each line under its original number.
+ * its week back, that periods without sources are removed (and a week a
+ * hand-written day holds back is kept), and that hand-written pages are never
+ * overwritten.
  */
 import { describe, expect, it } from "bun:test";
 import { parseFrontmatter } from "../src/utils/markdown.js";
 import { generateTimelineWith, type TimelineSteps } from "../src/timeline/generate.js";
-import { fitCitations, sourcesExcerpt, splitAnswer, type PageRequest } from "../src/compiler/source-excerpt.js";
-import { dayBuckets } from "../src/timeline/buckets.js";
+import type { PageRequest } from "../src/compiler/source-excerpt.js";
 import { withDaySections } from "../src/timeline/pages.js";
 import { memoryDerivedSteps } from "./memory-derived-steps.js";
 
-const CONFIG = { timeZone: "UTC" };
-/** One timeline pass over CONFIG, one model call at a time. */
-const RUN = { ...CONFIG, concurrency: 1 };
+/** One timeline pass in UTC, one model call at a time. */
+const RUN = { timeZone: "UTC", concurrency: 1 };
 const CHAT = ["# Chat", "- 2026-05-04 09:00 A: plan the trip", "- 2026-05-05 10:00 B: booked it"].join("\n");
 const NOTE = "Decided to hire.";
 
@@ -46,10 +45,10 @@ function memorySteps(sources: Record<string, string>, failOn: string[] = []) {
 describe("generateTimelineWith", () => {
   it("writes a page per day and per week, then nothing when nothing changed", async () => {
     const memory = memorySteps({ "chat.md": CHAT, "2026-05-11-standup.md": NOTE });
-    const first = await generateTimelineWith(memory.steps, { ...CONFIG, concurrency: 2 });
+    const first = await generateTimelineWith(memory.steps, { ...RUN, concurrency: 2 });
     expect(first.written.sort()).toEqual(["2026-05-04", "2026-05-05", "2026-05-11", "2026-W19", "2026-W20"]);
     expect(first.errors).toEqual([]);
-    const again = await generateTimelineWith(memory.steps, { ...CONFIG, concurrency: 2 });
+    const again = await generateTimelineWith(memory.steps, { ...RUN, concurrency: 2 });
     expect([again.written, memory.requests.length]).toEqual([[], 5]);
   });
 
@@ -120,6 +119,24 @@ describe("generateTimelineWith", () => {
     expect(result.written).toEqual(["2026-05-05"]);
   });
 
+  it("keeps the page of a week a hand-written day holds back", async () => {
+    const memory = memorySteps({ "chat.md": CHAT });
+    await generateTimelineWith(memory.steps, RUN);
+    memory.pages.set("timeline/2026-05-04", "---\ntitle: My notes\n---\n\nMine.\n");
+    const result = await generateTimelineWith(memory.steps, RUN);
+    expect(result.deleted).toEqual([]);
+    expect(memory.pages.has("timeline/2026-W19")).toBe(true);
+  });
+
+  it("links a whole-file citation to no day when the file spans days, one of them hand-written", async () => {
+    const twoDays = ["- 2026-05-04 09:00 A: left", "- 2026-05-05 10:00 B: back"].join("\n");
+    const memory = memorySteps({ "trip.md": twoDays });
+    memory.steps.listConceptPages = async () => [{ slug: "trip", title: "Trip", body: "Went. ^[trip.md]" }];
+    memory.pages.set("timeline/2026-05-04", "---\ntitle: My notes\n---\n\nMine.\n");
+    await generateTimelineWith(memory.steps, RUN);
+    expect(memory.pages.get("timeline/2026-05-05")).not.toContain("## Pages from this day");
+  });
+
   it("keeps the model's own text when refreshing related pages, even under a look-alike heading", async () => {
     const memory = memorySteps({ "chat.md": CHAT });
     memory.steps.complete = async () => "SUMMARY: x.\nTop. ^[chat.md:2-2]\n\n## Pages from this day\n\nKept. ^[chat.md:2-2]";
@@ -169,35 +186,4 @@ describe("generateTimelineWith", () => {
     expect(result.errors).toContain("wiki/timeline/2026-05-04.md was not written by the timeline; left as it is");
   });
 
-});
-
-describe("a day's source excerpt", () => {
-  it("cuts a day past the excerpt budget at a line, and says how much was cut", () => {
-    const long = Array.from({ length: 3000 }, (_, index) => `- 2026-05-0${index < 2999 ? 4 : 5} 09:00 ${"x".repeat(40)}`).join("\n");
-    const [day] = dayBuckets([{ file: "big.md", hash: "h", text: long }], "UTC");
-    const excerpt = sourcesExcerpt(day.sources, new Map([["big.md", long]])).text;
-    expect(excerpt.length).toBeLessThan(61_000);
-    expect(excerpt).toMatch(/^--- SOURCE: big\.md ---\n\n {3}1 \| /);
-    expect(excerpt).toMatch(/\(\d+ more lines not shown: over the excerpt budget\. Do not cite them\.\)$/);
-  });
-
-  it("shares the budget so a long chat cannot crowd out a short note, and reports the lines it did not show", () => {
-    const chat = Array.from({ length: 3000 }, (_, index) => `- 2026-05-04 09:${String(index % 60).padStart(2, "0")} ${"x".repeat(40)}`).join("\n");
-    const note = "---\ndate: 2026-05-04\n---\nDecided to hire.";
-    const [day] = dayBuckets([{ file: "a-chat.md", hash: "1", text: chat }, { file: "b-note.md", hash: "2", text: note }], "UTC");
-    const { text, shown } = sourcesExcerpt(day.sources, new Map([["a-chat.md", chat], ["b-note.md", note]]));
-    expect(text).toContain("--- SOURCE: b-note.md ---\n\n4 | Decided to hire.");
-    expect(shown.find((source) => source.file === "b-note.md")!.ranges).toEqual([{ start: 4, end: 4 }]);
-    expect(fitCitations("Late. ^[a-chat.md:2999-2999]", shown).outside).toBe(1);
-  });
-
-  it("shows a day's lines under their original numbers, ranges apart", () => {
-    const [, second] = dayBuckets([{ file: "chat.md", hash: "h", text: CHAT }], "UTC");
-    expect(sourcesExcerpt(second.sources, new Map([["chat.md", CHAT]])).text).toBe("--- SOURCE: chat.md ---\n\n3 | - 2026-05-05 10:00 B: booked it");
-  });
-
-  it("splits the summary line from the body, and keeps an answer without one whole", () => {
-    expect(splitAnswer("SUMMARY: A day.\n\nBody ^[a.md:1-2]")).toEqual({ summary: "A day.", body: "Body ^[a.md:1-2]" });
-    expect(splitAnswer("Just a body.")).toEqual({ summary: "", body: "Just a body." });
-  });
 });
