@@ -6,8 +6,6 @@ on:
     branches: [main]
 permissions:
   contents: read
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 jobs:
   # Linux only — a deliberate, revisitable choice, recorded here because it is
   # what let issue #163 ship: on win32 `path.sep` ("\") made every nested profile
@@ -48,11 +46,11 @@ jobs:
       LLMWIKI_SKIP_DTS: "1"
     steps:
       # Full history, so a pull request's base commit is there for `--changed`.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
@@ -94,16 +92,16 @@ jobs:
           - bun run release:check-docs && bun run test:pack
           - bun run build && bun test ./test/local-workflow-package-boundary.test.ts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       # The packing tests npm-install the tarballs into empty consumers.
-      - uses: actions/cache@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-pack-${{ hashFiles('bun.lock') }}
@@ -111,15 +109,6 @@ jobs:
       # Default tests exclude these: the shipped facade, its exact workspace
       # dependencies, and consumer declarations.
       - run: ${{ matrix.check }}
-
-  # The one check branch protection requires. It passes only when every shard
-  # and package leg passed, so the matrix can change without touching protection.
-  build-and-test:
-    needs: [test, package]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - run: '[[ "${{ needs.test.result }}" == success && "${{ needs.package.result }}" == success ]]'
 
   codebase-health:
     runs-on: ubuntu-latest
@@ -129,9 +118,38 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Pin the action wrapper while using the signed 2.82.0 binary release.
       - uses: fallow-rs/fallow@5cc7152083ad57f20880a14ac82262a5a6861eec
         with:
           version: 2.82.0
           fail-on-issues: true
+
+  # The baseline is compared with the pull request's base commit (or the push's
+  # previous head), so editing an allowance upward cannot hide a new failure.
+  test-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck:tests --base-ref "$TEST_TYPECHECK_BASE_REF"
+        env:
+          TEST_TYPECHECK_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+
+  # The gate for branch protection: it fails when any job above failed or was
+  # cancelled, so protection can require this one check while the jobs and
+  # matrix legs behind it change.
+  build-and-test:
+    needs: [test, package, codebase-health, test-typecheck]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: echo "::error::A job this gate needs failed or was cancelled" && exit 1

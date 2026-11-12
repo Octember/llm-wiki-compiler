@@ -65,6 +65,7 @@ concurrency:
 
 env:
   NODE_VERSION: "24"
+  NPM_VERSION: "11.21.2"
   # Publication order: dependencies before dependents. Directories relative to
   # the repository root; "." is the standard facade.
   PACKAGE_DIRS: "packages/llmwiki-core packages/llmwiki-local-workflows ."
@@ -99,20 +100,21 @@ jobs:
             public_sha="$(jq -r '.public_sha // ""' <<<"${DISPATCH}")"
             version="$(jq -r '.version // ""' <<<"${DISPATCH}")"
             dist_tag="$(jq -r '.dist_tag // ""' <<<"${DISPATCH}")"
-            publish="$(jq -r '.publish // true' <<<"${DISPATCH}")"
+            # jq's `//` would replace an explicit false too, turning a dry run into a publish.
+            publish="$(jq -r 'if .publish == null then true else .publish end' <<<"${DISPATCH}")"
           else
             public_sha="${INPUT_PUBLIC_SHA}"
             version="${INPUT_VERSION}"
             dist_tag="${INPUT_DIST_TAG}"
             publish="${INPUT_PUBLISH}"
           fi
-          if [[ -z "${public_sha}" || "${public_sha}" == "null" ]]; then
+          if [[ -z "${public_sha}" ]]; then
             echo "::error::payload is missing public_sha"; exit 1
           fi
           if [[ ! "${public_sha}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::public_sha must be a full 40-char commit SHA, got '${public_sha}'"; exit 1
           fi
-          if [[ -z "${version}" || "${version}" == "null" ]]; then
+          if [[ -z "${version}" ]]; then
             echo "::error::payload is missing version"; exit 1
           fi
           if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -120,7 +122,7 @@ jobs:
           fi
           is_prerelease=false
           [[ "${version}" == *-* ]] && is_prerelease=true
-          if [[ -z "${dist_tag}" || "${dist_tag}" == "null" ]]; then
+          if [[ -z "${dist_tag}" ]]; then
             if [[ "${is_prerelease}" == "true" ]]; then dist_tag="next"; else dist_tag="latest"; fi
           fi
           # npm rejects tags that parse as semver ranges (e.g. v1); refuse them here.
@@ -152,19 +154,15 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout public_sha
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.public_sha }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      # npm stays only as the registry client (`npm view`, Trusted Publishing).
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
       - name: Verify package identities match payload and repository
         env:
           WANT: ${{ needs.resolve.outputs.version }}
@@ -198,6 +196,8 @@ jobs:
             echo "::error::@atomicstrata/llmwiki-local-workflows peers on core '${peer}', expected exactly ${WANT}"; exit 1
           fi
           echo "ok: exact internal version pins"
+      # `npm view` here and in verify uses the runner's preinstalled npm. Only
+      # the publish job installs a pinned Node and npm, for Trusted Publishing.
       - name: Check registry state (refuse a completed or foreign release)
         env:
           WANT: ${{ needs.resolve.outputs.version }}
@@ -251,24 +251,28 @@ jobs:
       id-token: write
     steps:
       - name: Checkout public_sha
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.public_sha }}
           fetch-depth: 0
+          persist-credentials: false
+      # No dependency cache in a job holding an OIDC token: a poisoned cache
+      # could read it.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org/"
+          package-manager-cache: false
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - name: Require npm >= 11.5.1 for Trusted Publishing
+      - name: Install npm ${{ env.NPM_VERSION }} (Trusted Publishing needs >= 11.5.1)
         run: |
           set -euo pipefail
-          npm install -g npm@latest
-          npm --version
+          npm install -g "npm@${NPM_VERSION}"
+          test "$(npm --version)" = "${NPM_VERSION}"
       - name: Install and build
         run: |
           set -euo pipefail
@@ -302,15 +306,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout public_sha
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.public_sha }}
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+          persist-credentials: false
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - name: Verify each version, gitHead and dist-tag
