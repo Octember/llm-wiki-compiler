@@ -9,13 +9,19 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { access } from "fs/promises";
-import path from "path";
 import { expect } from "bun:test";
+import { CLI } from "./built-dist.js";
 
-const exec = promisify(execFile);
+export { CLI };
 
-/** Absolute path to the compiled CLI entry point. */
-export const CLI = path.resolve("dist/cli.js");
+/** Promisified execFile, for suites that spawn the CLI with their own options. */
+export const exec = promisify(execFile);
+
+/** Strip ANSI escape codes so plain-text assertions work on colored output. */
+export function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
 
 /**
  * Runtime flags the CLI's shebang passes to Bun. Spawning `bun dist/cli.js`
