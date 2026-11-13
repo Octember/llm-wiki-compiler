@@ -4,9 +4,12 @@
  * spawned with `--read-only` and a token file, and an SDK client connects over
  * streamable HTTP, so the bearer check, the stateless transport and the
  * read-only tool list are all exercised the way a remote client meets them.
+ * Without a token file the server is spawned again and must admit only
+ * requests that name its loopback address as `Host`.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
+import http from "node:http";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "bun:test";
@@ -37,13 +40,18 @@ afterEach(() => {
   for (const child of children.splice(0)) child.kill();
 });
 
-/** Spawn `serve --http 0 --read-only` on the test root and resolve its URL from stderr. */
+/** Spawn `serve --http 0 --read-only` with a token file on the test root. */
 async function startHttpServer(root: string): Promise<URL> {
   const tokenFile = path.join(root, "token");
   await writeFile(tokenFile, `${TOKEN}\n`);
+  return spawnHttpServer(root, ["--token-file", tokenFile]);
+}
+
+/** Spawn `serve --http 0 --read-only` on the test root and resolve its URL from stderr. */
+async function spawnHttpServer(root: string, extraFlags: string[]): Promise<URL> {
   const child = spawn(
     "bun",
-    [...CLI_RUNTIME_FLAGS, CLI, "serve", "--root", root, "--http", "0", "--token-file", tokenFile, "--read-only"],
+    [...CLI_RUNTIME_FLAGS, CLI, "serve", "--root", root, "--http", "0", "--read-only", ...extraFlags],
     { stdio: ["ignore", "ignore", "pipe"] },
   );
   children.push(child);
@@ -108,16 +116,26 @@ describe("MCP over HTTP: serve --http --read-only", () => {
   }, 30_000);
 });
 
-describe("serve --http without --token-file", () => {
-  it("exits with an error instead of serving unauthenticated", async () => {
-    const child = spawn("bun", [...CLI_RUNTIME_FLAGS, CLI, "serve", "--root", rootHandle.value, "--http", "0"], {
-      stdio: ["ignore", "ignore", "pipe"],
+/** POST to `url` naming `host` as the `Host` header and return the status. */
+function statusForHost(url: URL, host: string): Promise<number | undefined> {
+  return new Promise((resolve, reject) => {
+    const request = http.request(url, { method: "POST", headers: { host } }, (response) => {
+      response.resume();
+      resolve(response.statusCode);
     });
-    children.push(child);
-    let stderr = "";
-    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-    const code = await new Promise((resolve) => child.once("exit", resolve));
-    expect(code).toBe(1);
-    expect(stderr).toContain("--http requires --token-file");
+    request.on("error", reject);
+    request.end();
+  });
+}
+
+describe("serve --http without --token-file", () => {
+  it("serves a client that names its loopback address", async () => {
+    const url = await spawnHttpServer(rootHandle.value, []);
+    expect(await initializeStatus(url, {})).toBe(200);
+  }, 30_000);
+
+  it("refuses any other Host", async () => {
+    const url = await spawnHttpServer(rootHandle.value, []);
+    expect(await statusForHost(url, "wiki.example.com")).toBe(403);
   }, 30_000);
 });
