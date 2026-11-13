@@ -9,7 +9,7 @@
  * Transport: stdio by default. The server reads JSON-RPC messages on stdin and
  * writes responses on stdout, which is the standard surface area for
  * Claude Desktop, Cursor, and other MCP-aware clients. With `http` it serves
- * streamable HTTP on loopback behind a bearer token instead; see `http.ts`.
+ * streamable HTTP on loopback instead; see `http.ts`.
  *
  * Because stdout is the stdio protocol stream, the process runs in quiet mode
  * from the moment the server starts: no tool, resource or future handler may

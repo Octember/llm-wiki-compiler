@@ -1,10 +1,13 @@
 /**
  * Streamable HTTP transport for the llmwiki MCP server.
  *
- * Binds loopback only: a reverse proxy or tunnel is what publishes it, and the
- * bearer token is what admits a request, since anything that reaches the proxy
- * reaches this port. Every request must carry `Authorization: Bearer <token>`
- * and is refused with 401 before its path, method or body is looked at.
+ * Binds loopback only: a reverse proxy or tunnel is what publishes it. With a
+ * bearer token, every request must carry `Authorization: Bearer <token>` and is
+ * refused with 401 before its path, method or body is looked at. Without one,
+ * the proxy owns authentication (an OAuth proxy sends its own `Authorization`,
+ * so the two cannot be combined) and the listener admits only requests that
+ * name its own loopback address as `Host`, which a proxy sets and a web page
+ * reaching the port through DNS rebinding cannot.
  *
  * The transport is stateless: no session ids, and a fresh server and transport
  * per request, which the SDK requires of a stateless transport. A client POSTs
@@ -25,8 +28,8 @@ const MCP_PATH = "/mcp";
 export interface HttpServeOptions {
   /** Loopback port to bind. */
   port: number;
-  /** Bearer token every request must present. */
-  token: string;
+  /** Bearer token every request must present; without one, only a loopback `Host` is admitted. */
+  token?: string;
 }
 
 /** Digest a token so two of any length compare in constant time. */
@@ -38,6 +41,12 @@ function digest(token: string): Buffer {
 function presentsToken(req: IncomingMessage, token: string): boolean {
   const [scheme, presented] = (req.headers.authorization ?? "").split(" ");
   return scheme === "Bearer" && presented !== undefined && timingSafeEqual(digest(presented), digest(token));
+}
+
+/** True when the request names this listener's own loopback address as `Host`. */
+function namesLoopbackHost(req: IncomingMessage): boolean {
+  const port = req.socket.localPort;
+  return req.headers.host === `${LOOPBACK_HOST}:${port}` || req.headers.host === `localhost:${port}`;
 }
 
 /** End the response with a status and a one-line JSON error. */
@@ -62,11 +71,15 @@ async function answer(buildServer: () => McpServer, req: IncomingMessage, res: S
  * Serve MCP over streamable HTTP on loopback until the process exits.
  *
  * @param buildServer - Builds the MCP server that answers one request.
- * @param options - The port to bind and the token to require.
+ * @param options - The port to bind and the token to require, if any.
  */
 export async function serveMcpOverHttp(buildServer: () => McpServer, options: HttpServeOptions): Promise<void> {
   const listener = http.createServer((req, res) => {
-    if (!presentsToken(req, options.token)) return refuse(res, 401, "unauthorized", { "WWW-Authenticate": "Bearer" });
+    if (options.token === undefined) {
+      if (!namesLoopbackHost(req)) return refuse(res, 403, "forbidden host");
+    } else if (!presentsToken(req, options.token)) {
+      return refuse(res, 401, "unauthorized", { "WWW-Authenticate": "Bearer" });
+    }
     if (req.url !== MCP_PATH) return refuse(res, 404, "not found");
     if (req.method !== "POST") return refuse(res, 405, "method not allowed", { Allow: "POST" });
     answer(buildServer, req, res).catch((err: unknown) => {

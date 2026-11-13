@@ -15,21 +15,26 @@ interface ServeOptions {
   readOnly?: boolean;
 }
 
-/** Read the HTTP transport's port and bearer token; `--http` is refused without a token. */
-async function readHttpOptions(options: ServeOptions): Promise<{ port: number; token: string } | undefined> {
+/** Read the bearer token from `tokenFile`; an empty file is refused. */
+async function readToken(tokenFile: string): Promise<string> {
+  const token = (await readFile(tokenFile, "utf-8")).trim();
+  if (token.length === 0) throw new Error(`Token file is empty: ${tokenFile}`);
+  return token;
+}
+
+/** Read the HTTP transport's port and, when `--token-file` is given, its bearer token. */
+async function readHttpOptions(options: ServeOptions): Promise<{ port: number; token?: string } | undefined> {
   if (options.http === undefined) return undefined;
-  if (options.tokenFile === undefined) throw new Error("--http requires --token-file");
-  const token = (await readFile(options.tokenFile, "utf-8")).trim();
-  if (token.length === 0) throw new Error(`Token file is empty: ${options.tokenFile}`);
-  return { port: parsePort(options.http, "--http"), token };
+  const port = parsePort(options.http, "--http");
+  return options.tokenFile === undefined ? { port } : { port, token: await readToken(options.tokenFile) };
 }
 
 /** Add the options and action of the `serve` command. */
 export function registerServeCommand(command: Command, version: string): void {
   command
     .option("--root <dir>", "Project root directory", process.cwd())
-    .option("--http <port>", "Serve streamable HTTP at 127.0.0.1:<port>/mcp instead of stdio; requires --token-file")
-    .option("--token-file <path>", "File holding the bearer token every HTTP request must present")
+    .option("--http <port>", "Serve streamable HTTP at 127.0.0.1:<port>/mcp instead of stdio")
+    .option("--token-file <path>", "File holding the bearer token every HTTP request must present; without it only a loopback Host is admitted")
     .option("--read-only", "Expose only the tools that never write a project file")
     .action(async (options: ServeOptions) => {
       try {
