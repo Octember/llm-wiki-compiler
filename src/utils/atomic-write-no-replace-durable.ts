@@ -5,11 +5,17 @@
  * the public error types re-exported by `atomic-write.ts`.
  */
 
-import { link, lstat, open, unlink } from "fs/promises";
-import { constants as fsConstants, type Stats } from "node:fs";
+import { link, open, unlink } from "fs/promises";
+import { lstat } from "./fs-metadata.js";
+import { constants as fsConstants, type BigIntStats, type Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
-import { assertCurrentParent, fsyncDirectoryChain, type ParentBinding } from "./atomic-write-durability.js";
+import {
+  assertCurrentParent,
+  fsyncDirectoryChain,
+  type ParentBinding,
+} from "./atomic-write-durability.js";
+import type { DirectorySyncScope } from "./directory-sync-scope.js";
 
 /** One target-specific durable temp makes every crash state directly addressable. */
 const DURABLE_TEMP_SUFFIX = ".tmp";
@@ -41,6 +47,8 @@ export interface DurableNoReplaceRecoveryOptions {
   mode?: number;
   afterCommit?: () => Promise<void>;
   beforeDirectorySync?: (dir: string) => Promise<void>;
+  /** Opt-in batch memo for ancestor directory syncs (leaf-parent syncs are never skipped). */
+  directorySyncScope?: DirectorySyncScope;
 }
 
 /**
@@ -70,9 +78,9 @@ export async function recoverDurableTemp(
   binding: ParentBinding | undefined,
 ): Promise<PublishedDurable | undefined> {
   const tmpPath = durableTempPath(filePath);
+  if (binding !== undefined) await assertCurrentParent(binding);
   await discardDurableScratch(durableWritingPath(filePath), tmpPath, binding);
-  const destination = await lstatBoundIfPresent(filePath, binding);
-  const temporary = await lstatBoundIfPresent(tmpPath, binding);
+  const [destination, temporary] = await lstatDestinationAndTemp(filePath, tmpPath, binding);
   if (destination !== undefined) {
     await reconcileCommittedDurableTemp(tmpPath, temporary, destination, binding, options?.beforeDirectorySync);
     throw new AtomicWriteCollisionError();
@@ -99,8 +107,8 @@ export async function recoverStreamedDurableTemp(
   beforeDirectorySync: ((dir: string) => Promise<void>) | undefined,
 ): Promise<void> {
   const tmpPath = durableTempPath(filePath);
-  const destination = await lstatBoundIfPresent(filePath, binding);
-  const temporary = await lstatBoundIfPresent(tmpPath, binding);
+  if (binding !== undefined) await assertCurrentParent(binding);
+  const [destination, temporary] = await lstatDestinationAndTemp(filePath, tmpPath, binding);
   if (destination !== undefined) {
     await reconcileCommittedDurableTemp(tmpPath, temporary, destination, binding, beforeDirectorySync);
     throw new AtomicWriteCollisionError();
@@ -149,14 +157,8 @@ export async function syncExistingCollision(
 }
 
 /** Link a synced disposable scratch inode into the immutable ready namespace. */
-export async function linkWritingAsReady(
-  writingPath: string,
-  tmpPath: string,
-  binding: ParentBinding | undefined,
-  expected: Stats,
-): Promise<void> {
+export async function linkWritingAsReady(writingPath: string, tmpPath: string): Promise<void> {
   try {
-    await assertTempPathBound(writingPath, binding, expected);
     await link(writingPath, tmpPath);
   } catch (error) {
     throw new AtomicWriteCommittedCleanupError(error);
@@ -179,10 +181,26 @@ export async function linkTempNoReplace(tmpPath: string, filePath: string): Prom
 export async function removeCommittedTemp(
   tmpPath: string,
   binding: ParentBinding | undefined,
-  expected: Stats,
+  expected: Stats | BigIntStats,
 ): Promise<void> {
   try {
     await assertTempPathBound(tmpPath, binding, expected);
+    await unlink(tmpPath);
+  } catch (error) {
+    throw new AtomicWriteCommittedCleanupError(error);
+  }
+}
+
+/** {@link removeCommittedTemp} straight after {@link assertPublishedDestination}. */
+export async function removeCommittedTempAfterPublish(
+  tmpPath: string,
+  binding: ParentBinding | undefined,
+  expected: Stats,
+  published: boolean,
+): Promise<void> {
+  if (!published) return removeCommittedTemp(tmpPath, binding, expected);
+  try {
+    await assertPathNamesInode(tmpPath, expected);
     await unlink(tmpPath);
   } catch (error) {
     throw new AtomicWriteCommittedCleanupError(error);
@@ -193,11 +211,20 @@ export async function removeCommittedTemp(
 export async function assertTempPathBound(
   tmpPath: string,
   binding: ParentBinding | undefined,
-  expected: Stats,
+  expected: Stats | BigIntStats,
 ): Promise<void> {
   if (binding !== undefined) await assertCurrentParent(binding);
-  const pathStat = await lstat(tmpPath);
-  if (pathStat.dev !== expected.dev || pathStat.ino !== expected.ino) {
+  await assertPathNamesInode(tmpPath, expected);
+}
+
+/** Verify the path still names the expected inode, for a caller that verified the parent with only read-only steps since. */
+export async function assertPathNamesInode(tmpPath: string, expected: Stats | BigIntStats): Promise<void> {
+  if ((typeof expected.dev === "number" && !Number.isSafeInteger(expected.dev)) ||
+      (typeof expected.ino === "number" && !Number.isSafeInteger(expected.ino))) {
+    throw new Error(`temporary write handle has an imprecise identity: ${tmpPath}`);
+  }
+  const pathStat = await lstat(tmpPath, { bigint: true });
+  if (pathStat.dev !== BigInt(expected.dev) || pathStat.ino !== BigInt(expected.ino)) {
     throw new Error(`temporary write handle is not bound to the confined path: ${tmpPath}`);
   }
 }
@@ -209,34 +236,33 @@ export async function assertTempPathBound(
  * check (a closed-handle snapshot could be satisfied by a reused inode number
  * on allocators that recycle eagerly, e.g. Linux). This portable same-UID check
  * detects replacement before return; it is not a sandbox or a native lease
- * against a same-UID actor racing after the final check.
+ * against a same-UID actor racing after the final check. Returns the
+ * destination's `lstat` that proved it.
  */
 export async function assertPublishedDestination(
   filePath: string,
   handle: FileHandle,
   binding: ParentBinding | undefined,
-): Promise<void> {
+): Promise<Stats> {
   try {
     if (binding !== undefined) await assertCurrentParent(binding);
     const expected = await handle.stat();
     const actual = await lstat(filePath);
-    if (actual.dev === expected.dev && actual.ino === expected.ino) return;
+    if (actual.dev === expected.dev && actual.ino === expected.ino) return actual;
   } catch {
     // Normalize absence, symlink swaps, and unreadable leaves to one refusal.
   }
   throw new Error(`atomic destination changed after publication: ${filePath}`);
 }
 
-/** Require the final authoritative name to be the inode's sole remaining link. */
+/** Require the final authoritative name to be the inode's sole remaining link, read from the same lstat that proved it names the pinned inode. */
 export async function assertSettledDestination(
   filePath: string,
   handle: FileHandle,
   binding: ParentBinding | undefined,
 ): Promise<void> {
-  await assertPublishedDestination(filePath, handle, binding);
-  const expected = await handle.stat();
-  const actual = await lstat(filePath);
-  if (actual.dev !== expected.dev || actual.ino !== expected.ino || actual.nlink !== 1) {
+  const actual = await assertPublishedDestination(filePath, handle, binding);
+  if (actual.nlink !== 1) {
     throw new Error(`atomic destination has an external alias: ${filePath}`);
   }
 }
@@ -270,20 +296,17 @@ async function reconcileCommittedDurableTemp(
 
 /**
  * Remove a stale regular scratch before examining the immutable ready alias.
- * The pre-unlink identity check is the portable same-UID bound; it is not a
- * native lease against a same-UID actor racing the unlink itself.
+ * The caller has just verified the parent. The pre-unlink identity check is
+ * the portable same-UID bound; it is not a native lease against a same-UID
+ * actor racing the unlink itself.
  */
 async function discardDurableScratch(
   writingPath: string,
   readyPath: string,
   binding: ParentBinding | undefined,
 ): Promise<void> {
-  if (binding !== undefined) await assertCurrentParent(binding);
   try {
-    const scratch = await lstat(writingPath).catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-      throw error;
-    });
+    const scratch = await lstatIfPresent(writingPath);
     if (scratch === undefined) return;
     if (!scratch.isFile() || scratch.isSymbolicLink()) throw new Error("durable scratch is not a regular file");
     if (!(await hasOnlyReservedReadyAlias(scratch, readyPath, binding))) {
@@ -318,15 +341,16 @@ async function promoteDurableTemp(
   options: DurableNoReplaceRecoveryOptions | undefined,
   binding: ParentBinding | undefined,
 ): Promise<PublishedDurable> {
-  const verified = await verifyAndSyncDurableTemp(tmpPath, content, options?.mode, binding);
+  const { mode, afterCommit, beforeDirectorySync, directorySyncScope } = options ?? {};
+  const verified = await verifyAndSyncDurableTemp(tmpPath, content, mode, binding);
   let published = false;
   try {
     await linkPromotedTemp(tmpPath, filePath, binding, verified.stat);
-    await fsyncDirectoryChain(path.dirname(filePath), binding, options?.beforeDirectorySync);
+    await fsyncDirectoryChain(path.dirname(filePath), binding, beforeDirectorySync, directorySyncScope, false);
     let hookError: unknown, destinationError: unknown;
-    try { await options?.afterCommit?.(); } catch (error) { hookError = error; }
+    try { await afterCommit?.(); } catch (error) { hookError = error; }
     try { await assertPublishedDestination(filePath, verified.handle, binding); } catch (error) { destinationError = error; }
-    await removeCommittedTemp(tmpPath, binding, verified.stat);
+    await removeCommittedTempAfterPublish(tmpPath, binding, verified.stat, destinationError === undefined);
     if (destinationError !== undefined) throw destinationError;
     if (hookError !== undefined) throw hookError;
     published = true;
@@ -368,7 +392,6 @@ async function verifyAndSyncDurableTemp(
     const expected = await handle.stat();
     if (!expected.isFile() || expected.nlink !== 1 || expected.size !== content.byteLength ||
         (mode !== undefined && (expected.mode & 0o777) !== mode)) throw new Error("durable temp metadata conflicts");
-    await assertTempPathBound(tmpPath, binding, expected);
     if (!(await hasExactHandleBytes(handle, expected, content))) throw new Error("durable temp bytes conflict");
     await handle.sync();
     await assertTempPathBound(tmpPath, binding, expected);
@@ -417,13 +440,27 @@ async function lstatBoundIfPresent(
   binding: ParentBinding | undefined,
 ): Promise<Stats | undefined> {
   if (binding !== undefined) await assertCurrentParent(binding);
-  let result: Stats;
+  const result = await lstatIfPresent(filePath);
+  if (binding !== undefined && result !== undefined) await assertCurrentParent(binding);
+  return result;
+}
+
+async function lstatDestinationAndTemp(
+  filePath: string,
+  tmpPath: string,
+  binding: ParentBinding | undefined,
+): Promise<[Stats | undefined, Stats | undefined]> {
+  const destination = await lstatIfPresent(filePath);
+  const temporary = await lstatIfPresent(tmpPath);
+  if (binding !== undefined && destination !== undefined) await assertCurrentParent(binding);
+  return [destination, temporary];
+}
+
+async function lstatIfPresent(filePath: string): Promise<Stats | undefined> {
   try {
-    result = await lstat(filePath);
+    return await lstat(filePath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-  if (binding !== undefined) await assertCurrentParent(binding);
-  return result;
 }

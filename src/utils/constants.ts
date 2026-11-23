@@ -193,7 +193,7 @@ export const LOCK_FILE = ".llmwiki/lock";
  * Resource cap on the lock leaf (`.llmwiki/lock`). The leaf holds ONLY a decimal
  * `process.pid` (a handful of bytes), so 64 bytes is far above any legitimate
  * content yet bounds the read. `.llmwiki` is local/sync-controllable, so a planted
- * symlinked or oversized leaf would otherwise let {@link isLockStale}'s read slurp
+ * symlinked or oversized leaf would otherwise let {@link lockHolderState}'s read slurp
  * an unbounded symlink target into memory before parsing — a PID-parse oracle + a
  * local DoS. The hardened reader caps the read at this bound and treats an oversized
  * (or non-regular / symlinked) leaf as unreadable → stale.
@@ -598,6 +598,9 @@ export const ENV_VIEW_PORT = "LLMWIKI_VIEW_PORT";
  * also enforced on the write path so the store can never grow past the read ceiling
  * into an unreadable-yet-writable (bricked) state.
  */
+/** One authoritative binary embedding container; older JSON remains an untouched migration backup. */
+export const EMBEDDINGS_BINARY_FILE = ".llmwiki/embeddings.bin";
+
 export const MAX_EMBEDDING_STORE_BYTES = 64 * 1024 * 1024; // 64 MiB
 
 /**

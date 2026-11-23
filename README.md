@@ -5,6 +5,17 @@
 [![docs](https://img.shields.io/badge/docs-llmwiki.atomicstrata.ai-blue)](https://llmwiki.atomicstrata.ai)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+## New in 1.6.0-rc.1 — Expected scale on one machine
+
+Install this prerelease by exact version: `npm install --global llm-wiki-compiler@1.6.0-rc.1`.
+The npm `latest` dist-tag remains on stable `1.5.0`; the prerelease uses `next`.
+
+- **Choose the size you expect.** Set `--expected-size` or `--expected-documents` when creating a wiki, or change the estimate later with `llmwiki scale set`. A small wiki with no estimate keeps the familiar local layout. Larger local layouts prepare files on the same machine; they do not deploy a service or require another computer. [Scale and catalog](#expected-scale-on-one-machine).
+- **Upgrade an existing wiki without a storage migration.** The expected-scale record is optional. Published-1.5.0 fixture tests cover unchanged original file bytes and read fields across the local layouts, but they do not establish compatibility for every historical wiki. Back up an important wiki before upgrading and verify it with your own CLI or SDK integration.
+- **Review integration changes.** Ingest, SDK source delete and `schema init` now take the project lock. `ScaleReadiness` adds `restoring`, and hand-written full `WikiCore` or `Wiki` implementations need `compileReport`, `scale` and `catalog`. See the [changelog](CHANGELOG.md#160-rc1---2026-11-23) for the precise behavior and limits.
+- **Less work at startup.** The CLI loads command implementations only when needed, profile schema validation is compiled ahead of time, and lock-owner checks read kernel process records where supported instead of spawning `ps`.
+- **Bun for contributors, Node for users.** Repository builds and tests use Bun and `bun.lock`; the installed CLI and SDK still run on Node.js 24 or newer.
+
 ## New in 1.5 — Wiki behavior separated from storage.
 
 `1.5.0` is the stable release on npm `latest`: `npm install --global llm-wiki-compiler`.
@@ -342,7 +353,7 @@ Provider selection is environment-driven:
 | GitHub Copilot | `LLMWIKI_PROVIDER=copilot`, `GITHUB_TOKEN=$(gh auth token)` |
 | Atlas Cloud | `LLMWIKI_PROVIDER=atlascloud`, `ATLASCLOUD_API_KEY` |
 | OrcaRouter | `LLMWIKI_PROVIDER=orcarouter`, `ORCAROUTER_API_KEY` |
-| Runcrate | `LLMWIKI_PROVIDER=runcrate`, `RUNCRATE_API_KEY` |
+| Runcrate (on main) | `LLMWIKI_PROVIDER=runcrate`, `RUNCRATE_API_KEY`; separate embedding provider required when enabled, or set `LLMWIKI_EMBEDDINGS=off` |
 
 See [`docs/configuration/providers.mdx`](docs/configuration/providers.mdx) and [`docs/configuration/environment-variables.mdx`](docs/configuration/environment-variables.mdx).
 
@@ -366,7 +377,7 @@ See [`docs/configuration/review-policy.mdx`](docs/configuration/review-policy.md
 
 llmwiki is still early software, but it is no longer a toy pipeline for a handful of notes.
 
-- **Incremental compilation** means unchanged sources do not flow back through the LLM.
+- **Incremental compilation** skips unchanged sources when possible. Unchanged contributors to affected pages reuse compatible extraction snapshots; missing or incompatible snapshots can require fresh LLM extraction.
 - **Parallel compile** runs concept extraction and page generation concurrently under a configurable cap (`--concurrency` / `LLMWIKI_COMPILE_CONCURRENCY`), cutting wall-clock on large compiles.
 - **Chunk-level embeddings** narrow large wikis before BM25 reranking and graph expansion.
 - **Content-hash-aware embedding updates** avoid recomputing vectors for unchanged pages and chunks.
@@ -377,6 +388,35 @@ llmwiki is still early software, but it is no longer a toy pipeline for a handfu
 - **Prompt budgeting and ingest truncation metadata** make large sources explicit instead of silently pretending they fit.
 
 The current sweet spot is a durable project or domain wiki: research folders, codebase docs, team handbooks, standards, design notes, decision logs, or curated source packs. The less ideal fit is a high-churn firehose where raw search is enough and compiled structure would go stale faster than it can be reviewed.
+
+### Expected scale on one machine
+
+The `1.6.0-rc.1` prerelease adds optional commands for projects you expect to
+grow large. Small local wikis can keep the existing layout without an
+expected-scale record.
+
+- `llmwiki init --expected-size 256MiB` (or `--expected-documents`) records an
+  expected scale and prepares a matching single-machine layout. It is a
+  planning target, not verified capacity, and it provisions nothing beyond
+  files on this machine: no service, container or second computer.
+- `llmwiki scale` inspects, changes and resumes that layout. Lowering the
+  estimate keeps a larger active layout; scale-down is a separate explicit
+  operation. `llmwiki catalog` pages, reconciles, verifies, backs up and
+  restores the indexed stores.
+- On that layout, with its segmented compile state prepared, `llmwiki compile`
+  runs as a bounded, resumable batch run. It needs `--no-embeddings` and does
+  not support `--review` or `--no-pages-limit`. There is no `--dry-run` or
+  `--rebuild-source`.
+- Compiling still needs a model you configure, for example a local
+  OpenAI-compatible server. None is bundled.
+
+After changing expected scale, check `llmwiki scale status`. Dependent
+mutations stay blocked while preparation is pending, parked or unavailable;
+`llmwiki scale prepare` resumes an unfinished preparation.
+
+See [Scale and catalog](docs/cli/scale.mdx) and the
+[changelog](CHANGELOG.md#160-rc1---2026-11-23). No performance or capacity figure is
+claimed for large corpora.
 
 ## Documentation
 
@@ -473,14 +513,20 @@ Use them independently or together. The [`@atomicmemory/llmwiki`](https://github
 
 Contributions are welcome. If llmwiki is missing something you need, open an issue or PR and describe the workflow you are trying to support - need-driven improvements are often the best ones. If you want to contribute more generally, roadmap items are a good place to start. For larger changes to core compile, review, import/export, or retrieval semantics, please start with an issue or design discussion so we can align on the contract first.
 
-Before committing code changes, run:
+For repository development, use the Bun version pinned in `package.json` (currently `1.4.2`). Dependencies are locked in `bun.lock`, and tests use `bun:test`. Node.js 24 or newer is still required for installed-package checks.
+
+Install dependencies and run the code-change checks from the repository root:
 
 ```bash
+bun install --frozen-lockfile
 bunx tsc --noEmit
+bun run typecheck:tests
 bun run build
 bun run test
 bun run fallow:ci
 ```
+
+For packaging or export changes, also run `bun run test:pack`, which checks the packed packages in fresh installed consumers.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 

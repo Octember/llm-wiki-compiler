@@ -10,11 +10,33 @@
  * without `additionalProperties: false`, or a property missing from
  * `required`) with exit code 1 and an `invalid_json_schema` diagnostic, so a
  * provider that forwards a non-strict schema fails here as it does live (#266).
+ *
+ * The provider deliberately starts Codex with an environment allowlist, so the
+ * fake (and its optional descendant) cannot inherit a run's `NODE_OPTIONS`
+ * preloads. When a qualification run configures the child guard bootstrap
+ * (see `child-guard-bootstrap.ts`), both generated programs install that run's
+ * offline guard before any of their own work. Unconfigured, they are unchanged.
  */
 
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { childGuardPrologue, readChildGuardConfig, type ChildGuardConfig } from "./child-guard-bootstrap.js";
+
+/** Pause between reads of a child-owned journal while waiting for it to change. */
+const JOURNAL_POLL_INTERVAL_MS = 2;
+const pauseCell = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+
+/**
+ * Pause this thread without a timer. Suites drive the provider's own timeouts
+ * with `vi.useFakeTimers()` while waiting on the journal, and Bun fakes every
+ * timer (`setTimeout`, `Bun.sleep`, `node:timers/promises`), so a timer-based
+ * pause would never elapse. The journal's writer is another process, so
+ * blocking here does not hold it back.
+ */
+function pauseBetweenReads(): void {
+  Atomics.wait(pauseCell, 0, 0, JOURNAL_POLL_INTERVAL_MS);
+}
 
 /** Behavior configured into one fake Codex executable. */
 export interface FakeCodexOptions {
@@ -62,10 +84,16 @@ async function fileContains(filePath: string, expected: string): Promise<boolean
   }
 }
 
-/** Resolve once a child-owned journal records expected state, without clock assumptions. */
+/**
+ * Resolve once a child-owned journal records expected state, without clock
+ * assumptions: there is no deadline, only a pause between reads. Re-reading
+ * back to back read the journal tens of thousands of times per suite while the
+ * child was still starting up; the pause leaves the wait unbounded and the
+ * observed state unchanged.
+ */
 async function waitForFileContent(filePath: string, expected: string): Promise<void> {
   while (!(await fileContains(filePath, expected))) {
-    // Each asynchronous read yields to the child process that owns the journal.
+    pauseBetweenReads();
   }
 }
 
@@ -80,16 +108,28 @@ function structuredOutputExpression(options: FakeCodexOptions): string {
   return `JSON.stringify(${literal(options.toolOutput ?? { value: "ok" })})`;
 }
 
+/** Journal paths the generated fixture writes. */
+interface FixturePaths {
+  capturePath: string;
+  readyPath: string;
+  signalPath: string;
+}
+
+/** Program text of the optional descendant, guarded like the fake itself when configured. */
+function descendantSource(guard: ChildGuardConfig | undefined): string {
+  return childGuardPrologue(guard, "descendant")
+    + 'process.on("SIGTERM", () => {}); process.send("ready"); setInterval(() => {}, 1000);';
+}
+
 /** Build the fixture script body from immutable test configuration. */
 function fixtureSource(
-  capturePath: string,
-  readyPath: string,
-  signalPath: string,
+  { capturePath, readyPath, signalPath }: FixturePaths,
   options: FakeCodexOptions,
+  guard: ChildGuardConfig | undefined,
 ): string {
   const structuredOutput = structuredOutputExpression(options);
   return `#!/usr/bin/env node
-const fs = require("node:fs");
+${childGuardPrologue(guard, "fake")}const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const args = process.argv.slice(2);
 const after = (flag) => { const i = args.indexOf(flag); return i < 0 ? null : args[i + 1]; };
@@ -133,9 +173,7 @@ process.stdin.on("end", () => {
       if (!${literal(options.ignoreTerm === true)}) process.exit(143);
     });
     if (${literal(options.forkDescendant === true)}) {
-      const descendant = spawn(process.execPath, ["-e", ${literal(
-        'process.on("SIGTERM", () => {}); process.send("ready"); setInterval(() => {}, 1000);',
-      )}], { stdio: ["inherit", "inherit", "inherit", "ipc"] });
+      const descendant = spawn(process.execPath, ["-e", ${literal(descendantSource(guard))}], { stdio: ["inherit", "inherit", "inherit", "ipc"] });
       descendant.once("message", markReady);
     } else {
       markReady();
@@ -166,6 +204,8 @@ process.stdin.on("end", () => {
 
 /** Install a configured fake `codex` binary in an isolated directory. */
 export async function installFakeCodex(options: FakeCodexOptions = {}): Promise<FakeCodex> {
+  // Validate a configured guard before creating anything, so a bad configuration fails closed.
+  const guard = readChildGuardConfig();
   const root = await mkdtemp(path.join(tmpdir(), "llmwiki-fake-codex-"));
   const binDir = path.join(root, "bin");
   const capturePath = path.join(root, "calls.jsonl");
@@ -173,7 +213,7 @@ export async function installFakeCodex(options: FakeCodexOptions = {}): Promise<
   const signalPath = path.join(root, "signals.log");
   await import("node:fs/promises").then(({ mkdir }) => mkdir(binDir));
   const binaryPath = path.join(binDir, "codex");
-  await writeFile(binaryPath, fixtureSource(capturePath, readyPath, signalPath, options), "utf8");
+  await writeFile(binaryPath, fixtureSource({ capturePath, readyPath, signalPath }, options, guard), "utf8");
   await chmod(binaryPath, 0o755);
   return {
     binDir,

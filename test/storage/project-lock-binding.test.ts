@@ -4,7 +4,7 @@
  * `acquireLockFrom`, `acquireLockBlockingFrom` and `releaseLockFrom` resolve the
  * private directory through the private-dir bodies (`mkdir` on acquire, never on
  * release), publish through `publishLockRecordFrom` on the SAME I/O, read the
- * owner capped, treat an unreadable owner as stale, reclaim under the reclaim
+ * owner capped, refuse an unavailable owner, reclaim under the reclaim
  * lock (a stale reclaim lock is only CLEANED, and the second attempt converges),
  * release only their own PID, and settle the process-local queue permit on every
  * release exit. The bodies exist only after the lock was given bodies of its
@@ -112,7 +112,8 @@ const STEPS: readonly Step[] = [
   ["reclaim-past-stale-reclaim", async (s) => { await s.plant({ lock: "<dead>", "lock.reclaim": "<dead>" }); return s.acquire(); }],
   ["release-again", (s) => s.release()],
   ["reclaim-blocked", async (s) => { await s.plant({ lock: "<dead>", "lock.reclaim": "<foreign>" }); return s.acquire(); }],
-  ["reclaim-unreadable", async (s) => { await s.drop(["lock", "lock.reclaim"]); await s.plant({ lock: "<oversize>" }); return s.acquire(); }],
+  ["refuse-unreadable", async (s) => { await s.drop(["lock", "lock.reclaim"]); await s.plant({ lock: "<oversize>" }); return s.acquire(); }],
+  ["operator-clears-unreadable", async (s) => s.drop(["lock"])],
   ["release-last", (s) => s.release()], ["blocking-free", (s) => s.blocking(FREE)], ["release-blocking", (s) => s.release()],
   ["blocking-after-release", (s) => s.blocking(FREE)], ["release-blocking-again", (s) => s.release()],
   ["blocking-busy", async (s) => { await s.plant({ lock: "<foreign>" }); return s.blocking({ timeoutMs: 20, intervalMs: 5 }); }],
@@ -244,6 +245,7 @@ function memoryHost(log: string[], statuses: string[]): LockHost {
     },
     park: (key, release) => { log.push(`park ${key}`); parked.set(key, release); },
     releaseParked: (key) => { log.push(`release-parked ${key}`); parked.get(key)?.(); parked.delete(key); },
+    hasParked: () => parked.size > 0,
     status: (icon, message) => { statuses.push(`${icon} ${plain(message)}`); },
   };
 }
@@ -287,7 +289,8 @@ const published = (rel: string, n: number): string[] => {
   const scratch = `${rel}.${n.toString(16).padStart(16, "0")}.publishing`;
   return [`serialize ${MEM_SELF}`, "entropy 8", `create ${scratch}`, `link ${scratch} -> ${rel}`, `remove ${scratch}`];
 };
-const RESOLVED = ["confine .llmwiki", "mkdir .llmwiki", "safe-realpath .", "safe-realpath .llmwiki"];
+// The re-check compares against the root the confinement judged under (the confined dir's parent), so the root is not resolved again.
+const RESOLVED = ["confine .llmwiki", "mkdir .llmwiki", "safe-realpath .llmwiki"];
 
 describe("the project lock over a copied project, with the minting directory gone", () => {
   it("L1 runs after the minting directory was removed, on a copy holding exactly the seed and no private directory", () => {
@@ -303,12 +306,12 @@ describe("the project lock over a copied project, with the minting directory gon
         [false, foreign, [BUSY]], [false, foreign, []], ["ok", foreign, []]]);
   });
 
-  it("L3 reclaims a dead holder, converges past a stale reclaim lock, backs off a live reclaimer, and reclaims an unreadable owner, as the disk did", async () => {
+  it("L3 reclaims dead holders, backs off a live reclaimer, and refuses an unreadable owner, as the disk did", async () => {
     const steps = await expectDiskParity();
-    expect(pick(steps, ["reclaim-dead", "release-reclaimed", "reclaim-past-stale-reclaim", "release-again", "reclaim-blocked", "reclaim-unreadable", "release-last"]))
+    expect(pick(steps, ["reclaim-dead", "release-reclaimed", "reclaim-past-stale-reclaim", "release-again", "reclaim-blocked", "refuse-unreadable", "operator-clears-unreadable", "release-last"]))
       .toEqual([[true, SELF_HELD, [RECLAIMED]], ["ok", {}, []], [true, SELF_HELD, [RECLAIMED]], ["ok", {}, []],
         [false, { lock: "<dead>", "lock.reclaim": "<foreign>" }, ["! Could not acquire lock after retrying."]],
-        [true, SELF_HELD, [RECLAIMED]], ["ok", {}, []]]);
+        [false, { lock: "<oversize>" }, [BUSY]], ["ok", {}, []], ["ok", {}, []]]);
   });
 
   it("L4 blocks to acquire, frees the queue on release and on a busy timeout, and times out quietly, as the disk did", async () => {
@@ -324,7 +327,8 @@ describe("the project lock over a copied project, with the minting directory gon
     expect(acquired).toEqual([...RESOLVED, ...published(".llmwiki/lock", 1)]);
     const released: string[] = [];
     await memorySide(released).release();
-    expect(released).toEqual(["realpath .", "confine .llmwiki", "probe .llmwiki", `release-parked ${MEM_ROOT}`]);
+    // Nothing is parked, so release neither resolves a queue key nor releases a permit.
+    expect(released).toEqual(["confine .llmwiki", "probe .llmwiki"]);
   });
 
   it("L6 cleans a stale reclaim lock WITHOUT re-acquiring it, then converges on the second attempt under reclaim ownership (memory only)", async () => {

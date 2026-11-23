@@ -93,7 +93,12 @@ function memoryWalk(tree: Record<string, Node>, sizes: Record<string, number | "
   };
 }
 
-describe("the operation store walk: one body over its own reads", () => {
+/**
+ * Registers cases of the `the operation store walk: one body over its own
+ * reads` suite, unchanged and in order. Called from inside that suite's
+ * callback, so they keep its title path and hooks.
+ */
+function registerTheOperationStoreWalk1(): void {
   it("W1 walks a real project and one with planted problems alike through the root form and the body over the disk reads", async () => {
     const messy = await messyRoot();
     for (const at of [root, messy]) expect(await scanOperationOrphansFrom(diskOperationStoreWalkReads(at))).toEqual(await scanOperationOrphans(at));
@@ -107,7 +112,14 @@ describe("the operation store walk: one body over its own reads", () => {
     const alias = scan.leaves.find((leaf) => leaf.protocolAlias === "tmp");
     expect([alias?.kind, alias?.logicalRelativePath.endsWith("manifest.json"), scan.leaves.some((leaf) => leaf.kind === "quarantine")]).toEqual(["manifest", true, true]);
   });
+}
 
+/**
+ * Registers cases of the `the operation store walk: one body over its own
+ * reads` suite, unchanged and in order. Called from inside that suite's
+ * callback, so they keep its title path and hooks.
+ */
+function registerTheOperationStoreWalk2(): void {
   it("W2 keeps order, words, caps, aliases, quarantine and foreign-store skipping in the body over a scripted tree", async () => {
     const bundle = path.join(WORKSPACE, "bundles", bundleId), log: string[] = [];
     const tree: Record<string, Node> = {
@@ -142,6 +154,12 @@ describe("the operation store walk: one body over its own reads", () => {
     const failing: OperationStoreWalkReads = { ...memoryWalk(tree, {}), observeLeaf: async () => { throw new Error("leaf read failed mid-visit"); } };
     await expect(scanOperationOrphansFrom(failing)).rejects.toThrow("leaf read failed mid-visit");
   });
+}
+
+
+describe("the operation store walk: one body over its own reads", () => {
+  registerTheOperationStoreWalk1();
+  registerTheOperationStoreWalk2();
 });
 
 /** A scripted manifest leaf: one answer (or a throw), the cap each read asked for. */
@@ -178,7 +196,7 @@ describe("the operation manifest read: one body over its own leaves", () => {
   });
 });
 
-type Snapshot = { [K in keyof OperationInventoryReads]: Awaited<ReturnType<OperationInventoryReads[K]>> };
+type Snapshot = { [K in keyof OperationInventoryReads]: Awaited<ReturnType<NonNullable<OperationInventoryReads[K]>>> };
 /** Snapshot every domain answer the real project's disk reads give, once. */
 async function snapshot(): Promise<Snapshot> {
   const disk = diskOperationInventoryReads(root), scanStore = await disk.scanStore({});
@@ -204,7 +222,12 @@ function memoryInventory(answers: Snapshot, log: string[]): OperationInventoryRe
   } as OperationInventoryReads;
 }
 
-describe("the operation inventory scan: one body over its own reads", () => {
+/**
+ * Registers cases of the `the operation inventory scan: one body over its own
+ * reads` suite, unchanged and in order. Called from inside that suite's
+ * callback, so they keep its title path and hooks.
+ */
+function registerTheOperationInventoryScan1(): void {
   it("I1 inventories a real project and one with planted problems alike through the root form and the body over the disk reads", async () => {
     const messy = await messyRoot();
     const clean = await scanOperationInventory(root);
@@ -225,12 +248,21 @@ describe("the operation inventory scan: one body over its own reads", () => {
     const appended = await scanOperationInventoryFrom(memoryInventory({ ...answers, scanStore: { ...answers.scanStore, problems: [{ dimension: "first", detail: "walk" }] }, verifyAuthorities: [problem] }, []));
     expect(appended.problems.slice(0, 2)).toEqual([{ dimension: "first", detail: "walk" }, problem]);
   });
+}
 
+/**
+ * Registers cases of the `the operation inventory scan: one body over its own
+ * reads` suite, unchanged and in order. Called from inside that suite's
+ * callback, so they keep its title path and hooks.
+ */
+function registerTheOperationInventoryScan2(): void {
   it("I3 keeps faults as faults in the body: payload digest and byte claims, key, run and catalog states, and a rejecting walk", async () => {
     const answers = await snapshot();
     const scan = async (overrides: Partial<Snapshot>, log: string[] = []) => scanOperationInventoryFrom(memoryInventory({ ...answers, ...overrides }, log));
-    const payload = answers.readPayloadLeaf.kind === "ok" ? answers.readPayloadLeaf.body : Buffer.alloc(0);
-    const tampered = await scan({ readPayloadLeaf: { kind: "ok", body: Buffer.concat([payload, Buffer.from("x")]) } });
+    if (answers.readPayloadLeaf.kind !== "ok") throw new Error("snapshot payload");
+    const tampered = await scan({ readPayloadLeaf: { ...answers.readPayloadLeaf, byteLength: answers.readPayloadLeaf.byteLength + 1 } });
+    const resealed = await scan({ readPayloadLeaf: { ...answers.readPayloadLeaf, sha256: "0".repeat(64) } });
+    expect(resealed.problems).toEqual([{ dimension: "payload-state", detail: "manifest payload is unavailable or invalid" }]);
     expect([tampered.problems, tampered.completeBundleIds.size, tampered.epoch.bundles.health]).toEqual([[{ dimension: "payload-state", detail: "manifest payload is unavailable or invalid" }], 0, "unavailable"]);
     if (answers.readManifest.status !== "ok") throw new Error("snapshot manifest");
     const claimed = structuredClone(answers.readManifest.manifest) as unknown as { mutations: { postcondition: { byteCount: number } }[] };
@@ -249,8 +281,8 @@ describe("the operation inventory scan: one body over its own reads", () => {
     const answers = await snapshot();
     const spies = [
       vi.spyOn(orphanScan, "scanOperationOrphans"), vi.spyOn(inventoryScan, "visitInventoryDirectory"), vi.spyOn(inventoryScan, "observeInventoryLeaf"),
-      vi.spyOn(inventoryAuthority, "verifyInventoryAuthorities"), vi.spyOn(manifestStore, "readOperationManifest"), vi.spyOn(durableLeaf, "readDurableOperationLeafBuffer"),
-      vi.spyOn(keyEpoch, "readOperationKey"), vi.spyOn(runStore, "readOperationRun"), vi.spyOn(catalogStore, "readCatalogStore"),
+      vi.spyOn(inventoryAuthority, "verifyInventoryAuthoritiesFrom"), vi.spyOn(manifestStore, "readOperationManifest"), vi.spyOn(durableLeaf, "readDurableOperationLeafBuffer"),
+      vi.spyOn(keyEpoch, "readOperationKey"), vi.spyOn(runStore, "readOperationRunFrom"), vi.spyOn(catalogStore, "readCatalogStore"),
     ];
     await scanOperationInventoryFrom(memoryInventory(answers, []));
     await scanOperationOrphansFrom(memoryWalk({ [WORKSPACE]: "dir" }, {}));
@@ -259,4 +291,10 @@ describe("the operation inventory scan: one body over its own reads", () => {
     expect((await capacity.scanOperationInventory(root)).problems).toEqual([]);
     expect(spies.map((spy) => spy.mock.calls.length > 0)).toEqual(spies.map(() => true));
   });
+}
+
+
+describe("the operation inventory scan: one body over its own reads", () => {
+  registerTheOperationInventoryScan1();
+  registerTheOperationInventoryScan2();
 });

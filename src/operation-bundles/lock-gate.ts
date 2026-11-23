@@ -73,7 +73,10 @@
 import { acquireLock, acquireLockBlocking, releaseLock, type AcquireLockOptions, type BlockingLockOptions } from "../utils/lock.js";
 import { JournalUnsafeError, recoverJournalBeforeCompile } from "../trust/journal-recovery.js";
 import { resolvePreparationLifecyclePending, settlePreparationHandoffsLocked } from "../preparations/recovery.js";
-import type { LifecyclePendingUnitV1, PreparationLifecyclePendingState } from "../preparations/recovery.js";
+import type { LifecyclePendingUnitV1, PreparationLifecyclePendingState, WriteFreePreparationPass } from "../preparations/recovery.js";
+import {
+  perBorrowLifecycleReads, preparationLifecycleReadPass, type PreparationLifecycleReads,
+} from "../preparations/lifecycle-snapshot/read.js";
 import { selectSweepTargetUnit } from "../preparations/lifecycle-snapshot/sweep-target.js";
 import type { PreparationLifecycleOperationV1 } from "../preparations/lifecycle-snapshot/types.js";
 import { scanOperationInventory, type OperationInventory } from "./capacity.js";
@@ -86,17 +89,26 @@ import { readOperationRun, type OperationRunRead } from "./run-store.js";
 import type { OperationRunBinding } from "./run-types.js";
 import { UNSETTLED_RUN_STATES } from "./run-validation.js";
 import type { OperationBundleManifest } from "./types.js";
+import { operationPassReads } from "./pass-reads.js";
 import { portableGateBlock, PortableRecoveryBlockingError } from "../portable/host/pending-gate.js";
+import { assertNoDowngradeForScaleUpdate, downgradeNeedsRecovery } from "../scale/downgrade-admission.js";
+import { assertScaleAuthorityForUpdate, ScaleGateError, scaleGateRefusal } from "../scale/gate.js";
 
 /**
  * The class of mutation acquiring the lock. `recovery` bypasses the whole gate
  * (it owns the re-drive); `handoff` runs the page-journal and Milestone A legs but
  * DEFERS the preparation-recovery leg to the handoff command, which resolves its
- * own run's `handoff-started` state rather than being blocked by it.
+ * own run's `handoff-started` state rather than being blocked by it. `attempt`
+ * is one transition of an attempt already running: it defers the same leg,
+ * because that leg is maintenance for commands arriving at the store, and a
+ * running attempt takes the lock twice per attempt.
  */
 export type RecoveryGateIntent =
-  | "ordinary" | "review" | "recovery" | "quarantine" | "sweep" | "prune" | "handoff"
+  | "ordinary" | "review" | "recovery" | "quarantine" | "sweep" | "prune" | "handoff" | "attempt"
   | "reset"
+  // Setting or preparing the expected scale: the one intent the scale-readiness
+  // leg lets through, because settling a scale transition is exactly its job.
+  | "scale"
   // A portable publication or its recovery. It takes the same lock and runs the
   // same legacy legs, and is the one intent the pending-portable-intent leg lets
   // through, because settling that intent is exactly what it is here to do.
@@ -584,19 +596,14 @@ export interface LifecycleGateReads {
   readLifecyclePending(): Promise<PreparationLifecyclePendingState>;
 }
 
-/** LOCAL-DISK reads for one root, built per call; each calls the incumbent when asked. In no package index. */
-export function diskLifecycleGateReads(root: string): LifecycleGateReads {
+/** LOCAL-DISK reads for one root, built per call; each calls the incumbent when asked. */
+export function diskLifecycleGateReads(
+  root: string, lifecycle: PreparationLifecycleReads = perBorrowLifecycleReads(root),
+): LifecycleGateReads {
   return {
     privateAliasHasNoEntries: (names) => legacyPrivateAliasHasNoEntries(root, names),
-    readLifecyclePending: () => resolvePreparationLifecyclePending(root),
+    readLifecyclePending: () => resolvePreparationLifecyclePending(root, lifecycle),
   };
-}
-
-/** The lifecycle leg over the local-disk reads: {@link gatePreparationLifecycleFrom}. */
-async function gatePreparationLifecycle(
-  root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined,
-): Promise<LifecycleGateTicketV1 | null> {
-  return gatePreparationLifecycleFrom(diskLifecycleGateReads(root), intent, targetUnitId);
 }
 
 /**
@@ -617,7 +624,7 @@ async function gatePreparationLifecycle(
  * against a registry it read twice.
  *
  * THE ONE DECISION BODY, root-free: every root form and
- * {@link localRecoveryGateSteps} reach it through `gatePreparationLifecycle`.
+ * {@link localRecoveryGateSteps} reach it over {@link diskLifecycleGateReads}.
  * Reset returns before any read; only a non-destructive intent asks the alias;
  * {@link evaluateDestructiveAuthorization} stays the sole destructive predicate.
  */
@@ -698,10 +705,11 @@ export interface OperationRecoveryReads {
 
 /** LOCAL-DISK ADAPTER. The incumbent reads for the project at `root`, each called at call time; building it does no I/O. In no package index. */
 export function diskOperationRecoveryReads(root: string): OperationRecoveryReads {
+  const pass = operationPassReads(root);
   return {
-    scanInventory: () => scanOperationInventory(root),
-    readKey: () => readOperationKey(root),
-    readRun: (binding) => readOperationRun(root, binding),
+    scanInventory: () => scanOperationInventory(root, {}, pass),
+    readKey: pass.readKey,
+    readRun: pass.readRun,
   };
 }
 
@@ -756,29 +764,75 @@ export interface RecoveryGateSteps {
   acquireLockBlocking(root: string, options: BlockingLockOptions): Promise<void>;
   /** Local: `releaseLock(root)`. */
   releaseLock(root: string): Promise<void>;
+  /** Read-only downgrade (and, for `scale`, authority) check before any journal recovery. Injected storage adapters may supply their own. */
+  checkDowngrade?(root: string, intent: RecoveryGateIntent): Promise<void>;
   /** The strict page-journal recovery. Local: `recoverJournalBeforeCompile(root)`. */
   recoverJournal(root: string): ReturnType<typeof recoverJournalBeforeCompile>;
   /** DOMAIN, root-bound: the bundle-recovery blocking code, or null. Local: this module's bundle detection. */
   detectBundleRecovery(root: string): Promise<OperationProblemCode | null>;
   /** DOMAIN, root-bound: the portable pending-intent block, or null. Local: `portableGateBlock(root)`. */
   portableBlock(root: string): ReturnType<typeof portableGateBlock>;
+  /** DOMAIN, root-bound: the expected-scale readiness refusal, or null; no read without a record. Local: `scaleGateRefusal(root)`. */
+  scaleBlock(root: string): ReturnType<typeof scaleGateRefusal>;
   /** DOMAIN, root-bound, owns destructive authorization: refuses or returns the ticket. Local: this module's lifecycle gate. */
   gateLifecycle(root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined): Promise<LifecycleGateTicketV1 | null>;
   /** DOMAIN, root-bound, WRITES: settle completable preparation handoffs. Local: `settlePreparationHandoffsLocked(root)`. */
   settleHandoffs(root: string): Promise<unknown>;
 }
 
-/** LOCAL. The incumbent lock, recovery and legs, called at call time with their old arguments; frozen. In no package index. */
-const localRecoveryGateSteps: RecoveryGateSteps = Object.freeze({
-  acquireLock: (root: string, options: AcquireLockOptions) => acquireLock(root, options),
-  acquireLockBlocking: (root: string, options: BlockingLockOptions) => acquireLockBlocking(root, options),
-  releaseLock: (root: string) => releaseLock(root),
-  recoverJournal: (root: string) => recoverJournalBeforeCompile(root),
-  detectBundleRecovery: (root: string) => detectBundleRecovery(root),
-  portableBlock: (root: string) => portableGateBlock(root),
-  gateLifecycle: (root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined) => gatePreparationLifecycle(root, intent, targetUnitId),
-  settleHandoffs: (root: string) => settlePreparationHandoffsLocked(root),
-});
+/** Refuse before recovery can mutate anything while a downgrade needs the current revision, or a scale update's authority cannot be trusted. */
+async function checkLocalDowngrade(root: string, intent: RecoveryGateIntent): Promise<void> {
+  if (intent === "scale") {
+    await assertNoDowngradeForScaleUpdate(root);
+    return assertScaleAuthorityForUpdate(root);
+  }
+  if (await downgradeNeedsRecovery(root)) throw new ScaleGateError("scale-downgrade-pending");
+}
+
+function localRecoveryGateSteps(
+  lifecycle: PreparationLifecycleReads, handOver?: (pass: WriteFreePreparationPass) => void,
+): RecoveryGateSteps {
+  return Object.freeze({
+    acquireLock: (root: string, options: AcquireLockOptions) => acquireLock(root, options),
+    acquireLockBlocking: (root: string, options: BlockingLockOptions) => acquireLockBlocking(root, options),
+    releaseLock: (root: string) => releaseLock(root),
+    checkDowngrade: checkLocalDowngrade,
+    recoverJournal: (root: string) => recoverJournalBeforeCompile(root),
+    detectBundleRecovery: (root: string) => detectBundleRecovery(root),
+    portableBlock: (root: string) => portableGateBlock(root),
+    scaleBlock: (root: string) => scaleGateRefusal(root),
+    gateLifecycle: (root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined) =>
+      gatePreparationLifecycleFrom(diskLifecycleGateReads(root, lifecycle), intent, targetUnitId),
+    settleHandoffs: (root: string) => settlePreparationHandoffsLocked(root, lifecycle, handOver),
+  });
+}
+
+async function withLocalGatePass<T>(
+  root: string, gate: (steps: RecoveryGateSteps) => Promise<T>, handOver?: (pass: WriteFreePreparationPass) => void,
+): Promise<T> {
+  const lifecycle = preparationLifecycleReadPass(root);
+  try {
+    return await gate(localRecoveryGateSteps(lifecycle, handOver));
+  } finally {
+    lifecycle.close();
+  }
+}
+
+/** Check ordinary portable and scale readiness in order before lifecycle handling. */
+async function checkOrdinaryReadiness(steps: RecoveryGateSteps, root: string, intent: RecoveryGateIntent): Promise<void> {
+  // Registered projects only: an ordinary mutation waits while a portable
+  // publication intent is unresolved. On any other project this is one `lstat`
+  // and nothing else. The portable intent itself is let through, since settling
+  // that intent is its job. Like the refusal above it comes BEFORE the
+  // settlement leg, so a refusal means nothing was appended.
+  const portableBlock = intent === "portable" ? null : await steps.portableBlock(root);
+  if (portableBlock !== null) throw new PortableRecoveryBlockingError(portableBlock);
+  // Projects with an expected-scale record only: every mutation but the scale
+  // transition itself waits while that transition is unfinished, parked, needs
+  // an unavailable backend, or the record is unreadable. Also BEFORE settlement.
+  const scaleRefusal = intent === "scale" ? null : await steps.scaleBlock(root);
+  if (scaleRefusal !== null) throw scaleRefusal;
+}
 
 /**
  * Run the journal + bundle recovery gate, throwing a typed refusal when it blocks.
@@ -790,7 +844,8 @@ async function runRecoveryGateWith(
   steps: RecoveryGateSteps, root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined,
 ): Promise<LifecycleGateTicketV1 | null> {
   if (intent === "recovery") return null;
-  // The unconditional recovery order (design section 15.1): page journal first,
+  await steps.checkDowngrade?.(root, intent);
+  // After downgrade admission, recovery still runs page journal first,
   // then the Milestone A bundle coordinator, then preparation recovery. Preparation
   // recovery runs LAST so a bundle create that outran its `handed-off` transition
   // is discovered and completed rather than duplicated.
@@ -803,13 +858,7 @@ async function runRecoveryGateWith(
   if (bundleBlock !== null) {
     throw new RecoveryGateError(bundleBlock, "operation bundle recovery is required before this mutation");
   }
-  // Registered projects only: an ordinary mutation waits while a portable
-  // publication intent is unresolved. On any other project this is one `lstat`
-  // and nothing else. The portable intent itself is let through, since settling
-  // that intent is its job. Like the refusal above it comes BEFORE the
-  // settlement leg, so a refusal means nothing was appended.
-  const portableBlock = intent === "portable" ? null : await steps.portableBlock(root);
-  if (portableBlock !== null) throw new PortableRecoveryBlockingError(portableBlock);
+  await checkOrdinaryReadiness(steps, root, intent);
   // BEFORE the settlement leg below, and before the handoff intent's early
   // return, so a refusal means nothing happened: settlement APPENDS durable
   // transitions, and appending them and then refusing would leave the project
@@ -821,8 +870,10 @@ async function runRecoveryGateWith(
   // `handed-off` transition, but never blocks: a parked or bundle-absent in-flight
   // handoff belongs to its own command's resume and cannot conflict with this
   // mutation, so blocking here would wrongly stall concurrent preparation work. The
-  // handoff intent resolves its own run and skips this leg.
-  if (intent === "handoff") return ticket;
+  // handoff intent resolves its own run and skips this leg. So does an attempt's
+  // own transition: the leg settles nothing an attempt depends on, it scans the
+  // whole store, and the next command to arrive still runs it.
+  if (intent === "handoff" || intent === "attempt") return ticket;
   await steps.settleHandoffs(root);
   return ticket;
 }
@@ -831,7 +882,7 @@ async function runRecoveryGateWith(
 async function gateOrRelease(
   root: string, intent: RecoveryGateIntent, targetUnitId: string | undefined,
 ): Promise<LifecycleGateTicketV1 | null> {
-  return gateOrReleaseWith(localRecoveryGateSteps, root, intent, targetUnitId);
+  return withLocalGatePass(root, (steps) => gateOrReleaseWith(steps, root, intent, targetUnitId));
 }
 
 /** THE ONE BODY of {@link gateOrRelease}: a failing release propagates in place of the gate's error, as before. */
@@ -915,7 +966,22 @@ export async function acquireMutationLock(
   root: string, intent: NonDestructiveGateIntent | ProjectScopedGateIntent,
   options: AcquireLockOptions = {},
 ): Promise<boolean> {
-  return acquireMutationLockWith(localRecoveryGateSteps, root, intent, options);
+  return withLocalGatePass(root, (steps) => acquireMutationLockWith(steps, root, intent, options));
+}
+
+/** A gated acquisition, and the gate's preparation pass when its settlement wrote nothing. */
+export type GatedAcquisitionV1 =
+  | { readonly acquired: false }
+  | { readonly acquired: true; readonly preparationPass: WriteFreePreparationPass | null };
+
+/** {@link acquireMutationLock}, also handing the caller the gate's preparation pass: the inventory its settlement leg scanned, and that pass's reads. */
+export async function acquireMutationLockHandingOver(
+  root: string, intent: NonDestructiveGateIntent, options: AcquireLockOptions = {},
+): Promise<GatedAcquisitionV1> {
+  let preparationPass: WriteFreePreparationPass | null = null;
+  const acquired = await withLocalGatePass(root, (steps) => acquireMutationLockWith(steps, root, intent, options),
+    (pass) => { preparationPass = pass; });
+  return acquired ? { acquired, preparationPass } : { acquired };
 }
 
 /** THE ONE BODY of {@link acquireMutationLock}: busy returns false before any leg; `options` reach the lock untouched. */
@@ -935,7 +1001,7 @@ export async function acquireMutationLockWith(
  * LockBusyError); a gate block throws {@link RecoveryGateError} after releasing.
  */
 export async function acquireMutationLockBlocking(root: string, intent: NonDestructiveGateIntent, options: BlockingLockOptions = {}): Promise<void> {
-  return acquireMutationLockBlockingWith(localRecoveryGateSteps, root, intent, options);
+  return withLocalGatePass(root, (steps) => acquireMutationLockBlockingWith(steps, root, intent, options));
 }
 
 /** THE ONE BODY of {@link acquireMutationLockBlocking}: a busy timeout throws before any leg. */

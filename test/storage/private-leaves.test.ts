@@ -40,7 +40,20 @@ vi.mock("../../src/utils/no-follow-open.js", async () => {
       return async () => { if (key === "close") await call(); throw new Error(`${String(key)} sabotaged`); };
     },
   });
-  return { ...actual, openFileNoFollow: async (file: string, flags: number, mode?: number) => sabotaged(await actual.openFileNoFollow(file, flags, mode)) };
+  /** Bun keeps this module mock for the rest of the process, so a handle is only wrapped while a fault is injected. */
+  const openFileNoFollow = async (file: string, flags: number, mode?: number) => {
+    const handle = await actual.openFileNoFollow(file, flags, mode);
+    return failing.size === 0 ? handle : sabotaged(handle);
+  };
+  // The regular-file opener takes its fstat before returning, so a failing stat fails that open.
+  const openRegularNoFollow = async (file: string, flags: number, mode?: number) => {
+    const opened = await actual.openRegularNoFollow(file, flags, mode);
+    if (failing.size === 0) return opened;
+    if (!failing.has("stat")) return { handle: sabotaged(opened.handle), stat: opened.stat };
+    await opened.handle.close();
+    throw new Error("stat sabotaged");
+  };
+  return { ...actual, openFileNoFollow, openRegularNoFollow };
 });
 
 import {
@@ -63,7 +76,9 @@ beforeEach(async () => {
   await symlink(at("nowhere.json"), at("dangling.json"));
 });
 
+// Clear injected faults before cleanup, so no later suite in the process opens a sabotaged handle.
 afterEach(async () => {
+  failing.clear();
   await rm(dir, { recursive: true, force: true });
 });
 
